@@ -12505,4 +12505,7 @@
     <string name="NM_Ayu_DbClear">Clear database</string>
     <string name="NM_Ayu_DbCleared">Database cleared</string>
     <string name="NM_Ayu_ShadowDb">Local storage of saved messages and tracking data.</string>
+    <!-- LinkiGram: custom launcher icon colour picker -->
+    <string name="AppIconCustomColor">Custom colour</string>
+    <string name="AppIconCustomColorHint">Enter a HEX colour (for example #1E88E5). Android does not allow recolouring an icon at runtime, so the closest of the 16 built-in colours is applied.</string>
 </resources>

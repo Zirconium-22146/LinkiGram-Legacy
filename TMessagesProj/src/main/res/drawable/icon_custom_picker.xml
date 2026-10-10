@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- LinkiGram: tile shown at the end of the launcher icon strip, opens the hex colour picker. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="58dp"
+    android:height="58dp"
+    android:viewportWidth="58"
+    android:viewportHeight="58">
+
+    <path
+        android:pathData="M29,29m-26,0a26,26 0 1,0 52,0a26,26 0 1,0 -52,0"
+        android:fillColor="#33FFFFFF" />
+
+    <!-- colour wheel: six pie slices + centre hole -->
+    <path android:pathData="M29,29 L29,3 A26,26 0 0,1 51.5,16 Z" android:fillColor="#E53935" />
+    <path android:pathData="M29,29 L51.5,16 A26,26 0 0,1 51.5,42 Z" android:fillColor="#FB8C00" />
+    <path android:pathData="M29,29 L51.5,42 A26,26 0 0,1 29,55 Z" android:fillColor="#FDD835" />
+    <path android:pathData="M29,29 L29,55 A26,26 0 0,1 6.5,42 Z" android:fillColor="#43A047" />
+    <path android:pathData="M29,29 L6.5,42 A26,26 0 0,1 6.5,16 Z" android:fillColor="#1E88E5" />
+    <path android:pathData="M29,29 L6.5,16 A26,26 0 0,1 29,3 Z" android:fillColor="#8E24AA" />
+
+    <path
+        android:pathData="M29,29m-11,0a11,11 0 1,0 22,0a11,11 0 1,0 -22,0"
+        android:fillColor="#FFFFFFFF" />
+
+    <path
+        android:pathData="M29,29m-7,0a7,7 0 1,0 14,0a7,7 0 1,0 -14,0"
+        android:fillColor="#FF2ECC71" />
+</vector>
