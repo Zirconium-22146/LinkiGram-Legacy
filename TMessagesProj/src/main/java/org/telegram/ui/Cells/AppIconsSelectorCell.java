@@ -170,13 +170,13 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
         if (fragment == null) {
             return;
         }
-        final EditText input = new EditText(context);
+        final EditText input = new EditText(getContext());
         input.setSingleLine(true);
         input.setText("#E53935");
         input.setSelectAllOnFocus(true);
         input.setTypeface(Typeface.MONOSPACE);
         input.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
-        FrameLayout container = new FrameLayout(context);
+        FrameLayout container = new FrameLayout(getContext());
         container.addView(input, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(44)));
 
