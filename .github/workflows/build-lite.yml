@@ -61,6 +61,16 @@ jobs:
           if [ -n "${{ secrets.RELEASE_KEYSTORE_B64 }}" ]; then
             echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > release.keystore
             cp release.keystore TMessagesProj/config/release.keystore
+            echo "using the keystore from secrets"
+          else
+            # No signing key configured: generate a throwaway one so CI can still
+            # produce a working (but self-signed) APK.
+            echo "no RELEASE_KEYSTORE_B64 secret, generating a temporary keystore"
+            keytool -genkeypair -v \
+              -keystore TMessagesProj/config/release.keystore \
+              -alias androidkey -keyalg RSA -keysize 2048 -validity 10000 \
+              -storepass android -keypass android \
+              -dname "CN=Linkigram Legacy, O=Linkigram, C=RU"
           fi
           cat > private.properties << 'EOF'
           TELEGRAM_API_ID=${{ secrets.TELEGRAM_API_ID }}
@@ -79,9 +89,14 @@ jobs:
           NIMARKO_SUPPORT_URL=${{ secrets.NIMARKO_SUPPORT_URL }}
           NIMARKO_TRUSTED_PLUGIN_IDS=${{ secrets.NIMARKO_TRUSTED_PLUGIN_IDS }}
           RELEASE_STORE_FILE=release.keystore
-          RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD }}
-          RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}
+          EOF
+
+          # Secrets default to the values used by the throwaway keystore above, so the
+          # build does not depend on every secret being configured.
+          cat >> private.properties << 'EOF'
+          RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD || 'android' }}
+          RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS || 'androidkey' }}
+          RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD || 'android' }}
           EOF
 
       - name: Setup Gradle
