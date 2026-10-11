@@ -162,6 +162,7 @@ import org.telegram.tgnet.tl.TL_stars;
 import org.telegram.tgnet.tl.TL_stories;
 import org.telegram.ui.ActionBar.ActionBarLayout;
 import org.telegram.ui.ActionBar.AlertDialog;
+import app.nimarkogram.messenger.NimarkoConfig;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.BottomSheetTabs;
 import org.telegram.ui.ActionBar.BottomSheetTabsOverlay;
@@ -584,6 +585,13 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         if (actionBarLayout.getFragmentStack().isEmpty() && (layersActionBarLayout == null || layersActionBarLayout.getFragmentStack().isEmpty())) {
             if (!UserConfig.getInstance(currentAccount).isClientActivated()) {
                 actionBarLayout.addFragmentToStack(getClientNotActivatedFragment());
+            } else if (NimarkoConfig.classicUi) {
+                // Classic (pre-2023) layout: no bottom tab bar, navigation goes through
+                // the hamburger menu in the chats list header.
+                Bundle args = new Bundle();
+                args.putBoolean("needFinishFragment", false);
+                DialogsActivity dialogsActivity = new DialogsActivity(args);
+                actionBarLayout.addFragmentToStack(dialogsActivity);
             } else {
                 MainTabsActivity mainTabsActivity = new MainTabsActivity();
                 actionBarLayout.addFragmentToStack(mainTabsActivity);

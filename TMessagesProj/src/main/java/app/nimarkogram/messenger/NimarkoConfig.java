@@ -770,6 +770,11 @@ public final class NimarkoConfig {
     public static boolean drawSnowInActionBar = getPreferences().getBoolean("drawSnowInActionBar", false);
     public static void toggleDrawSnowInActionBar() { drawSnowInActionBar = !drawSnowInActionBar; getEditor().putBoolean("drawSnowInActionBar", drawSnowInActionBar).apply(); }
 
+    /**
+     * Linkigram Legacy: round "iOS style" bubbles, round send buttons and avatars are a
+     * post-2022 look. In the classic layout everything must be drawn on a solid
+     * background with the old angular shapes, so this reads as disabled there.
+     */
     public static boolean iosStyleComposer = getPreferences().getBoolean("iosStyleComposer", true);
     public static void toggleIosStyleComposer() {
         iosStyleComposer = !iosStyleComposer;
@@ -1926,7 +1931,9 @@ public final class NimarkoConfig {
      * нижнюю панель вкладок, стеклянную шапку и разделённое поле ввода,
      * возвращая старую раскладку со меню «три полоски» в шапке списка чатов.
      */
-    public static boolean classicUi = getPreferences().getBoolean("classicUi", false);
+    // Linkigram Legacy: the classic pre-2023 layout (hamburger menu, no bottom tab
+    // bar) is the default. It can still be turned off from Appearance settings.
+    public static boolean classicUi = getPreferences().getBoolean("classicUi", true);
     public static void setClassicUi(boolean value) {
         classicUi = value;
         getEditor().putBoolean("classicUi", classicUi).apply();

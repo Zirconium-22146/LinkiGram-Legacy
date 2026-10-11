@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="AppName">LinkiGram</string>
+    <string name="AppName">Linkigram Legacy</string>
     <string name="AppNameBeta">LinkiGram Beta</string>
     <string name="LanguageName">Українська</string>
     <string name="English">Англійська</string>

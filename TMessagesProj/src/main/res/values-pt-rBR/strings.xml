@@ -2,7 +2,7 @@
 <resources>
     <string name="NM_Menu_TelegramPlus">Menu de mensagens moderno</string>
     <string name="NM_Menu_TelegramPlus_Desc">Um menu compacto com efeito Liquid Glass, ações agrupadas, animações de mola e efeitos responsivos. O layout compacto continua disponível.</string>
-    <string name="AppName">LinkiGram</string>
+    <string name="AppName">Linkigram Legacy</string>
     <string name="AppNameBeta">LinkiGram Beta</string>
     <string name="LanguageName">Português (Brasil)</string>
     <string name="English">Inglês</string>

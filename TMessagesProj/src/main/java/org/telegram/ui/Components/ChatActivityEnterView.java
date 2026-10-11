@@ -3478,7 +3478,9 @@ public class ChatActivityEnterView extends FrameLayout implements
             }
         });
 
-        sendButton = new SendButton(context, isInScheduleMode() ? R.drawable.input_schedule : R.drawable.send_plane_24, resourcesProvider, true) {
+        // Linkigram Legacy: the classic layout uses the old circular send button, not
+        // the newer rounded-square "island" design.
+        sendButton = new SendButton(context, isInScheduleMode() ? R.drawable.input_schedule : R.drawable.send_plane_24, resourcesProvider, !app.nimarkogram.messenger.NimarkoConfig.classicUi) {
             @Override
             public boolean isInScheduleMode() {
                 return ChatActivityEnterView.this.isInScheduleMode();
@@ -3934,7 +3936,7 @@ public class ChatActivityEnterView extends FrameLayout implements
             return;
         }
 
-        doneButton = new SendButton(getContext(), R.drawable.input_done, resourcesProvider, true) {
+        doneButton = new SendButton(getContext(), R.drawable.input_done, resourcesProvider, !app.nimarkogram.messenger.NimarkoConfig.classicUi) {
             @Override
             public boolean isOpen() {
                 return true;

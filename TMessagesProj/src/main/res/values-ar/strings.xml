@@ -2,7 +2,7 @@
 <resources>
     <string name="NM_Menu_TelegramPlus">قائمة الرسائل الحديثة</string>
     <string name="NM_Menu_TelegramPlus_Desc">قائمة مدمجة بتأثير Liquid Glass، مع إجراءات مجمعة وحركات نابضية وتأثيرات تفاعلية. يظل التخطيط المدمج متاحًا.</string>
-    <string name="AppName">LinkiGram</string>
+    <string name="AppName">Linkigram Legacy</string>
     <string name="AppNameBeta">LinkiGram Beta</string>
     <string name="LanguageName">العربية</string>
     <string name="English">الإنجليزية</string>

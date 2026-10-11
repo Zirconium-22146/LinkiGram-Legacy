@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="AppName">LinkiGram</string>
+    <string name="AppName">Linkigram Legacy</string>
     <string name="NM_CP_Header_ChatView">Вид чата</string>
     <string name="NM_CP_Header_Interaction">Взаимодействие</string>
     <string name="NM_CP_Header_Media">Медиа</string>

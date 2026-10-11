@@ -624,7 +624,11 @@ public class SharedConfig {
             repeatMode = preferences.getInt("repeatMode", 0);
             fontSize = preferences.getInt("fons_size", AndroidUtilities.isTablet() && !AndroidUtilities.isFold() ? 18 : 16);
             fontSizeIsDefault = !preferences.contains("fons_size");
-            bubbleRadius = preferences.getInt("bubbleRadius", 17);
+            // Linkigram Legacy: the classic layout uses the pre-2023 bubble shape.
+            // 17 is the modern fully-rounded bubble; <=11 also disables the circular
+            // avatars/media variants that ChatMessageCell branches on.
+            int defaultBubbleRadius = app.nimarkogram.messenger.NimarkoConfig.classicUi ? 10 : 17;
+            bubbleRadius = preferences.getInt("bubbleRadius", defaultBubbleRadius);
             ivFontSize = preferences.getInt("iv_font_size", fontSize);
             allowBigEmoji = preferences.getBoolean("allowBigEmoji", true);
             useSystemEmoji = preferences.getBoolean("useSystemEmoji", false);
