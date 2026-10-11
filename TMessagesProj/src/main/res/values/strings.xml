@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="AppName">LinkiGram</string>
+    <string name="AppName">Linkigram Legacy</string>
     <string name="AppNameBeta">LinkiGram Beta</string>
     <string name="LanguageName">English</string>
     <string name="English">English</string>
@@ -12170,7 +12170,7 @@
 <string name="VideoMessagesCameraAsk">Always ask</string>
 <string name="VideoMessagesCameraFront">Front</string>
 <string name="VideoMessagesCameraRear">Rear</string>
-<string name="exteraAppName">LinkiGram</string>
+<string name="exteraAppName">Linkigram Legacy</string>
 <string name="AP_CenterTitle">Center title</string>
 <string name="EP_Network">Network</string>
 <string name="CP_Header_Record">Media</string>

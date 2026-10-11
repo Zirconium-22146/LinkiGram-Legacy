@@ -49,6 +49,12 @@ public class LiteMode {
     public static final int FLAG_AUTOPLAY_GIFS = 2048;
     public static final int FLAG_PARTICLES = 1 << 17;
 
+    // lite-only flags
+    public static final int FLAG_LITE_NO_PRELOAD = 1 << 19;   // don't preload next media
+    public static final int FLAG_LITE_NO_GIF_TAB = 1 << 20;   // hide GIF/sticker search tabs
+    public static final int FLAG_LITE_NO_WALLPAPERS = 1 << 21; // no animated wallpapers
+    public static final int FLAGS_LITE = FLAG_LITE_NO_PRELOAD | FLAG_LITE_NO_GIF_TAB | FLAG_LITE_NO_WALLPAPERS;
+
     public static int PRESET_LOW = (
         FLAG_ANIMATED_EMOJI_CHAT_PREMIUM |
         FLAG_ANIMATED_EMOJI_KEYBOARD_PREMIUM |
@@ -84,6 +90,9 @@ public class LiteMode {
         FLAG_PARTICLES
     ); // 262143
     public static int PRESET_POWER_SAVER = 0;
+
+    // Lite build preset: everything expensive is off.
+    public static final int PRESET_LITE = 0;
 
     private static int BATTERY_LOW = 10;
     private static int BATTERY_MEDIUM = 10;
@@ -134,6 +143,10 @@ public class LiteMode {
     }
 
     private static int preprocessFlag(int flag) {
+        if (BuildVars.LITE_VERSION && (flag & FLAG_LIQUID_GLASS) > 0) {
+            // Liquid glass is removed from the lite build.
+            return 0;
+        }
         if ((flag & FLAG_ANIMATED_EMOJI_KEYBOARD) > 0) {
             flag = flag & ~FLAG_ANIMATED_EMOJI_KEYBOARD | (UserConfig.hasPremiumOnAccounts() ? FLAG_ANIMATED_EMOJI_KEYBOARD_PREMIUM : FLAG_ANIMATED_EMOJI_KEYBOARD_NOT_PREMIUM);
         }
@@ -155,7 +168,7 @@ public class LiteMode {
     }
 
     public static boolean isEnabledSetting(int flag) {
-        return (getValue(true) & flag) > 0;
+        return (getValue(true) & preprocessFlag(flag)) > 0;
     }
 
     public static void toggleFlag(int flag) {
@@ -163,12 +176,19 @@ public class LiteMode {
     }
 
     public static void toggleFlag(int flag, boolean enabled) {
+        if (BuildVars.LITE_VERSION && (flag & FLAGS_LITE) != 0) {
+            // lite-only optimisations cannot be switched back on
+            return;
+        }
         setAllFlags(enabled ? getValue(true) | flag : getValue(true) & ~flag);
     }
 
     public static void setAllFlags(int flags) {
         // in settings it is already handled. would you handle it? 🫵
         // onFlagsUpdate(value, flags);
+        if (BuildVars.LITE_VERSION) {
+            flags |= FLAGS_LITE;
+        }
         value = flags;
         savePreference();
     }
@@ -201,6 +221,13 @@ public class LiteMode {
 
     public static void loadPreference() {
         int defaultValue = PRESET_HIGH, batteryDefaultValue = BATTERY_HIGH;
+        if (BuildVars.LITE_VERSION) {
+            // Lite build: the cheapest preset is the default, and the power
+            // saver kicks in at a higher battery level than usual.
+            defaultValue = PRESET_LITE;
+            batteryDefaultValue = 30;
+            value = (value & ~FLAGS_LITE) | FLAGS_LITE;
+        }
         if (SharedConfig.getDevicePerformanceClass() == SharedConfig.PERFORMANCE_CLASS_LOW) {
             defaultValue = PRESET_LOW;
             batteryDefaultValue = BATTERY_LOW;
@@ -278,6 +305,11 @@ public class LiteMode {
 
         int prevValue = value;
         value = preferences.getInt("lite_mode6", defaultValue);
+        if (BuildVars.LITE_VERSION) {
+            // Lite-only flags are forced on and cannot be switched off;
+            // liquid glass is removed entirely.
+            value = (value | FLAGS_LITE) & ~FLAG_LIQUID_GLASS;
+        }
         if (loaded) {
             onFlagsUpdate(prevValue, value);
         }

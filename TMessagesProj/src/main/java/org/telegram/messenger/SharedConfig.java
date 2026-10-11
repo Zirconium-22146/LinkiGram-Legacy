@@ -1644,10 +1644,23 @@ public class SharedConfig {
         if (overrideDevicePerformanceClass != -1) {
             return overrideDevicePerformanceClass;
         }
+        if (BuildVars.LITE_VERSION) {
+            // The lite build is meant for weak devices: always take the cheap
+            // code paths (small caches, no precache, no blur, lite animations).
+            return PERFORMANCE_CLASS_LOW;
+        }
         if (devicePerformanceClass == -1) {
             devicePerformanceClass = measureDevicePerformanceClass();
         }
         return devicePerformanceClass;
+    }
+
+    /** Lite build: animations are shortened to the minimum. */
+    public static int getAnimationDuration(int normalMs) {
+        if (BuildVars.LITE_VERSION) {
+            return Math.max(0, normalMs / 4);
+        }
+        return normalMs;
     }
 
     public static int measureDevicePerformanceClass() {
@@ -1750,6 +1763,10 @@ public class SharedConfig {
     }
 
     public static boolean canBlurChat() {
+        if (BuildVars.LITE_VERSION) {
+            // blur is a heavy GPU effect; disabled in the lite build
+            return false;
+        }
         return getDevicePerformanceClass() >= (Build.VERSION.SDK_INT >= 31 ? PERFORMANCE_CLASS_AVERAGE : PERFORMANCE_CLASS_HIGH) || BuildVars.DEBUG_PRIVATE_VERSION;
     }
 

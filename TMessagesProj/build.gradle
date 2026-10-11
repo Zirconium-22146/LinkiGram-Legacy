@@ -216,20 +216,19 @@ android {
         buildConfigField "String", "NIMARKO_ASIA_RELAY_HOST", configString(privateValue('NIMARKO_ASIA_RELAY_HOST'))
         buildConfigField "String", "NIMARKO_SUPPORT_URL", configString(privateValue('NIMARKO_SUPPORT_URL'))
         buildConfigField "String", "NIMARKO_TRUSTED_PLUGIN_IDS", configString(privateValue('NIMARKO_TRUSTED_PLUGIN_IDS'))
+        buildConfigField "boolean", "LITE_VERSION", (rootProject.ext.liteBuild ? "true" : "false")
 
         minSdkVersion 24
         targetSdkVersion 36
 
-        vectorDrawables.generatedDensities = ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
+        vectorDrawables.generatedDensities = rootProject.ext.liteBuild
+                ? ['mdpi', 'hdpi']
+                : ['mdpi', 'hdpi', 'xhdpi', 'xxhdpi']
 
         multiDexEnabled true
 
         ndk {
-            if (project.hasProperty('ngArm64Only')) {
-                abiFilters 'arm64-v8a'
-            } else {
-                abiFilters 'arm64-v8a', 'armeabi-v7a'
-            }
+            abiFilters rootProject.ext.liteAbi
         }
 
         externalNativeBuild {

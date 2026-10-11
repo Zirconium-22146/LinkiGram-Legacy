@@ -4611,13 +4611,18 @@ public class AndroidUtilities {
 
     public static float getAnimatorDurationScale() {
         try {
-            return Settings.Global.getFloat(
+            float scale = Settings.Global.getFloat(
                     ApplicationLoader.applicationContext.getContentResolver(),
                     Settings.Global.ANIMATOR_DURATION_SCALE,
                     1.0f
             );
+            if (BuildVars.LITE_VERSION) {
+                // Lite build: animations are sped up to keep the UI responsive.
+                scale = Math.min(scale, 0.4f);
+            }
+            return scale;
         } catch (Exception e) {
-            return 1.0f;
+            return BuildVars.LITE_VERSION ? 0.4f : 1.0f;
         }
     }
 
