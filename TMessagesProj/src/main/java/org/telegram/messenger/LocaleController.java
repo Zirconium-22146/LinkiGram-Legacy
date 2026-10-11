@@ -4448,6 +4448,20 @@ public class LocaleController {
         if (BuildVars.USE_CLOUD_STRINGS) {
             value = localizationExternal.getByResNameOrResId(context, key, stringRes);
             if (value != null) {
+                // LinkiGram: the cloud pack still carries upstream branding. If its value
+                // mentions Telegram while our own (bundled) value says LinkiGram, the fork
+                // rebranded this key and must win. Checked only when the cloud string looks
+                // branded, so the extra lookup stays off the hot path for normal strings.
+                if (isUpstreamBranded(value)) {
+                    checkLocalizationInternal();
+                    String local = localizationInternal.getByResNameOrResId(context, key, stringRes);
+                    if (local == null) {
+                        local = localizationInternal.getByResName(fallback);
+                    }
+                    if (local != null && local.contains("LinkiGram") && !isUpstreamBranded(local)) {
+                        return local;
+                    }
+                }
                 return value;
             }
 
@@ -4464,6 +4478,11 @@ public class LocaleController {
         }
 
         return localizationInternal.getByResName(fallback);
+    }
+
+    // LinkiGram: recognises strings whose branding still belongs to upstream Telegram.
+    private static boolean isUpstreamBranded(String value) {
+        return value.contains("Telegram") || value.contains("Телеграм");
     }
 
 

@@ -1,0 +1,653 @@
+"""
+Обход блокировок — control panel for LinkiGram, ExteraGram and plain Telegram.
+
+Why this looks defensive
+------------------------
+The bypass engine is not part of every fork. LinkiGram ships tg-ws-linki as a
+built-in bridge; ExteraGram does not, but every fork inherits Telegram's own
+SOCKS5/MTProto proxy support. So the plugin resolves its backend at runtime
+and shows only the rows it can actually drive.
+
+The earlier revision did `from app.nimarkogram.messenger.wsbypass import ...`
+at module level. ExteraGram has no `app.nimarkogram` package at all, so the
+module failed to import with "No module named 'app'" before any code ran.
+Java classes are now looked up through jclass() inside try/except, and a
+missing class degrades one feature instead of killing the plugin.
+
+Backends, in order of preference:
+  1. wsbypass  — LinkiGram: tg-ws-linki or relay, plus the VoIP toggle
+  2. proxy     — any fork: Telegram's own SOCKS5/MTProto proxy settings
+
+The proxy backend writes to the same mainconfig preferences Telegram itself
+reads, and applies through ConnectionsManager.native_setProxySettings, so the
+change takes effect without a restart.
+"""
+
+from typing import List, Any
+
+from java import jclass
+
+from base_plugin import BasePlugin, AppEvent
+from ui.settings import Header, Switch, Selector, Input, Text, Divider
+
+__id__ = "tg_ws_linki"
+__name__ = "Обход блокировок"
+__version__ = "1.4"
+__min_version__ = ""
+__author__ = "LinkiGram"
+__description__ = "Обход: tg-ws-linki, релей или SOCKS5"
+__icon__ = None
+__requirements__ = []
+
+
+RESOLVED = {}
+MISSING = {}
+
+
+def _try_class(*candidates):
+    """First Java class that resolves, or None.
+
+    The fork that runs this plugin is unknown at import time, and a wrong guess
+    is indistinguishable from a missing API unless the resolution is recorded
+    and shown. RESOLVED and MISSING feed the diagnostics block.
+    """
+    for name in candidates:
+        try:
+            cls = jclass(name)
+            RESOLVED[name] = cls
+            return cls
+        except Exception:
+            MISSING[name] = True
+            continue
+    return None
+
+
+def _try_static(cls, name, default=None):
+    if cls is None:
+        return default
+    try:
+        field = cls.getField(name)
+        return field.get(None)
+    except Exception:
+        return default
+
+
+# --------------------------------------------------------------- backends ---
+
+WSBYPASS_CFG = _try_class("app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig")
+WSBYPASS_CTRL = _try_class("app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController")
+VOIP_CFG = _try_class("app.nimarkogram.messenger.wsbypass.voip.VoipBypassConfig")
+
+CONNECTIONS = _try_class("org.telegram.tgnet.ConnectionsManager")
+
+# ProxySettings has moved package between Telegram versions, and forks keep
+# their own idea of where it lives. Try every known home rather than assuming.
+PROXY_SETTINGS = _try_class(
+    "org.telegram.utils.proxy.ProxySettings",
+    "org.telegram.messenger.ProxySettings",
+    "org.telegram.tgnet.ProxySettings",
+)
+PROXY_TYPE = _try_class(
+    "org.telegram.utils.proxy.ProxySettings$Type",
+    "org.telegram.messenger.ProxySettings$Type",
+    "org.telegram.tgnet.ProxySettings$Type",
+)
+ANDROID_UTILITIES = _try_class("org.telegram.messenger.AndroidUtilities")
+APPLICATION_LOADER = _try_class("org.telegram.messenger.ApplicationLoader")
+
+HAS_WSBYPASS = WSBYPASS_CFG is not None and WSBYPASS_CTRL is not None
+HAS_PROXY = PROXY_SETTINGS is not None and CONNECTIONS is not None
+
+TYPE_SOCKS5 = _try_static(PROXY_TYPE, "SOCKS5")
+TYPE_MTPROTO = _try_static(PROXY_TYPE, "MTPROTO")
+
+ROUTE_RELAY = _try_static(WSBYPASS_CFG, "ROUTE_RELAY", 0)
+ROUTE_TGWS = _try_static(WSBYPASS_CFG, "ROUTE_TGWS", 1)
+
+
+def _diag():
+    """What actually resolved in the build this plugin was installed into.
+
+    Every call site here can fail in a way the user cannot see: the plugin
+    file is the same for every fork, so the only way to tell a wrong package
+    guess from a broken proxy is to print the outcome on the settings screen.
+    """
+    lines = []
+
+    if HAS_WSBYPASS:
+        lines.append("backend: wsbypass (движок есть)")
+    else:
+        lines.append("backend: proxy (движка нет)")
+
+    for name in (
+        "org.telegram.utils.proxy.ProxySettings",
+        "org.telegram.messenger.ProxySettings",
+        "org.telegram.tgnet.ProxySettings",
+    ):
+        cls = RESOLVED.get(name)
+        lines.append(("найден " if cls else "НЕ найден ") + name)
+
+    if CONNECTIONS is not None:
+        proxy_methods = []
+        try:
+            # jclass hands back a Python wrapper; the java.lang.Class lives on
+            # class_, and only that one answers getMethods().
+            for method in CONNECTIONS.class_.getMethods():
+                n = method.getName()
+                if "roxy" in n and n not in proxy_methods:
+                    proxy_methods.append(n)
+        except Exception as exc:
+            proxy_methods = ["? " + str(exc)]
+        lines.append("ConnectionsManager: " + (", ".join(sorted(proxy_methods)) or "нет методов прокси"))
+    else:
+        lines.append("ConnectionsManager: НЕ НАЙДЕН")
+
+    prefs = _prefs()
+    if prefs is None:
+        lines.append("mainconfig: НЕ ДОСТУПЕН")
+    else:
+        lines.append("mainconfig: доступен")
+        for key in ("proxy_enabled", "proxy_ip", "proxy_port", "proxy_type",
+                    "proxy_secret", "proxy_user", "proxy_pass"):
+            try:
+                lines.append("  %s = %r" % (key, prefs.getAll().get(key)))
+            except Exception as exc:
+                lines.append("  %s -> %s" % (key, exc))
+
+    try:
+        editor = prefs.edit()
+        editor.putString("tg_ws_linki_probe", "1")
+        editor.remove("tg_ws_linki_probe")
+        editor.apply()
+        lines.append("запись в prefs: ок")
+    except Exception as exc:
+        lines.append("запись в prefs: " + str(exc))
+
+    return lines
+
+
+def _toast(message):
+    if ANDROID_UTILITIES is not None:
+        try:
+            ANDROID_UTILITIES.showToast(str(message))
+            return
+        except Exception:
+            pass
+    self_log_fallback = "plugin: " + str(message)
+    try:
+        print(self_log_fallback)
+    except Exception:
+        pass
+
+
+def _account():
+    user_config = _try_class("org.telegram.messenger.UserConfig")
+    if user_config is not None:
+        try:
+            return int(user_config.selectedAccount)
+        except Exception:
+            pass
+    try:
+        return int(CONNECTIONS.getInstance().getCurrentAccount())
+    except Exception:
+        return 0
+
+
+def _prefs():
+    """mainconfig prefs, straight from the context.
+
+    ConnectionsManager reads proxy settings from exactly this file when it
+    calls init(), so writing anywhere else changes nothing.
+    """
+    if APPLICATION_LOADER is None:
+        return None
+    try:
+        context = APPLICATION_LOADER.applicationContext
+        account = _account()
+        name = "mainconfig" if account == 0 else "mainconfig" + str(account)
+        return context.getSharedPreferences(name, 0)
+    except Exception:
+        return None
+
+
+def _wsbypass_state():
+    if not HAS_WSBYPASS:
+        return ""
+    try:
+        if not WSBYPASS_CFG.enabled:
+            return "выключен"
+        state = WSBYPASS_CTRL.getInstance().getConnectionState()
+        labels = {
+            WSBYPASS_CTRL.STATE_OFF: "выключен",
+            WSBYPASS_CTRL.STATE_STARTING: "запускается",
+            WSBYPASS_CTRL.STATE_RUNNING: "работает",
+            WSBYPASS_CTRL.STATE_FAILED: "ошибка",
+            WSBYPASS_CTRL.STATE_VPN: "VPN активен",
+        }
+        label = labels.get(state, state)
+        if state == WSBYPASS_CTRL.STATE_FAILED:
+            error = WSBYPASS_CTRL.getInstance().getLastError()
+            if error:
+                label = "ошибка: " + str(error)
+        return label
+    except Exception:
+        return "неизвестно"
+
+
+def _wsbypass_restart():
+    if not HAS_WSBYPASS:
+        return
+    try:
+        ctrl = WSBYPASS_CTRL.getInstance()
+        ctrl.stop()
+        ctrl.ensureStarted()
+    except Exception:
+        pass
+
+
+def _proxy_read():
+    prefs = _prefs()
+    if prefs is None:
+        return None
+    try:
+        settings = PROXY_SETTINGS.fromSharedPreferences(prefs)
+        if not settings.isValid():
+            return None
+        return {
+            "enabled": bool(prefs.getBoolean("proxy_enabled", False)),
+            "address": settings.getAddress() or "",
+            "port": int(settings.getPort()),
+            "type": str(settings.getType()),
+        }
+    except Exception:
+        return None
+
+
+def _proxy_read():
+    prefs = _prefs()
+    if prefs is None:
+        return None
+    info = {
+        "enabled": False,
+        "address": "",
+        "port": 0,
+        "type": TYPE_SOCKS5,
+        "secret": "",
+        "user": "",
+        "password": "",
+    }
+    try:
+        info["enabled"] = bool(prefs.getBoolean("proxy_enabled", False))
+    except Exception:
+        pass
+    try:
+        settings = PROXY_SETTINGS.fromSharedPreferences(prefs)
+        if settings.isValid():
+            info["address"] = settings.getAddress() or ""
+            info["port"] = int(settings.getPort())
+            info["type"] = settings.getType()
+            for getter, key in (
+                ("getSecret", "secret"),
+                ("getUser", "user"),
+                ("getPassword", "password"),
+            ):
+                try:
+                    info[key] = getattr(settings, getter)() or ""
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return info
+
+
+def _push_native(enable, settings=None, address="", port=0, user="", password="", secret=""):
+    """Apply to the live connection, trying every shape the fork might expose.
+
+    Forks differ on which entry point survives: ConnectionsManager was given
+    setProxySettings() in newer bases, only the raw native call in older ones,
+    and a fork may have renamed either. Rather than commit to one and report
+    a bare exception, each attempt is recorded so the settings screen can say
+    which call this build actually accepted.
+
+    Returns (applied, notes).
+    """
+    if CONNECTIONS is None:
+        return False, ["ConnectionsManager отсутствует"]
+
+    notes = []
+    account = _account()
+
+    if not enable:
+        attempts = [
+            ("setProxySettings(bool,null)", lambda: CONNECTIONS.setProxySettings(False, None)),
+            ("setProxySettings(bool,str,int,str,str,str)",
+             lambda: CONNECTIONS.setProxySettings(False, "", 0, "", "", "")),
+            ("native_setProxySettings",
+             lambda: CONNECTIONS.native_setProxySettings(account, "", 1080, "", "", "")),
+        ]
+    else:
+        attempts = [
+            ("setProxySettings(bool,ProxySettings)",
+             lambda: CONNECTIONS.setProxySettings(True, settings)),
+            ("setProxySettings(bool,str,int,str,str,str)",
+             lambda: CONNECTIONS.setProxySettings(True, address, port, user, password, secret)),
+            ("native_setProxySettings",
+             lambda: CONNECTIONS.native_setProxySettings(
+                 account, address, port, user, password, secret)),
+        ]
+
+    for label, call in attempts:
+        try:
+            call()
+            return True, notes + [label + " -> ок"]
+        except Exception as exc:
+            notes.append(label + " -> " + str(exc)[:70])
+
+    return False, notes
+
+
+def _proxy_apply(enable, address=None, port=None, proxy_type=None, secret=None):
+    """Persist to mainconfig and hand the settings to ConnectionsManager.
+
+    Both halves matter. The prefs write is what survives a restart, because
+    init() re-reads proxy settings from mainconfig on every start. The
+    setProxySettings call is what takes effect right now, by pushing the
+    values into the native layer for every account. Writing only the prefs
+    leaves the running connection on the old route, which is why the switch
+    appeared to do nothing until the app was restarted.
+    """
+    current = _proxy_read() or {"address": "", "port": 0, "type": TYPE_SOCKS5}
+    if address is None:
+        address = current["address"]
+    if port is None:
+        port = current["port"]
+    if proxy_type is None:
+        proxy_type = current["type"]
+    if secret is None:
+        secret = current.get("secret", "")
+    secret = str(secret or "").strip()
+
+    address = str(address or "").strip()
+    try:
+        port = int(str(port).strip())
+    except Exception:
+        return False, "порт не число: %s" % port
+
+    if not enable:
+        prefs = _prefs()
+        if prefs is not None:
+            try:
+                editor = prefs.edit()
+                editor.putBoolean("proxy_enabled", False)
+                editor.apply()
+            except Exception:
+                pass
+        try:
+            applied, notes = _push_native(False)
+            if applied:
+                return True, "прокси выключен"
+            return False, "не отключилось: " + " | ".join(notes)
+        except Exception as exc:
+            return False, "не отключилось: %s" % exc
+
+    if not address:
+        return False, "не указан адрес"
+    if port <= 0 or port > 65535:
+        return False, "неверный порт: %s" % port
+
+    try:
+        builder = PROXY_SETTINGS.builder()
+        if proxy_type is not None:
+            builder.setType(proxy_type)
+        builder.setAddress(address)
+        builder.setPort(port)
+        if secret:
+            builder.setSecret(secret)
+        # Keep existing credentials: only the address/port are editable here,
+        # and dropping the login would silently break an authenticated proxy.
+        if current.get("user"):
+            builder.setUser(current["user"])
+        if current.get("password"):
+            builder.setPassword(current["password"])
+        settings = builder.build()
+        if not settings.isValid():
+            return False, "Telegram отклонил настройки как невалидные"
+    except Exception as exc:
+        return False, "не собрать настройки: %s" % exc
+
+    prefs = _prefs()
+    if prefs is None:
+        return False, "нет доступа к mainconfig"
+    try:
+        editor = prefs.edit()
+        settings.toSharedPreferences(editor)
+        editor.putBoolean("proxy_enabled", True)
+        editor.apply()
+    except Exception as exc:
+        return False, "не записать в настройки: %s" % exc
+
+    applied, notes = _push_native(
+        True,
+        settings=settings,
+        address=address,
+        port=port,
+        user=current.get("user", "") or "",
+        password=current.get("password", "") or "",
+        secret=secret,
+    )
+    if not applied:
+        return False, "записал, но не применил: " + " | ".join(notes)
+
+    return True, "%s:%d применён (%s)" % (address, port, notes[-1])
+
+
+class TgWsLinkiPlugin(BasePlugin):
+
+    def on_plugin_load(self):
+        if HAS_WSBYPASS:
+            self.log("backend: wsbypass (tg-ws-linki / relay)")
+        elif HAS_PROXY:
+            self.log("backend: proxy (SOCKS5/MTProto)")
+        else:
+            self.log("backend: none, no proxy API found")
+
+    def on_app_event(self, event_type: AppEvent):
+        if event_type != AppEvent.RESUME:
+            return
+        if HAS_WSBYPASS:
+            try:
+                if WSBYPASS_CFG.enabled:
+                    WSBYPASS_CTRL.getInstance().ensureStarted()
+            except Exception:
+                pass
+
+    # ------------------------------------------------------------ settings --
+
+    def create_settings(self) -> List[Any]:
+        rows: List[Any] = []
+
+        if not HAS_WSBYPASS and not HAS_PROXY:
+            rows.append(Header(text="Обход"))
+            rows.append(Text(text="Не поддерживается в этой сборке"))
+            return rows
+
+        if HAS_WSBYPASS:
+            rows.append(Header(text="Состояние"))
+            rows.append(Text(
+                text="Статус: " + _wsbypass_state(),
+                subtext="Маршрут: " + (
+                    "релей" if WSBYPASS_CFG.routeMode == ROUTE_RELAY else "tg-ws-linki"),
+            ))
+            rows.append(Text(text="Запустить сейчас", on_click=self._on_start))
+            rows.append(Text(text="Перезапустить обход", on_click=self._on_restart))
+            rows.append(Divider())
+
+            rows.append(Header(text="Обход"))
+            rows.append(Switch(
+                key="ws_enabled",
+                text="Обход включён",
+                default=bool(WSBYPASS_CFG.enabled),
+                on_change=self._on_enabled,
+            ))
+            rows.append(Selector(
+                key="ws_route",
+                text="Маршрут",
+                default=0 if WSBYPASS_CFG.routeMode == ROUTE_RELAY else 1,
+                items=["Релей", "tg-ws-linki"],
+                on_change=self._on_route,
+            ))
+            rows.append(Switch(
+                key="ws_suspend_vpn",
+                text="Останавливать при VPN",
+                default=bool(WSBYPASS_CFG.suspendOnVpn),
+                on_change=self._on_suspend_vpn,
+            ))
+
+            if VOIP_CFG is not None:
+                rows.append(Divider())
+                rows.append(Header(text="Звонки"))
+                rows.append(Switch(
+                    key="ws_voip",
+                    text="Обход для звонков",
+                    default=bool(VOIP_CFG.isVoipBypassEnabled()),
+                    on_change=self._on_voip,
+                ))
+            return rows
+
+        # No engine in this build: drive Telegram's own proxy instead.
+        info = _proxy_read()
+
+        state = "выключен"
+        if info["enabled"]:
+            if info["address"]:
+                state = "%s:%d" % (info["address"], info["port"])
+            else:
+                state = "включён, адрес не задан"
+
+        rows.append(Header(text="Состояние"))
+        rows.append(Text(text="Прокси: " + state))
+        rows.append(Divider())
+
+        for line in _diag():
+            rows.append(Text(text=line))
+        rows.append(Divider())
+
+        rows.append(Header(text="Прокси"))
+        rows.append(Switch(
+            key="proxy_enabled",
+            text="Использовать прокси",
+            default=bool(info["enabled"]),
+            on_change=self._on_proxy_enabled,
+        ))
+        rows.append(Selector(
+            key="proxy_type",
+            text="Тип",
+            default=1 if info["type"] == TYPE_MTPROTO else 0,
+            items=["SOCKS5", "MTProto"],
+            on_change=self._on_proxy_type,
+        ))
+        rows.append(Input(
+            key="proxy_address",
+            text="Адрес",
+            default=info["address"],
+            subtext="host или ip, например 127.0.0.1",
+            on_change=self._on_proxy_field,
+        ))
+        rows.append(Input(
+            key="proxy_port",
+            text="Порт",
+            default=str(info["port"]),
+            on_change=self._on_proxy_field,
+        ))
+        if TYPE_MTPROTO is not None:
+            rows.append(Input(
+                key="proxy_secret",
+                text="Секрет",
+                default=info["secret"],
+                subtext="только для MTProto, вида ee... или base64",
+                on_change=self._on_proxy_field,
+            ))
+        rows.append(Text(text="Применить", on_click=self._on_proxy_apply))
+        rows.append(Text(text="Отключить прокси", on_click=self._on_proxy_off))
+        rows.append(Text(
+            text="Если не помогло — перезапусти приложение",
+            subtext="часть сборок читает прокси только при старте, "
+                    "из настроек его взять негде",
+        ))
+        return rows
+
+    # ---------------------------------------------------------- callbacks --
+
+    def _on_enabled(self, value):
+        WSBYPASS_CFG.setEnabled(bool(value))
+        try:
+            if value:
+                WSBYPASS_CTRL.getInstance().ensureStarted()
+            else:
+                WSBYPASS_CTRL.getInstance().stop()
+        except Exception:
+            pass
+        self.log("wsbypass enabled=%s" % value)
+
+    def _on_route(self, index):
+        WSBYPASS_CFG.setRouteMode(ROUTE_RELAY if index == 0 else ROUTE_TGWS)
+        _wsbypass_restart()
+        self.log("route=%s" % ("relay" if index == 0 else "tg-ws-linki"))
+
+    def _on_suspend_vpn(self, value):
+        WSBYPASS_CFG.setSuspendOnVpn(bool(value))
+        try:
+            WSBYPASS_CTRL.getInstance().reevaluateForVpnToggle()
+        except Exception:
+            pass
+
+    def _on_voip(self, value):
+        VOIP_CFG.setVoipBypassEnabled(bool(value))
+
+    def _on_start(self, _view):
+        try:
+            WSBYPASS_CTRL.getInstance().ensureStarted()
+        except Exception:
+            pass
+        self.log("start requested, state=%s" % _wsbypass_state())
+
+    def _on_restart(self, _view):
+        _wsbypass_restart()
+        self.log("restarted, state=%s" % _wsbypass_state())
+
+    def _apply_from_settings(self):
+        """Apply whatever the settings screen currently holds. Returns a message."""
+        try:
+            proxy_type = TYPE_MTPROTO if self.get_setting("proxy_type", 0) == 1 else TYPE_SOCKS5
+            address = (self.get_setting("proxy_address", "") or "").strip()
+            port = self.get_setting("proxy_port", "0") or "0"
+            enabled = bool(self.get_setting("proxy_enabled", False))
+            secret = (self.get_setting("proxy_secret", "") or "").strip()
+            ok, message = _proxy_apply(enabled, address, port, proxy_type, secret)
+            return ok, message
+        except Exception as exc:
+            return False, str(exc)
+
+    def _on_proxy_enabled(self, value):
+        self.set_setting("proxy_enabled", bool(value))
+        ok, message = self._apply_from_settings()
+        _toast(message)
+        self.log("proxy switch=%s -> %s (%s)" % (value, "ok" if ok else "fail", message))
+
+    def _on_proxy_type(self, index):
+        self.set_setting("proxy_type", int(index))
+        self.log("proxy type=%d" % index)
+
+    def _on_proxy_field(self, _value):
+        # Text fields only persist their own key, so read the rest back.
+        self.log("field changed")
+
+    def _on_proxy_apply(self, _view):
+        ok, message = self._apply_from_settings()
+        _toast(message)
+        self.log("proxy apply -> %s (%s)" % ("ok" if ok else "fail", message))
+
+    def _on_proxy_off(self, _view):
+        ok, message = _proxy_apply(False)
+        _toast(message)
+        self.log("proxy off -> %s (%s)" % ("ok" if ok else "fail", message))

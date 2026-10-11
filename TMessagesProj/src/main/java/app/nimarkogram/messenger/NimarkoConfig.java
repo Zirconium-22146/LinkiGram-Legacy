@@ -236,16 +236,162 @@ public final class NimarkoConfig {
         getEditor().putBoolean("ghostReadReceipts", ghostReadReceipts).apply();
     }
 
+    // Ghost mode extras (port of AyuGram/exteraless ghost options)
+    public static volatile boolean ghostStories = getPreferences().getBoolean("ghostStories", false);
+    public static void toggleGhostStories() {
+        ghostStories = !ghostStories;
+        getEditor().putBoolean("ghostStories", ghostStories).apply();
+    }
+
+    public static volatile boolean ghostReadAfterSend = getPreferences().getBoolean("ghostReadAfterSend", true);
+    public static void toggleGhostReadAfterSend() {
+        ghostReadAfterSend = !ghostReadAfterSend;
+        getEditor().putBoolean("ghostReadAfterSend", ghostReadAfterSend).apply();
+    }
+
+    public static volatile boolean ghostOfflineAfterSend = getPreferences().getBoolean("ghostOfflineAfterSend", false);
+    public static void toggleGhostOfflineAfterSend() {
+        ghostOfflineAfterSend = !ghostOfflineAfterSend;
+        getEditor().putBoolean("ghostOfflineAfterSend", ghostOfflineAfterSend).apply();
+    }
+
+    // --- Ayu moments (deleted/edited message saving; AyuGram/exteraless port) ---
+    public static volatile boolean saveDeletedInPrivateChats = getPreferences().getBoolean("saveDeletedInPrivateChats", true);
+    public static void toggleSaveDeletedInPrivateChats() {
+        saveDeletedInPrivateChats = !saveDeletedInPrivateChats;
+        getEditor().putBoolean("saveDeletedInPrivateChats", saveDeletedInPrivateChats).apply();
+    }
+
+    public static volatile boolean saveDeletedInGroups = getPreferences().getBoolean("saveDeletedInGroups", true);
+    public static void toggleSaveDeletedInGroups() {
+        saveDeletedInGroups = !saveDeletedInGroups;
+        getEditor().putBoolean("saveDeletedInGroups", saveDeletedInGroups).apply();
+    }
+
+    public static volatile boolean saveDeletedInChannels = getPreferences().getBoolean("saveDeletedInChannels", true);
+    public static void toggleSaveDeletedInChannels() {
+        saveDeletedInChannels = !saveDeletedInChannels;
+        getEditor().putBoolean("saveDeletedInChannels", saveDeletedInChannels).apply();
+    }
+
+    public static volatile boolean saveDeletedMessageForBotUser = getPreferences().getBoolean("saveDeletedMessageForBotUser", false);
+    public static void toggleSaveDeletedMessageForBotUser() {
+        saveDeletedMessageForBotUser = !saveDeletedMessageForBotUser;
+        getEditor().putBoolean("saveDeletedMessageForBotUser", saveDeletedMessageForBotUser).apply();
+    }
+
+    public static volatile boolean saveDeletedMessageForBot = getPreferences().getBoolean("saveDeletedMessageForBot", false);
+    public static void toggleSaveDeletedMessageForBot() {
+        saveDeletedMessageForBot = !saveDeletedMessageForBot;
+        getEditor().putBoolean("saveDeletedMessageForBot", saveDeletedMessageForBot).apply();
+    }
+
+    public static volatile boolean saveInArchivedChats = getPreferences().getBoolean("saveInArchivedChats", false);
+    public static void toggleSaveInArchivedChats() {
+        saveInArchivedChats = !saveInArchivedChats;
+        getEditor().putBoolean("saveInArchivedChats", saveInArchivedChats).apply();
+    }
+
+    public static volatile boolean saveLocalLastSeen = getPreferences().getBoolean("saveLocalLastSeen", false);
+    public static void toggleSaveLocalLastSeen() {
+        saveLocalLastSeen = !saveLocalLastSeen;
+        getEditor().putBoolean("saveLocalLastSeen", saveLocalLastSeen).apply();
+    }
+
+    public static volatile boolean saveReadDate = getPreferences().getBoolean("saveReadDate", false);
+    public static void toggleSaveReadDate() {
+        saveReadDate = !saveReadDate;
+        getEditor().putBoolean("saveReadDate", saveReadDate).apply();
+    }
+
+    public static volatile boolean saveMediaFiles = getPreferences().getBoolean("saveMediaFiles", false);
+    public static void toggleSaveMediaFiles() {
+        saveMediaFiles = !saveMediaFiles;
+        getEditor().putBoolean("saveMediaFiles", saveMediaFiles).apply();
+    }
+
+    public static volatile boolean saveMediaInPrivateChats = getPreferences().getBoolean("saveMediaInPrivateChats", true);
+    public static volatile boolean saveMediaInPublicChannels = getPreferences().getBoolean("saveMediaInPublicChannels", true);
+    public static volatile boolean saveMediaInPrivateChannels = getPreferences().getBoolean("saveMediaInPrivateChannels", true);
+    public static volatile boolean saveMediaInPublicGroups = getPreferences().getBoolean("saveMediaInPublicGroups", true);
+    public static volatile boolean saveMediaInPrivateGroups = getPreferences().getBoolean("saveMediaInPrivateGroups", true);
+
+    public static volatile boolean enableSaveEditsHistory = getPreferences().getBoolean("enableSaveEditsHistory", false);
+    public static void toggleEnableSaveEditsHistory() {
+        enableSaveEditsHistory = !enableSaveEditsHistory;
+        getEditor().putBoolean("enableSaveEditsHistory", enableSaveEditsHistory).apply();
+    }
+
+    // Ghost mode master switch (port of NekoConfig.setGhostMode/isGhostModeActive):
+    // flips all hiding toggles at once. Behavior options (read-after-send,
+    // offline-after-send) are never touched by the master toggle.
+    public static boolean isGhostModeActive() {
+        return ghostTyping && ghostOnline && ghostReadReceipts && ghostStories;
+    }
+
+    public static void setGhostMode(boolean enabled) {
+        ghostTyping = enabled;
+        ghostOnline = enabled;
+        ghostReadReceipts = enabled;
+        ghostStories = enabled;
+        SharedPreferences.Editor editor = getEditor();
+        editor.putBoolean("ghostTyping", enabled);
+        editor.putBoolean("ghostOnline", enabled);
+        editor.putBoolean("ghostReadReceipts", enabled);
+        editor.putBoolean("ghostStories", enabled);
+        editor.apply();
+        if (enabled) {
+            // Port of NekoConfig.toggleGhostMode: announce the new status to
+            // the server right away so the offline state takes effect.
+            try {
+                com.radolyn.ayugram.utils.AyuGhostUtils.performStatusRequest(true);
+            } catch (Throwable t) {
+                org.telegram.messenger.FileLog.e("nimarko: ghost status request failed", t);
+            }
+        }
+    }
+
     public static volatile boolean lastSeenCacheEnabled = getPreferences().getBoolean("lastSeenCacheEnabled", true);
     public static void toggleLastSeenCacheEnabled() {
         lastSeenCacheEnabled = !lastSeenCacheEnabled;
         getEditor().putBoolean("lastSeenCacheEnabled", lastSeenCacheEnabled).apply();
     }
 
-    public static volatile boolean saveDeletedMessages = getPreferences().getBoolean("saveDeletedMessages", false);
+    public static volatile boolean saveDeletedMessages = getPreferences().getBoolean("saveDeletedMessages", true);
     public static void toggleSaveDeletedMessages() {
         saveDeletedMessages = !saveDeletedMessages;
         getEditor().putBoolean("saveDeletedMessages", saveDeletedMessages).apply();
+    }
+
+    public static volatile boolean translucentDeletedMessages = getPreferences().getBoolean("translucentDeletedMessages", true);
+    public static void toggleTranslucentDeletedMessages() {
+        translucentDeletedMessages = !translucentDeletedMessages;
+        getEditor().putBoolean("translucentDeletedMessages", translucentDeletedMessages).apply();
+    }
+
+    public static void toggleSaveMediaInPrivateChats() {
+        saveMediaInPrivateChats = !saveMediaInPrivateChats;
+        getEditor().putBoolean("saveMediaInPrivateChats", saveMediaInPrivateChats).apply();
+    }
+
+    public static void toggleSaveMediaInPublicChannels() {
+        saveMediaInPublicChannels = !saveMediaInPublicChannels;
+        getEditor().putBoolean("saveMediaInPublicChannels", saveMediaInPublicChannels).apply();
+    }
+
+    public static void toggleSaveMediaInPrivateChannels() {
+        saveMediaInPrivateChannels = !saveMediaInPrivateChannels;
+        getEditor().putBoolean("saveMediaInPrivateChannels", saveMediaInPrivateChannels).apply();
+    }
+
+    public static void toggleSaveMediaInPublicGroups() {
+        saveMediaInPublicGroups = !saveMediaInPublicGroups;
+        getEditor().putBoolean("saveMediaInPublicGroups", saveMediaInPublicGroups).apply();
+    }
+
+    public static void toggleSaveMediaInPrivateGroups() {
+        saveMediaInPrivateGroups = !saveMediaInPrivateGroups;
+        getEditor().putBoolean("saveMediaInPrivateGroups", saveMediaInPrivateGroups).apply();
     }
 
     public static void markMessageDeletedByOther(long dialogId, int messageId) {
@@ -658,6 +804,22 @@ public final class NimarkoConfig {
 
     public static boolean disableDividers = getPreferences().getBoolean("disableDividers", true);
     public static void toggleDisableDividers() { disableDividers = !disableDividers; getEditor().putBoolean("disableDividers", disableDividers).apply(); }
+
+    /** Material 3: секции настроек в виде карточек с elevation-тенью.
+     *  Перенесено из exteraless (SectionCardRecyclerView): там тень рисуется
+     *  принудительно, минуя выключенный по умолчанию SharedConfig.shadowsInSections. */
+    public static boolean materialCards = getPreferences().getBoolean("materialCards", true);
+    public static void toggleMaterialCards() { materialCards = !materialCards; getEditor().putBoolean("materialCards", materialCards).apply(); }
+
+    /** Радиус карточек секций, dp. 0 — секции плоские, без скругления. */
+    public static final int SECTION_RADIUS_MAX = 28;
+    public static int sectionRadius = getPreferences().getInt("sectionRadius", 20);
+    public static void setSectionRadius(int v) {
+        if (v < 0) v = 0;
+        if (v > SECTION_RADIUS_MAX) v = SECTION_RADIUS_MAX;
+        sectionRadius = v;
+        getEditor().putInt("sectionRadius", v).apply();
+    }
 
     public static final int ICON_REPLACE_NONE = 0;
     public static final int ICON_REPLACE_SOLAR = 1;
@@ -1588,6 +1750,25 @@ public final class NimarkoConfig {
     public static boolean sleepTimer = getPreferences().getBoolean("sleepTimer", false);
     public static void toggleSleepTimer() { sleepTimer = !sleepTimer; getEditor().putBoolean("sleepTimer", sleepTimer).apply(); }
     public static void setSleepTimer(boolean v) { sleepTimer = v; getEditor().putBoolean("sleepTimer", v).apply(); }
+
+    // Sleep timer duration and the wall clock time it fires at. The receiver
+    // existed in the manifest but nothing armed it, so sleepTimer was a flag
+    // with no reader and the feature did nothing. Duration is what the user
+    // actually picks; sleepTimer stays as the on/off view of it.
+    public static int sleepTimerMinutes = getPreferences().getInt("sleepTimerMinutes", 0);
+    public static long sleepTimerAt = getPreferences().getLong("sleepTimerAt", 0L);
+
+    public static void setSleepTimerMinutes(int minutes) {
+        sleepTimerMinutes = Math.max(0, minutes);
+        sleepTimer = sleepTimerMinutes > 0;
+        getEditor().putInt("sleepTimerMinutes", sleepTimerMinutes)
+                .putBoolean("sleepTimer", sleepTimer).apply();
+    }
+
+    public static void setSleepTimerAt(long at) {
+        sleepTimerAt = Math.max(0L, at);
+        getEditor().putLong("sleepTimerAt", sleepTimerAt).apply();
+    }
 
     public static boolean nimarkoTextAnim = getPreferences().getBoolean("nimarkoTextAnim", false);
     public static void toggleNimarkoTextAnim() {

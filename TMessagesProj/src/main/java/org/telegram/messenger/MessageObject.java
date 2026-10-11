@@ -4267,6 +4267,10 @@ public class MessageObject {
         return sponsoredId != null;
     }
 
+    public boolean isAyuDeleted() {
+        return messageOwner != null && messageOwner.ayuDeleted;
+    }
+
     public long getPollId() {
         if (type != TYPE_POLL) {
             return 0;
@@ -8253,6 +8257,9 @@ public class MessageObject {
         int linksCount = 0, spoilersCount = 0, codesCount = 0;
         for (int a = 0; a < count; a++) {
             TextStyleSpan.TextStyleRun run = runs.get(a);
+            if (run.start < 0 || run.start >= run.end || run.end > text.length()) {
+                continue;
+            }
 
             if (allowed == ENTITIES_ONLY_HASHTAGS && !(run.urlEntity instanceof TLRPC.TL_messageEntityHashtag))
                 continue;

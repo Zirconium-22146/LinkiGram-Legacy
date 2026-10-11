@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Rect;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.text.Spannable;
 import android.text.SpannableString;
@@ -16,6 +17,8 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -33,6 +36,7 @@ import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.R;
 import org.telegram.messenger.UserConfig;
+import org.telegram.ui.ActionBar.AlertDialog;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.Bulletin;
@@ -54,9 +58,12 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
     private List<LauncherIconController.LauncherIcon> availableIcons = new ArrayList<>();
     private LinearLayoutManager linearLayoutManager;
     private int currentAccount;
+    /** LinkiGram: kept as a field so the custom colour picker can show its dialog. */
+    private final BaseFragment fragment;
 
     public AppIconsSelectorCell(Context context, BaseFragment fragment, int currentAccount) {
         super(context);
+        this.fragment = fragment;
         this.currentAccount = currentAccount;
         setPadding(0, AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12));
 
@@ -76,6 +83,12 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
             @Override
             public void onBindViewHolder(@NonNull ViewHolder holder, int position) {
                 IconHolderView holderView = (IconHolderView) holder.itemView;
+                if (position == availableIcons.size()) {
+                    // LinkiGram: trailing "custom colour" tile -> opens the hex picker
+                    holderView.bindCustomPicker();
+                    holderView.iconView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(ICONS_ROUND_RADIUS), Color.TRANSPARENT, Theme.getColor(Theme.key_listSelector), Color.BLACK));
+                    return;
+                }
                 LauncherIconController.LauncherIcon icon = availableIcons.get(position);
                 holderView.bind(icon);
                 holderView.iconView.setBackground(Theme.createSimpleSelectorRoundRectDrawable(AndroidUtilities.dp(ICONS_ROUND_RADIUS), Color.TRANSPARENT, Theme.getColor(Theme.key_listSelector), Color.BLACK));
@@ -84,7 +97,7 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
 
             @Override
             public int getItemCount() {
-                return availableIcons.size();
+                return availableIcons.size() + 1;
             }
         });
         addItemDecoration(new ItemDecoration() {
@@ -108,6 +121,11 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
         });
         setOnItemClickListener((view, position) -> {
             IconHolderView holderView = (IconHolderView) view;
+            if (position == availableIcons.size()) {
+                // LinkiGram: custom colour picker
+                showCustomColorDialog();
+                return;
+            }
             LauncherIconController.LauncherIcon icon = availableIcons.get(position);
             if (icon.premium && !UserConfig.hasPremiumOnAccounts()) {
                 fragment.showDialog(new PremiumFeatureBottomSheet(fragment, PremiumPreviewFragment.PREMIUM_FEATURE_APPLICATION_ICONS, true));
@@ -147,9 +165,60 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
         updateIconsVisibility();
     }
 
+    // --- LinkiGram: custom launcher icon colour picker ---
+    private void showCustomColorDialog() {
+        if (fragment == null) {
+            return;
+        }
+        final EditText input = new EditText(getContext());
+        input.setSingleLine(true);
+        input.setText("#E53935");
+        input.setSelectAllOnFocus(true);
+        input.setTypeface(Typeface.MONOSPACE);
+        input.setPadding(AndroidUtilities.dp(12), 0, AndroidUtilities.dp(12), 0);
+        FrameLayout container = new FrameLayout(getContext());
+        container.addView(input, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, AndroidUtilities.dp(44)));
+
+        AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getParentActivity(), fragment.getResourceProvider())
+                .setTitle(LocaleController.getString(R.string.AppIconCustomColor))
+                .setMessage(LocaleController.getString(R.string.AppIconCustomColorHint))
+                .setView(container)
+                .setPositiveButton(LocaleController.getString(R.string.OK), (dialog, which) -> applyCustomColor(input.getText().toString()))
+                .setNegativeButton(LocaleController.getString(R.string.Cancel), null);
+
+        AlertDialog dialog = builder.create();
+        fragment.showDialog(dialog);
+        input.setSelection(input.getText().length());
+    }
+
+    private void applyCustomColor(String input) {
+        String hex = input == null ? "" : input.trim();
+        if (hex.startsWith("#")) {
+            hex = hex.substring(1);
+        }
+        if (hex.length() == 8) { // drop an AARRGGBB alpha prefix
+            hex = hex.substring(2);
+        }
+        int color;
+        try {
+            color = 0xFF000000 | Integer.parseInt(hex, 16);
+        } catch (NumberFormatException e) {
+            color = 0xFFE53935;
+        }
+
+        LauncherIconController.LauncherIcon nearest = LauncherIconController.LauncherIcon.nearestCustom(color);
+        if (nearest == null) {
+            return;
+        }
+        LauncherIconController.setIcon(nearest);
+        updateIconsVisibility();
+        NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.showBulletin, Bulletin.TYPE_APP_ICON, nearest);
+    }
+    // --- LinkiGram ---
+
     @SuppressLint("NotifyDataSetChanged")
-    private void updateIconsVisibility() {
-        availableIcons.clear();
+    private void updateIconsVisibility() {        availableIcons.clear();
         availableIcons.addAll(Arrays.asList(LauncherIconController.LauncherIcon.values()));
         if (MessagesController.getInstance(currentAccount).premiumFeaturesBlocked()) {
             for (int i = 0; i < availableIcons.size(); i++) {
@@ -286,9 +355,18 @@ public class AppIconsSelectorCell extends RecyclerListView implements Notificati
                 titleView.setText(str);
             } else {
                 params.rightMargin = 0;
-                titleView.setText(LocaleController.getString(icon.title));
+                // LinkiGram: the 16 custom colours have no name string, show the hex instead
+                titleView.setText(icon.title != 0 ? LocaleController.getString(icon.title) : icon.getHex());
             }
             setSelected(LauncherIconController.isEnabled(icon), false);
+        }
+
+        private void bindCustomPicker() {
+            iconView.setImageResource(R.drawable.icon_custom_picker);
+            iconView.setForeground(null);
+
+            titleView.setText(LocaleController.getString(R.string.AppIconCustomColor));
+            setSelected(false, false);
         }
     }
 

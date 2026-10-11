@@ -53,6 +53,97 @@ public class ApplicationLoader extends Application {
 
     public static ApplicationLoader applicationLoaderInstance;
     private static volatile boolean pineInitializationAttempted;
+
+    // Icon pack plumbing. Telegram resolves icons straight from the application
+    // resources, so the only place a replacement pack can take effect is the
+    // Application's getResources(): wrap the base Resources there and swap the
+    // selection on top of it. Without this the pack selection is stored but never shown.
+    private volatile app.nimarkogram.messenger.icons.NimarkoIconResources nmAppResources;
+    private volatile android.content.res.AssetManager nmAppAssets;
+    private static final ThreadLocal<Boolean> nmWrappingResources = new ThreadLocal<>();
+    private final Object nmAppResourcesLock = new Object();
+
+    @Override
+    public android.content.res.Resources getResources() {
+        android.content.res.Resources base = super.getResources();
+        try {
+            if (base == null || applicationContext == null
+                    || app.nimarkogram.messenger.NimarkoConfig.iconReplacement == app.nimarkogram.messenger.NimarkoConfig.ICON_REPLACE_NONE) {
+                return base;
+            }
+            // The wrapper asks the base Resources for drawables, which lands back here.
+            if (Boolean.TRUE.equals(nmWrappingResources.get())) {
+                return base;
+            }
+            if (nmAppAssets != base.getAssets()) {
+                synchronized (nmAppResourcesLock) {
+                    if (nmAppAssets != base.getAssets()) {
+                        nmWrappingResources.set(Boolean.TRUE);
+                        try {
+                            nmAppResources = new app.nimarkogram.messenger.icons.NimarkoIconResources(base);
+                        } finally {
+                            nmWrappingResources.set(Boolean.FALSE);
+                        }
+                        nmInstallIntoLoadedApk(nmAppResources);
+                        nmAppAssets = base.getAssets();
+                    }
+                }
+            }
+            return nmAppResources != null ? nmAppResources : base;
+        } catch (Throwable t) {
+            return base;
+        }
+    }
+
+    /**
+     * Overriding {@code Application.getResources()} is not enough on its own: every
+     * ContextImpl copies its Resources out of LoadedApk when the component is created, so
+     * Activities, Services and BroadcastReceivers keep the stock instance and the pack is
+     * never seen by the UI. LoadedApk.mResources is the single field all of them read, so
+     * it is replaced once here instead of patching each context.
+     *
+     * The Application's own ContextImpl already captured the stock Resources before this
+     * runs; that is what {@link #getResources()} keeps unwrapping and handing to the
+     * wrapper, so there is no recursion.
+     *
+     * A locale change rewrites LoadedApk.mResources through ResourcesManager, so this has
+     * to be callable again afterwards; {@link #reloadAppIconResources()} does that.
+     */
+    private static void nmInstallIntoLoadedApk(android.content.res.Resources wrapper) {
+        if (wrapper == null || applicationLoaderInstance == null) return;
+        try {
+            Class<?> activityThreadClass = Class.forName("android.app.ActivityThread");
+            Object activityThread = activityThreadClass.getMethod("currentActivityThread").invoke(null);
+            if (activityThread == null) return;
+            java.lang.reflect.Field packagesField = activityThreadClass.getDeclaredField("mPackages");
+            packagesField.setAccessible(true);
+            Object packages = packagesField.get(activityThread);
+            if (!(packages instanceof java.util.Map)) return;
+            Object ref = ((java.util.Map<?, ?>) packages).get(applicationLoaderInstance.getPackageName());
+            Object loadedApk = ref instanceof java.lang.ref.WeakReference ? ((java.lang.ref.WeakReference<?>) ref).get() : ref;
+            if (loadedApk == null) return;
+            java.lang.reflect.Field resourcesField = loadedApk.getClass().getDeclaredField("mResources");
+            resourcesField.setAccessible(true);
+            if (resourcesField.get(loadedApk) == wrapper) return;
+            resourcesField.set(loadedApk, wrapper);
+            FileLog.d("nimarko-icons: replacement resources installed into LoadedApk");
+        } catch (Throwable t) {
+            FileLog.e("nimarko-icons: LoadedApk install failed", t);
+        }
+    }
+
+    /** Applies a new icon pack selection to the installed resources, if any. */
+    public static void reloadAppIconResources() {
+        try {
+            ApplicationLoader inst = applicationLoaderInstance;
+            if (inst != null && inst.nmAppResources != null) {
+                inst.nmAppResources.reloadReplacements(null);
+                // A language switch makes the framework rebuild LoadedApk.mResources, which
+                // drops the wrapper and silently reverts the pack to stock.
+                nmInstallIntoLoadedApk(inst.nmAppResources);
+            }
+        } catch (Throwable ignore) {}
+    }
     private static volatile boolean pineAvailable;
     private static String pineUnavailableReason = "Pine runtime is not bundled in this build";
     private static volatile boolean pineReady;
@@ -83,7 +174,23 @@ public class ApplicationLoader extends Application {
         return isPineAvailable();
     }
 
+    android.content.res.Resources nmRawResources() {
+        return super.getResources();
+    }
+
+    /**
+     * The unwrapped, stock resources. Icon pack code needs the originals: going through
+     * {@code applicationContext.getResources()} would hand back the replacement wrapper and
+     * the mapping would be applied twice.
+     */
     public static android.content.res.Resources rawResources() {
+        try {
+            ApplicationLoader inst = applicationLoaderInstance;
+            if (inst != null) {
+                return inst.nmRawResources();
+            }
+        } catch (Throwable ignore) {
+        }
         return applicationContext == null ? null : applicationContext.getResources();
     }
     public static String getPineUnavailableReason() {
@@ -295,6 +402,11 @@ public class ApplicationLoader extends Application {
         try { app.nimarkogram.messenger.wsbypass.NimarkoVpnDetector.start(); } catch (Throwable ignored) {}
         try { app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().ensureStartedSync(); } catch (Throwable ignored) {}
 
+        // Re-arm the sleep timer. AlarmManager does not survive a reboot, so a
+        // timer set before one would otherwise never fire and the row would keep
+        // claiming it is scheduled. apply() is a no-op when no timer is set.
+        try { app.nimarkogram.messenger.utils.NimarkoSleepTimer.apply(applicationContext); } catch (Throwable ignored) {}
+
         // Warm the relay auth tokens ahead of first use, but only when the matching
         // transport is actually enabled.
         try {
@@ -364,6 +476,22 @@ public class ApplicationLoader extends Application {
         }
 
         super.onCreate();
+
+        try {
+            app.nimarkogram.messenger.textanim.NimarkoTextAnim.initIfEnabled();
+        } catch (Throwable t) {
+            FileLog.e("nimarko-textanim: init failed", t);
+        }
+
+        // Install the icon pack before any component exists, otherwise the framework builds
+        // the first Activity on the stock Resources and it never sees the replacement.
+        try {
+            if (app.nimarkogram.messenger.NimarkoConfig.iconReplacement != app.nimarkogram.messenger.NimarkoConfig.ICON_REPLACE_NONE) {
+                getResources();
+            }
+        } catch (Throwable t) {
+            FileLog.e("nimarko-icons: eager install failed", t);
+        }
 
         // AndroidUtilities must be initialized before FileLog
         final String helloWorld = AndroidUtilities.getHelloWorld();

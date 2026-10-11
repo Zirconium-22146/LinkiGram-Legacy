@@ -1204,6 +1204,20 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             subtitleView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteGrayText, resourcesProvider));
             valueView.setTextColor(Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourcesProvider));
             iconBackground.setDrawBorder(resourcesProvider != null ? resourcesProvider.isDark() : Theme.isCurrentThemeDark());
+            applyNeutralIconStyle();
+        }
+
+        /**
+         * LinkiGram: settings rows share one neutral plate and one neutral glyph instead of
+         * the per-row gradient palette. The call sites still pass the stock colours; they are
+         * ignored here, so the palette stays in the tree for anything that reads it back.
+         */
+        private void applyNeutralIconStyle() {
+            final boolean dark = resourcesProvider != null ? resourcesProvider.isDark() : Theme.isCurrentThemeDark();
+            final int plate = dark ? 0xFF2E2E33 : 0xFFE6E6EB;
+            final int glyph = dark ? 0xFFF2F2F7 : 0xFF17171A;
+            iconBackground.setColor(plate, plate);
+            iconView.setColorFilter(new PorterDuffColorFilter(glyph, PorterDuff.Mode.SRC_IN));
         }
 
         private boolean twoLines;
@@ -1218,23 +1232,8 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             titleView.setTranslationX(icon == 0 ? dp(2) : 0);
             subtitleView.setTranslationX(icon == 0 ? dp(2) : 0);
 
-            // LinkiGram: optional monochrome remap of the per-row icon palette.
-            // Off by default, in which case the stock colours are used as-is.
-            if (app.nimarkogram.messenger.NimarkoSettingsIconStyle.isCustom()) {
-                iconBackground.setColor(
-                        app.nimarkogram.messenger.NimarkoSettingsIconStyle.stop(iconColorTop, true),
-                        app.nimarkogram.messenger.NimarkoSettingsIconStyle.stop(iconColorBottom, false));
-                iconView.setImageResource(icon);
-                iconView.setColorFilter(new android.graphics.PorterDuffColorFilter(
-                        app.nimarkogram.messenger.NimarkoSettingsIconStyle.glyph(),
-                        android.graphics.PorterDuff.Mode.SRC_IN));
-            } else {
-                if (iconView.getColorFilter() != null) {
-                    iconView.clearColorFilter();
-                }
-                iconBackground.setColor(iconColorTop, iconColorBottom);
-                iconView.setImageResource(icon);
-            }
+            applyNeutralIconStyle();
+            iconView.setImageResource(icon);
             titleView.setText(title);
             subtitleView.setVisibility((twoLines = !TextUtils.isEmpty(subtitle)) ? View.VISIBLE : View.GONE);
             subtitleView.setText(subtitle);

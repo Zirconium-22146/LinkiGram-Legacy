@@ -96,6 +96,7 @@ import org.telegram.ui.recyclerview.LinearSmoothScrollerCustom;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.viewpager.widget.ViewPager;
 
+import app.nimarkogram.messenger.NimarkoConfig;
 import org.telegram.messenger.AccountInstance;
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.AnimationNotificationsLocker;
@@ -1707,6 +1708,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         private int lastTop;
         private int lastListPadding;
         private float rightFragmentOpenedProgress;
+        private float settingsSwipeStartX, settingsSwipeStartY;
+        private boolean trackingSettingsSwipe;
 
         Paint paint = new Paint();
         RectF rectF = new RectF();
@@ -2180,6 +2183,34 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
             int action = e.getAction();
             if (action == MotionEvent.ACTION_DOWN) {
+                int firstPosition = parentPage.layoutManager.findFirstVisibleItemPosition();
+                View firstView = parentPage.layoutManager.findViewByPosition(firstPosition);
+                boolean atTop = !canScrollVertically(-1)
+                        || (parentPage.dialogsType == DIALOGS_TYPE_DEFAULT
+                        && hasHiddenArchive()
+                        && parentPage.archivePullViewState == ARCHIVE_ITEM_STATE_HIDDEN
+                        && firstPosition == 1
+                        && firstView != null
+                        && firstView.getTop() >= getPaddingTop());
+                trackingSettingsSwipe = NimarkoConfig.openSettingsBySwipe
+                        && parentPage.dialogsType == DIALOGS_TYPE_DEFAULT
+                        && folderId == 0
+                        && !searching
+                        && progressToActionMode == 0
+                        && atTop;
+                if (trackingSettingsSwipe) {
+                    settingsSwipeStartX = e.getX();
+                    settingsSwipeStartY = e.getY();
+                }
+            }
+            boolean openSettingsOnSwipe = action == MotionEvent.ACTION_UP
+                    && trackingSettingsSwipe
+                    && e.getY() - settingsSwipeStartY >= dp(96)
+                    && Math.abs(e.getX() - settingsSwipeStartX) <= dp(64);
+            if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
+                trackingSettingsSwipe = false;
+            }
+            if (action == MotionEvent.ACTION_DOWN) {
                 setOverScrollMode(View.OVER_SCROLL_ALWAYS);
             }
             if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) {
@@ -2239,6 +2270,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
             }
             boolean result = super.onTouchEvent(e);
+            if (openSettingsOnSwipe) {
+                DialogsActivity.this.presentFragment(new SettingsActivity());
+                return result;
+            }
             if (parentPage.dialogsType == DIALOGS_TYPE_DEFAULT && (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && parentPage.archivePullViewState == ARCHIVE_ITEM_STATE_HIDDEN && hasHiddenArchive()) {
                 LinearLayoutManager layoutManager = (LinearLayoutManager) getLayoutManager();
                 int currentPosition = layoutManager.findFirstVisibleItemPosition();
@@ -3511,12 +3546,15 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             } else {
                 statusDrawable = new AnimatedEmojiDrawable.SwapAnimatedEmojiDrawable(null, dp(26));
                 statusDrawable.center = true;
-                logoDrawable = context.getResources().getDrawable(R.drawable.telegram_logo_2).mutate();
-                logoDrawable.setBounds(0, dp(2), logoDrawable.getIntrinsicWidth(), dp(2) + logoDrawable.getIntrinsicHeight());
-                logoDrawable.setColorFilter(getThemedColor(Theme.key_telegram_color_dialogsLogo), PorterDuff.Mode.MULTIPLY);
-                SpannableStringBuilder ssb = new SpannableStringBuilder(getString(R.string.AppName));
-                ssb.setSpan(new ImageSpan(logoDrawable), 0, ssb.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-                actionBar.setTitle(ssb, statusDrawable);
+                // LinkiGram: resolve the title through LocaleController so it follows the in-app
+                // language rather than the system one, and honour the custom-title override.
+                // getString(int) resolves against the system locale, which is why the header
+                // could disagree with the launcher label.
+                CharSequence mainTitle = app.nimarkogram.messenger.NimarkoConfig.resolveMainTitle(
+                        LocaleController.getString(R.string.AppName));
+                // Keep the title as text: telegram_logo_2 contains the Telegram wordmark
+                // and an ImageSpan over the whole title hides both our brand and custom titles.
+                actionBar.setTitle(mainTitle, statusDrawable);
                 updateStatus(UserConfig.getInstance(currentAccount).getCurrentUser(), false);
             }
             if (folderId == 0) {

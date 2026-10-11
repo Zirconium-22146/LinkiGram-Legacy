@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  RECOLOR THE LAUNCHER ICON: this is the only line to change.
+  (used by TMessagesProj_AppStandalone mipmap-anydpi-v26/ic_launcher_sa.xml)
+-->
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="#F0BFC4" />
+    <solid android:color="#2ECC71" />
 </shape>

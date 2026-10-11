@@ -740,6 +740,23 @@
     <string name="UP_CheckFailed">Не удалось проверить наличие обновлений. Повторите попытку позже.</string>
     <string name="UP_Install">Установить</string>
     <string name="UP_DownloadFailed">Ошибка загрузки, нажмите ещё раз</string>
+<string name="LUS_Checking">Проверка обновлений…</string>
+<string name="LUS_Latest">У вас последняя версия LinkiGram</string>
+<string name="LUS_Available">Доступна версия %1$s</string>
+<string name="LUS_CheckFailed">Не удалось проверить обновления</string>
+<string name="LUS_FailedInfo">Проверьте соединение и попробуйте снова</string>
+<string name="LUS_CheckedJustNow">Проверено только что</string>
+<string name="LUS_CheckedAt">Проверено: %1$s</string>
+<string name="LUS_Download">Скачать</string>
+<string name="LUS_DownloadSize">Скачать %1$s</string>
+<string name="LUS_Resume">Продолжить загрузку</string>
+<string name="LUS_CheckAgain">Проверить снова</string>
+<string name="LUS_AutoHeader">Автообновление</string>
+<string name="LUS_Off">Выкл</string>
+<string name="LUS_On">Вкл</string>
+<string name="LUS_AutoInfoOff">Не проверять обновления при запуске</string>
+<string name="LUS_AutoInfoOn">Проверять обновления при запуске</string>
+<string name="LUS_AllReleases">Все релизы</string>
     <string name="NM_UpdateDownloading">Загрузка обновления…</string>
     <string name="NM_UpdatePause">Пауза</string>
     <string name="NM_UpdateResume">Продолжить</string>
@@ -764,11 +781,7 @@
     <string name="NM_ForumAvatarsLikeChats">Единое закругление</string>
     <string name="NM_ForumAvatarsLikeChats_Desc">Аватарки форумов скругляются так же, как у обычных чатов.</string>
     
-<string name="NM_SwitchStyle">Стиль переключателей</string><string name="NM_SettingsIconStyle">Цвета иконок настроек</string>
-<string name="NM_IconStyle_Colorful">Цветные</string>
-<string name="NM_IconStyle_Gray">Серые</string>
-<string name="NM_IconStyle_Black">Чёрные</string>
-<string name="NM_IconStyle_Light">Светлые</string>
+<string name="NM_SwitchStyle">Стиль переключателей</string>
     <string name="NM_Chat_Section">Чаты</string>
     <string name="NM_Stickers_Header">Стикеры</string>
     <string name="NM_StickerSize">Размер стикеров</string>
@@ -1028,6 +1041,8 @@
     <string name="CP_Header_DialogList">Список чатов</string>
     <string name="CP_SortByUnread">Сортировка по непрочитанным</string>
     <string name="CP_UnarchiveOnSwipe">Разархивировать свайпом</string>
+    <string name="CP_OpenSettingsBySwipe">Открывать настройки свайпом вниз</string>
+    <string name="CP_OpenSettingsBySwipe_Desc">Проведите вниз по списку чатов, чтобы открыть настройки.</string>
     <string name="NM_MSG_Header_Sending">Отправка</string>
     <string name="NM_MSG_GifSpoilers">Отправлять GIF со спойлером</string>
     <string name="EP_CustomChat_Selected_Title">вместо</string>
@@ -1049,6 +1064,14 @@
     <string name="CP_SilenceNonContacts">Заглушить не-контакты</string>
     <string name="CP_SilenceNonContacts_Desc">Если включено, то уведомления со звуком будут приходить только от контактов. Вы можете добавить человека в контакты без наличия его номера телефона (в профиле человека)</string>
     <string name="NM_GhostMode">Призрачный режим</string>
+    <string name="NM_GhostMaster">Включить призрачный режим</string>
+    <string name="NM_GhostMaster_Desc">Включить или выключить все призрачные опции разом</string>
+    <string name="NM_GhostStories">Скрыть просмотры сторис</string>
+    <string name="NM_GhostStories_Desc">Не отмечать сторис как просмотренные</string>
+    <string name="NM_GhostReadAfterSend">Отмечать прочитанным после отправки</string>
+    <string name="NM_GhostReadAfterSend_Desc">Когда подтверждения прочтения скрыты, чат отмечается прочитанным после отправки в нём сообщения</string>
+    <string name="NM_GhostOfflineAfterSend">Уходить в офлайн после отправки</string>
+    <string name="NM_GhostOfflineAfterSend_Desc">Отправлять статус офлайна вскоре после каждого исходящего сообщения</string>
     <string name="NM_GhostTyping">Скрыть статус «печатает»</string>
     <string name="NM_GhostTyping_Desc">Не отправлять уведомления о наборе текста другим пользователям</string>
     <string name="NM_GhostOnline">Скрыть статус «в сети»</string>
@@ -1255,6 +1278,8 @@
     <string name="CG_Sleep_Disabled">Таймер сна отключен</string>
     <string name="CG_Sleep_Permission">Разрешите LinkiGram устанавливать точные будильники, чтобы таймер сна работал корректно.</string>
     <string name="CG_Sleep_Timer">Таймер сна установлен на **%s**</string>
+    <string name="NM_SleepTimer_Off">Выключен</string>
+    <string name="NM_SleepTimer_At">Выключится в %s</string>
     <string name="CG_SortByDate">Сортировка по дате сообщения</string>
     <string name="CG_SortByUnread">Сортировка по непрочитанным</string>
     <string name="CG_StickerSavedHint">Стикер сохранен в загрузки</string>
@@ -1366,6 +1391,10 @@
     <string name="NM_WSB_OpenProxySettings">Настройки прокси Telegram</string>
     <string name="NM_WSB_Status_VpnSuspended">Приостановлено — VPN активен</string>
     <string name="NM_WSB_About">Помогает Telegram работать при блокировке. Создаёт локальный прокси и направляет трафик через него. По умолчанию включено.</string>
+<string name="NM_WSB_RouteHeader">Режим маршрута</string>
+<string name="NM_WSB_RouteRelay">Через релей</string>
+<string name="NM_WSB_RouteTgws">tg-ws-linki</string>
+<string name="NM_WSB_RouteDesc">Релей ведёт трафик через сервер автора. tg-ws-linki — встроенный движок: прямое соединение с Telegram и пул WebSocket, работает там, где релей душат.</string>
     <string name="NM_WSB_AuthorHeader">Автор</string>
     <string name="NM_WSB_AuthorChannel">Канал автора</string>
     <string name="NM_WSB_VoIP_Header">Звонки</string>
@@ -1375,4 +1404,50 @@
     <string name="NM_WSB_Subscribe_Button">Подписаться на @NimarkoProject</string>
     <string name="NM_CP_LatexRendering">Отображать формулы LaTeX</string>
     <string name="NM_CP_LatexRendering_Desc">Распознаёт формулы внутри $…$ и $$…$$ в сообщениях.</string>
+    <string name="AP_MaterialCards">Карточки Material 3</string>
+    <string name="AP_MaterialCards_Desc">Скруглённые секции настроек с тенью.</string>
+    <string name="AP_SectionRadius">Радиус карточек</string>
+
+    <!-- AyuMoments (exteraless/AyuGram port) -->
+    <string name="NM_AyuMoments">AyuMoments</string>
+    <string name="NM_Ayu_HeaderSaving">Сохранение удалённых</string>
+    <string name="NM_Ayu_SaveDeleted_Private">Сохранять в личных чатах</string>
+    <string name="NM_Ayu_SaveDeleted_Groups">Сохранять в группах</string>
+    <string name="NM_Ayu_SaveDeleted_Channels">Сохранять в каналах</string>
+    <string name="NM_Ayu_SaveDeleted_BotUser">Сохранять сообщения ботов в личных чатах</string>
+    <string name="NM_Ayu_SaveDeleted_BotChat">Сохранять сообщения ботов в группах и каналах</string>
+    <string name="NM_Ayu_SaveInArchived">Сохранять в архивных чатах</string>
+    <string name="NM_Ayu_ShadowSaving">Удалённые сообщения остаются в чате и восстанавливаются из локальной базы после переоткрытия.</string>
+    <string name="NM_Ayu_HeaderEdits">История правок</string>
+    <string name="NM_Ayu_SaveEdits">Сохранять историю правок</string>
+    <string name="NM_Ayu_SaveEdits_Desc">Сохранять предыдущие версии сообщений при редактировании</string>
+    <string name="NM_Ayu_ShadowEdits">Предыдущие версии сообщений сохраняются локально перед каждым изменением.</string>
+    <string name="NM_Ayu_HeaderMedia">Сохранение медиа</string>
+    <string name="NM_Ayu_SaveMedia">Сохранять файлы</string>
+    <string name="NM_Ayu_SaveMedia_Desc">Копировать медиа удалённых и правленых сообщений в локальную папку</string>
+    <string name="NM_Ayu_SaveMedia_Private">Личные чаты</string>
+    <string name="NM_Ayu_SaveMedia_PubChannels">Публичные каналы</string>
+    <string name="NM_Ayu_SaveMedia_PrivChannels">Приватные каналы</string>
+    <string name="NM_Ayu_SaveMedia_PubGroups">Публичные группы</string>
+    <string name="NM_Ayu_SaveMedia_PrivGroups">Приватные группы</string>
+    <string name="NM_Ayu_ShadowMedia">Медиа удалённых и правленых сообщений копируется до их исчезновения.</string>
+    <string name="NM_Ayu_HeaderSpy">Локальный трекинг</string>
+    <string name="NM_Ayu_SaveLastSeen">Сохранять «был в сети»</string>
+    <string name="NM_Ayu_SaveLastSeen_Desc">Сохранять локально время последнего визита контактов</string>
+    <string name="NM_Ayu_SaveReadDate">Сохранять время прочтения</string>
+    <string name="NM_Ayu_SaveReadDate_Desc">Сохранять, когда ваши сообщения были прочитаны</string>
+    <string name="NM_Ayu_ShadowSpy">Данные трекинга хранятся локально и никуда не отправляются.</string>
+    <string name="NM_Ayu_HeaderView">Отображение удалённых</string>
+    <string name="NM_Ayu_Translucent">Полупрозрачные удалённые</string>
+    <string name="NM_Ayu_Translucent_Desc">Показывать сохранённые удалённые сообщения с пониженной прозрачностью</string>
+    <string name="NM_Ayu_ShadowView">Как сохранённые удалённые сообщения выглядят в чате.</string>
+    <string name="NM_Ayu_HeaderDb">База данных Ayu</string>
+    <string name="NM_Ayu_DbExport">Экспортировать базу</string>
+    <string name="NM_Ayu_DbImport">Импортировать базу</string>
+    <string name="NM_Ayu_DbClear">Очистить базу</string>
+    <string name="NM_Ayu_DbCleared">База очищена</string>
+    <string name="NM_Ayu_ShadowDb">Локальное хранилище сохранённых сообщений и данных трекинга.</string>
+    <!-- LinkiGram: custom launcher icon colour picker -->
+    <string name="AppIconCustomColor">Свой цвет</string>
+    <string name="AppIconCustomColorHint">Введите HEX-код цвета (например #1E88E5). Android не умеет перекрашивать иконку на лету, поэтому применится ближайший из 16 встроенных цветов.</string>
 </resources>

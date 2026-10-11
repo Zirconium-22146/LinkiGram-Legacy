@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="AppName">Telegram</string>
-    <string name="AppNameBeta">Telegram Beta</string>
+    <string name="AppName">LinkiGram</string>
+    <string name="AppNameBeta">LinkiGram Beta</string>
     <string name="LanguageName">English</string>
     <string name="English">English</string>
     <string name="LanguageNameInEnglish">English</string>
@@ -11572,11 +11572,6 @@
 <string name="NM_ForumAvatarsLikeChats">Unified rounding</string>
 <string name="NM_ForumAvatarsLikeChats_Desc">Forum avatars are rounded the same way as regular chats.</string>
 <string name="NM_SwitchStyle">Switch style</string>
-<string name="NM_SettingsIconStyle">Settings icon colors</string>
-<string name="NM_IconStyle_Colorful">Colorful</string>
-<string name="NM_IconStyle_Gray">Grayscale</string>
-<string name="NM_IconStyle_Black">Black</string>
-<string name="NM_IconStyle_Light">Light</string>
 <string name="NM_Chat_Section">Chats</string>
 <string name="NM_Stickers_Header">Stickers</string>
 <string name="NM_StickerSize">Sticker size</string>
@@ -11840,6 +11835,14 @@
 <string name="NM_Vibrate_Long">Long press</string>
 <string name="NM_PredictiveBackAnimation">Predictive-Back navigation</string>
 <string name="NM_GhostMode">Ghost mode</string>
+<string name="NM_GhostMaster">Enable ghost mode</string>
+<string name="NM_GhostMaster_Desc">Turn all ghost options on or off at once</string>
+<string name="NM_GhostStories">Hide story views</string>
+<string name="NM_GhostStories_Desc">Don\'t mark stories as viewed</string>
+<string name="NM_GhostReadAfterSend">Mark as read after sending</string>
+<string name="NM_GhostReadAfterSend_Desc">When read receipts are hidden, mark the chat as read after you send a message in it</string>
+<string name="NM_GhostOfflineAfterSend">Go offline after sending</string>
+<string name="NM_GhostOfflineAfterSend_Desc">Send an offline status shortly after each outgoing message</string>
 <string name="NM_GhostTyping">Hide typing status</string>
 <string name="NM_GhostTyping_Desc">Don\'t send typing notifications to other users</string>
 <string name="NM_GhostOnline">Hide online status</string>
@@ -11921,6 +11924,10 @@
 <string name="NM_WSB_OpenProxySettings">Open Telegram proxy settings</string>
 <string name="NM_WSB_Status_VpnSuspended">Suspended — VPN is active</string>
 <string name="NM_WSB_About">Keeps Telegram working when it\'s blocked. Creates a local proxy and routes traffic through it. Default ON.</string>
+<string name="NM_WSB_RouteHeader">Route mode</string>
+<string name="NM_WSB_RouteRelay">Via relay</string>
+<string name="NM_WSB_RouteTgws">tg-ws-linki</string>
+<string name="NM_WSB_RouteDesc">Relay routes traffic through the author\'s server. tg-ws-linki is a built-in engine that connects straight to Telegram and holds a WebSocket pool — it works on networks that throttle the relay.</string>
 <string name="NM_WSB_AuthorHeader">Author</string>
 <string name="NM_WSB_AuthorChannel">Author\'s channel</string>
 <string name="NM_WSB_VoIP_Header">Voice/Video Calls</string>
@@ -12180,6 +12187,23 @@
 <string name="UP_CheckFailed">Couldn\'t check for updates. Please try again later.</string>
 <string name="UP_Install">Install</string>
 <string name="UP_DownloadFailed">Download failed, tap to retry</string>
+<string name="LUS_Checking">Checking for updates…</string>
+<string name="LUS_Latest">LinkiGram is up to date</string>
+<string name="LUS_Available">Version %1$s available</string>
+<string name="LUS_CheckFailed">Couldn\'t check for updates</string>
+<string name="LUS_FailedInfo">Check your connection and try again</string>
+<string name="LUS_CheckedJustNow">Checked just now</string>
+<string name="LUS_CheckedAt">Checked at %1$s</string>
+<string name="LUS_Download">Download</string>
+<string name="LUS_DownloadSize">Download %1$s</string>
+<string name="LUS_Resume">Resume download</string>
+<string name="LUS_CheckAgain">Check again</string>
+<string name="LUS_AutoHeader">Automatic updates</string>
+<string name="LUS_Off">Off</string>
+<string name="LUS_On">On</string>
+<string name="LUS_AutoInfoOff">Don\'t check for updates on launch</string>
+<string name="LUS_AutoInfoOn">Check for updates on launch</string>
+<string name="LUS_AllReleases">All releases</string>
 <string name="EP_CustomChat_Selected_Title">instead of</string>
 <string name="ConvertGroupAlert">This action is irreversible. It is not possible to downgrade a supergroup to a regular group.</string>
 <string name="CP_AdminActions">Admin shortcuts</string>
@@ -12187,6 +12211,8 @@
 <string name="CP_Header_DialogList">Dialog list</string>
 <string name="CP_SortByUnread">Sort by unread</string>
 <string name="CP_UnarchiveOnSwipe">Unarchive on swipe</string>
+<string name="CP_OpenSettingsBySwipe">Open settings on swipe down</string>
+<string name="CP_OpenSettingsBySwipe_Desc">Swipe down on the chat list to open Settings.</string>
 <string name="AP_Header_Appearance">Appearance</string>
 <string name="AP_Header">Header</string>
 <string name="AP_HideSearchBar">Hide search bar in chats</string>
@@ -12361,6 +12387,8 @@
 <string name="CG_Sleep_Disabled">Sleep timer is disabled</string>
 <string name="CG_Sleep_Permission">Please allow LinkiGram to schedule exact alarms so that the sleep timer can work properly.</string>
 <string name="CG_Sleep_Timer">Sleep timer is set to **%s**</string>
+    <string name="NM_SleepTimer_Off">Off</string>
+    <string name="NM_SleepTimer_At">Stops at %s</string>
 <string name="CG_SortByDate">Sort by message date</string>
 <string name="CG_SortByUnread">Sort by unread first</string>
 <string name="CG_StickerSavedHint">Sticker saved to downloads</string>
@@ -12434,4 +12462,50 @@
 <string name="LoginQrSubtitle">Open Telegram on your phone, go to Settings &gt; Devices &gt; Link Desktop Device and scan this code.</string>
 <string name="ChooseSubtitles">Choose subtitles</string>
 <string name="DisableSubtitles">Disable subtitles</string>
+    <string name="AP_MaterialCards">Material 3 cards</string>
+    <string name="AP_MaterialCards_Desc">Rounded settings sections with a shadow.</string>
+    <string name="AP_SectionRadius">Card corner radius</string>
+
+    <!-- AyuMoments (exteraless/AyuGram port) -->
+    <string name="NM_AyuMoments">AyuMoments</string>
+    <string name="NM_Ayu_HeaderSaving">Saving deleted messages</string>
+    <string name="NM_Ayu_SaveDeleted_Private">Save in private chats</string>
+    <string name="NM_Ayu_SaveDeleted_Groups">Save in groups</string>
+    <string name="NM_Ayu_SaveDeleted_Channels">Save in channels</string>
+    <string name="NM_Ayu_SaveDeleted_BotUser">Save messages from bots in private chats</string>
+    <string name="NM_Ayu_SaveDeleted_BotChat">Save messages from bots in groups and channels</string>
+    <string name="NM_Ayu_SaveInArchived">Save in archived chats</string>
+    <string name="NM_Ayu_ShadowSaving">Deleted messages stay in the chat and are restored from a local database after reopening.</string>
+    <string name="NM_Ayu_HeaderEdits">Edit history</string>
+    <string name="NM_Ayu_SaveEdits">Save edit history</string>
+    <string name="NM_Ayu_SaveEdits_Desc">Keep previous versions of edited messages</string>
+    <string name="NM_Ayu_ShadowEdits">Previous message versions are stored locally before each edit.</string>
+    <string name="NM_Ayu_HeaderMedia">Saving media</string>
+    <string name="NM_Ayu_SaveMedia">Save media files</string>
+    <string name="NM_Ayu_SaveMedia_Desc">Copy media of deleted and edited messages to a local folder</string>
+    <string name="NM_Ayu_SaveMedia_Private">Private chats</string>
+    <string name="NM_Ayu_SaveMedia_PubChannels">Public channels</string>
+    <string name="NM_Ayu_SaveMedia_PrivChannels">Private channels</string>
+    <string name="NM_Ayu_SaveMedia_PubGroups">Public groups</string>
+    <string name="NM_Ayu_SaveMedia_PrivGroups">Private groups</string>
+    <string name="NM_Ayu_ShadowMedia">Media files of deleted and edited messages are copied before they disappear.</string>
+    <string name="NM_Ayu_HeaderSpy">Local tracking</string>
+    <string name="NM_Ayu_SaveLastSeen">Save last seen</string>
+    <string name="NM_Ayu_SaveLastSeen_Desc">Keep the last seen time of contacts locally</string>
+    <string name="NM_Ayu_SaveReadDate">Save read date</string>
+    <string name="NM_Ayu_SaveReadDate_Desc">Keep when your outgoing messages were read</string>
+    <string name="NM_Ayu_ShadowSpy">Tracking data is stored locally and never sent anywhere.</string>
+    <string name="NM_Ayu_HeaderView">Deleted messages view</string>
+    <string name="NM_Ayu_Translucent">Translucent deleted messages</string>
+    <string name="NM_Ayu_Translucent_Desc">Show saved deleted messages at reduced opacity</string>
+    <string name="NM_Ayu_ShadowView">How saved deleted messages look inside the chat.</string>
+    <string name="NM_Ayu_HeaderDb">Ayu database</string>
+    <string name="NM_Ayu_DbExport">Export database</string>
+    <string name="NM_Ayu_DbImport">Import database</string>
+    <string name="NM_Ayu_DbClear">Clear database</string>
+    <string name="NM_Ayu_DbCleared">Database cleared</string>
+    <string name="NM_Ayu_ShadowDb">Local storage of saved messages and tracking data.</string>
+    <!-- LinkiGram: custom launcher icon colour picker -->
+    <string name="AppIconCustomColor">Custom colour</string>
+    <string name="AppIconCustomColorHint">Enter a HEX colour (for example #1E88E5). Android does not allow recolouring an icon at runtime, so the closest of the 16 built-in colours is applied.</string>
 </resources>

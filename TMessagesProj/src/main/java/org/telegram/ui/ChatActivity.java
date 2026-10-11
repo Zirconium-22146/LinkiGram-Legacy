@@ -7534,6 +7534,7 @@ public class ChatActivity extends BaseFragment implements
                     topPanelLayout.setViewVisible(fragmentContextViewWrapper, visibility == VISIBLE);
                 }
             };
+            fragmentContextView.setSpeedHintViewParent(contentView);
             topPanelLayout.setCallFragmentContextView(fragmentContextView);
             fragmentContextViewWrapper.addView(fragmentContextView);
             fragmentLocationContextViewWrapper.addView(fragmentLocationContextView);
@@ -12225,8 +12226,8 @@ public class ChatActivity extends BaseFragment implements
                     try {
                         intent.putExtra(Intent.EXTRA_STREAM, FileProvider.getUriForFile(getParentActivity(), ApplicationLoader.getApplicationId() + ".provider", file));
                         intent.setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                    } catch (Exception ignore) {
-                        intent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(file));
+                    } catch (Exception e) {
+                        FileLog.e(e);
                     }
                 } else {
                     intent.putExtra(Intent.EXTRA_STREAM, Uri.fromFile(file));
@@ -20169,6 +20170,8 @@ public class ChatActivity extends BaseFragment implements
                     size[0] = thumb.size;
                     if (size[0] == 0) size[0] = -1;
                     return thumb;
+                } else {
+                    size[0] = -1;
                 }
             }
             return null;
@@ -20511,6 +20514,27 @@ public class ChatActivity extends BaseFragment implements
             didReceivedNotification7(id, account, args);
         }
     }
+
+    // --- AyuGram: shared entry point for the deleted-history hook (exteraless port) ---
+    private void ayuHookDeletedHistory(long startId, long endId, int loadType) {
+        final long minVal = 0L;
+        if (startId > endId) {
+            long t = startId;
+            startId = endId;
+            endId = t;
+        }
+        if (startId == minVal && endId == minVal) {
+            // exteraless skips the hook when the range collapsed to the minVal sentinel
+            // (this is what happens for cache loads: the real range comes with the network load)
+            return;
+        }
+        try {
+            com.radolyn.ayugram.proprietary.AyuHistoryHook.doHookAsync(currentAccount, startId, endId, dialog_id, 200, getTopicId(), loadType, false, threadMessageId, isTopic);
+        } catch (Throwable t) {
+            android.util.Log.e("AyuDebug", "ayuHookDeletedHistory failed d=" + dialog_id, t);
+        }
+    }
+    // --- AyuGram ---
 
     private void didReceivedNotification_messagesDidLoad(int id, int account, final Object... args) {
         int guid = (Integer) args[10];
@@ -21374,6 +21398,96 @@ public class ChatActivity extends BaseFragment implements
                 newRowsCount++;
             }
         }
+        // --- AyuGram hook: load saved deleted messages into chat (exteraless port) ---
+        // Range logic ported from exteraless ChatActivity.hookDeletedHistory: the naive
+        // [min..max] of the loaded batch misses deleted messages that sit in the gap
+        // between the loaded batch and the dialog's newest message (e.g. a message that
+        // was deleted right at the top of the chat), which is why deleted messages used
+        // to disappear after reopening the chat.
+        try {
+            if (app.nimarkogram.messenger.NimarkoConfig.saveDeletedMessages
+                    && currentEncryptedChat == null && chatMode != MODE_PINNED && !isQuickRepliesOrWelcomeMessagesMode()) {
+                final long minVal = 0L;
+                final long maxVal = Integer.MAX_VALUE;
+                long startId = minVal;
+                long endId = minVal;
+                boolean deferred = false;
+                final long fallbackStartId;
+                final long fallbackEndId;
+
+                android.util.Pair<Integer, Integer> msgIds = com.radolyn.ayugram.proprietary.AyuHistoryHook.getMinAndMaxIds(messArr);
+                if (!messArr.isEmpty()) {
+                    int msg1 = Math.min(msgIds.first, msgIds.second); // older in the batch
+                    int msg2 = Math.max(msgIds.first, msgIds.second); // newer in the batch
+                    startId = msg1;
+                    endId = msg2;
+
+                    long fbStart = minVal;
+                    long fbEnd = msg1;
+                    if (messArr.size() == 1 && messArr.get(0).messageOwner instanceof TLRPC.TL_messageService) {
+                        fbStart = minVal;
+                        fbEnd = com.radolyn.ayugram.AyuUtils.getMinRealId(messages);
+                    } else if (messArr.size() < count && !isCache && (load_type == 2 || load_type == 1)) {
+                        fbStart = minVal;
+                        fbEnd = Math.min(msg1, msg2);
+                    }
+                    fallbackStartId = fbStart;
+                    fallbackEndId = fbEnd;
+
+                    TLRPC.Dialog dialog = getMessagesController().getDialog(dialog_id);
+                    if (dialog != null && DialogObject.isUserDialog(dialog_id)
+                            && msg1 == msg2 && msg2 == dialog.top_message && messArr.size() <= 1) {
+                        // empty user dialog: restore as much as we can
+                        startId = minVal;
+                        endId = maxVal;
+                    } else if (dialog != null && dialog.top_message == msg2) {
+                        // the batch holds the newest message: cover everything newer
+                        endId = maxVal;
+                    } else if (dialog != null) {
+                        // batch is somewhere in the middle: compare against what is really stored
+                        deferred = true;
+                        final long batchStartId = startId;
+                        final long batchEndId = endId;
+                        final long otherStartId = fallbackStartId;
+                        final long otherEndId = fallbackEndId;
+                        final int topMessage = dialog.top_message;
+                        getMessagesStorage().getStorageQueue().postRunnable(() -> {
+                            android.util.Pair<Integer, Integer> minMaxRes = getMessagesStorage().getMinAndMaxForDialog(dialog_id);
+                            if (minMaxRes.second == (int) batchEndId && topMessage <= minMaxRes.second) {
+                                ayuHookDeletedHistory(batchStartId, maxVal, load_type);
+                            } else {
+                                ayuHookDeletedHistory(otherStartId, otherEndId, load_type);
+                            }
+                        });
+                    } else {
+                        startId = fallbackStartId;
+                        endId = fallbackEndId;
+                    }
+                } else if (!messages.isEmpty() && load_type != 1) {
+                    // loading upper messages
+                    startId = minVal;
+                    endId = com.radolyn.ayugram.AyuUtils.getMinRealId(messages);
+                } else if (DialogObject.isUserDialog(dialog_id)) {
+                    startId = minVal;
+                    endId = maxVal;
+                }
+                if (isCache) {
+                    startId = minVal;
+                    endId = minVal;
+                }
+
+                android.util.Log.i("AyuDebug", "restore hook: d=" + dialog_id + " range=[" + startId + "," + endId + "] loaded=[" + msgIds.first + "," + msgIds.second
+                        + "] topic=" + getTopicId() + " type=" + load_type + " arr=" + messArr.size() + " deferred=" + deferred + " isCache=" + isCache);
+
+                if (!deferred) {
+                    ayuHookDeletedHistory(startId, endId, load_type);
+                }
+            }
+        } catch (Throwable t) {
+            android.util.Log.e("AyuDebug", "deleted-history hook failed", t);
+            org.telegram.messenger.FileLog.e("nimarko: deleted-history hook failed", t);
+        }
+        // --- AyuGram hook ---
         checkGroupMessagesOrder();
         if (createUnreadLoading) {
             createUnreadMessageAfterId = 0;
@@ -25319,6 +25433,9 @@ public class ChatActivity extends BaseFragment implements
     }
     private void processNewMessages(ArrayList<MessageObject> arr, final boolean animatedFromBottom) {
         FileLog.d("processNewMessages " + arr.size() + " messages");
+        if (arr.size() > 0 && arr.get(0) != null && arr.get(0).messageOwner != null && arr.get(0).messageOwner.ayuDeleted) {
+            android.util.Log.i("AyuDebug", "processNewMessages: got ayu-restored batch of " + arr.size() + " first id=" + arr.get(0).getId());
+        }
 
         final boolean isBot = UserObject.isBot(currentUser);
         final boolean isStreamingTopic = isBot && BotForumHelper.getInstance(currentAccount).isStreamingTopic(getDialogId(), getTopicId());
@@ -25838,7 +25955,11 @@ public class ChatActivity extends BaseFragment implements
                         if (notPushedSponsoredMessages == null) {
                             notPushedSponsoredMessages = new ArrayList<>();
                         }
-                        notPushedSponsoredMessages.add(obj);
+                        // When retrying, arr is notPushedSponsoredMessages itself: obj is already queued,
+                        // and appending to the list being iterated would loop forever.
+                        if (arr != notPushedSponsoredMessages) {
+                            notPushedSponsoredMessages.add(obj);
+                        }
                         continue;
                     }
                 }
@@ -26315,6 +26436,20 @@ public class ChatActivity extends BaseFragment implements
         for (int a = 0; a < size; a++) {
             Integer mid = markAsDeletedMessages.get(a);
             MessageObject obj = chatAdapter != null && chatAdapter.isFiltered ? filteredMessagesDict.get(mid) :  messagesDict[loadIndex].get(mid);
+            // --- AyuGram hook: keep deleted message in open chat (exteraless port) ---
+            if (!com.radolyn.ayugram.messages.AyuSavePreferences.saveDeletedMessageFor(currentAccount, getDialogId(), obj)
+                    || com.radolyn.ayugram.utils.AyuState.isDeletePermitted(getDialogId(), mid)) {
+                com.radolyn.ayugram.utils.AyuState.messageDeleted(getDialogId(), mid);
+            } else {
+                if (obj != null) {
+                    obj.messageOwner.ayuDeleted = true;
+                    if (chatAdapter != null) {
+                        chatAdapter.updateRowWithMessageObject(obj, false, false);
+                    }
+                }
+                continue;
+            }
+            // --- AyuGram hook ---
             if (selectedObject != null && obj == selectedObject || obj != null && selectedObjectGroup != null && selectedObjectGroup == groupedMessagesMap.get(obj.getGroupId())) {
                 closeMenu();
             }

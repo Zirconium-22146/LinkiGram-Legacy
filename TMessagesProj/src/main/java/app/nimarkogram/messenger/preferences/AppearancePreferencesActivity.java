@@ -32,7 +32,6 @@ import org.telegram.ui.LaunchActivity;
 import java.util.ArrayList;
 
 import app.nimarkogram.messenger.NimarkoConfig;
-import app.nimarkogram.messenger.preferences.helpers.PopupHelper;
 import app.nimarkogram.messenger.preferences.helpers.SettingsHelper;
 
 public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesActivity {
@@ -43,8 +42,9 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
 
     private final int iconPackRow = 4;
     private final int oneUISwitchesRow = 5;
-    private final int iconStyleRow = 6;
     private final int disableDividersRow = 6;
+    private final int materialCardsRow = 24;
+    private final int sectionRadiusRow = 25;
     private final int glareOnElementsRow = 10;
     private final int forumAvatarsRow = 12;
     private final int forceBlurRow = 13;
@@ -84,10 +84,14 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         items.add(UItem.asHeader(getString(R.string.AP_Header_Appearance)));
         items.add(UItem.asButton(iconPackRow, getString(R.string.AP_IconReplacements), getIconPackValueText()));
         items.add(UItem.asButton(oneUISwitchesRow, getString(R.string.NM_SwitchStyle), getSwitchStyleValueText()));
-        items.add(UItem.asButton(iconStyleRow, getString(R.string.NM_SettingsIconStyle), getIconStyleValueText()));
         items.add(SettingsHelper.asSwitchCG(disableDividersRow, getString(R.string.AP_DisableDividers))
                 .setChecked(app.nimarkogram.messenger.NimarkoConfig.disableDividers)
         );
+        items.add(SettingsHelper.asSwitchCG(materialCardsRow,
+                        getString(R.string.AP_MaterialCards),
+                        getString(R.string.AP_MaterialCards_Desc))
+                .setChecked(NimarkoConfig.materialCards));
+        items.add(UItem.asButton(sectionRadiusRow, getString(R.string.AP_SectionRadius), getSectionRadiusValueText()));
         items.add(SettingsHelper.asSwitchCG(forceBlurRow, getString(R.string.NM_ForceBlur))
                 .setChecked(NimarkoConfig.forceBlur));
         items.add(UItem.asShadow(null));
@@ -224,20 +228,6 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
                         
                         showRestartBulletin();
                     });
-        } else if (item.id == iconStyleRow) {
-            java.util.ArrayList<CharSequence> opts = new java.util.ArrayList<>();
-            opts.add(getString(R.string.NM_IconStyle_Colorful));
-            opts.add(getString(R.string.NM_IconStyle_Gray));
-            opts.add(getString(R.string.NM_IconStyle_Black));
-            opts.add(getString(R.string.NM_IconStyle_Light));
-            app.nimarkogram.messenger.preferences.helpers.PopupHelper.show(opts, getString(R.string.NM_SettingsIconStyle),
-                    app.nimarkogram.messenger.NimarkoSettingsIconStyle.get(), getContext(), i -> {
-                        app.nimarkogram.messenger.NimarkoSettingsIconStyle.set(i);
-                        SettingsHelper.updateButtonValue(view, getIconStyleValueText());
-                        if (getParentLayout() != null) {
-                            getParentLayout().rebuildAllFragmentViews(false, false);
-                        }
-                    });
         } else if (item.id == disableDividersRow) {
             NimarkoConfig.toggleDisableDividers();
             updateCheckState(view, app.nimarkogram.messenger.NimarkoConfig.disableDividers);
@@ -246,6 +236,30 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
             listView.adapter.update(true);
             
             if (getParentLayout() != null) getParentLayout().rebuildAllFragmentViews(false, false);
+        } else if (item.id == materialCardsRow) {
+            NimarkoConfig.toggleMaterialCards();
+            updateCheckState(view, NimarkoConfig.materialCards);
+
+            SettingsHelper.updateButtonValue(view, getSectionRadiusValueText());
+            refreshSectionCards();
+        } else if (item.id == sectionRadiusRow) {
+            final int[] values = {8, 12, 16, 20, 24, 28};
+            final java.util.ArrayList<CharSequence> opts = new java.util.ArrayList<>();
+            for (int v : values) {
+                opts.add(v + " dp");
+            }
+            int current = -1;
+            for (int i = 0; i < values.length; i++) {
+                if (values[i] == NimarkoConfig.sectionRadius) {
+                    current = i;
+                }
+            }
+            app.nimarkogram.messenger.preferences.helpers.PopupHelper.show(opts, getString(R.string.AP_SectionRadius),
+                    current, getContext(), i -> {
+                        NimarkoConfig.setSectionRadius(values[i]);
+                        SettingsHelper.updateButtonValue(view, getSectionRadiusValueText());
+                        refreshSectionCards();
+                    });
         } else if (item.id == glareOnElementsRow) {
             NimarkoConfig.toggleGlareOnElements();
             updateCheckState(view, NimarkoConfig.glareOnElements);
@@ -333,21 +347,39 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         };
     }
 
-    private String getIconStyleValueText() {
-        return switch (app.nimarkogram.messenger.NimarkoSettingsIconStyle.get()) {
-            case app.nimarkogram.messenger.NimarkoSettingsIconStyle.GRAY -> getString(R.string.NM_IconStyle_Gray);
-            case app.nimarkogram.messenger.NimarkoSettingsIconStyle.BLACK -> getString(R.string.NM_IconStyle_Black);
-            case app.nimarkogram.messenger.NimarkoSettingsIconStyle.LIGHT -> getString(R.string.NM_IconStyle_Light);
-            default -> getString(R.string.NM_IconStyle_Colorful);
-        };
-    }
-
     private String getSwitchStyleValueText() {
         return switch (NimarkoConfig.switchStyle) {
             case NimarkoConfig.SWITCH_STYLE_ONEUI -> "One UI";
             case NimarkoConfig.SWITCH_STYLE_MD3 -> "MD3";
             default -> getString(R.string.Default);
         };
+    }
+
+    private String getSectionRadiusValueText() {
+        return NimarkoConfig.sectionRadius + " dp";
+    }
+
+    /**
+     * Радиус карточек хранится в RecyclerListView на момент вызова setSections,
+     * поэтому после его смены секции надо пересобрать, а не просто перерисовать.
+     */
+    private void refreshSectionCards() {
+        if (listView == null) {
+            return;
+        }
+        if (NimarkoConfig.materialCards) {
+            listView.setSections(true);
+        } else {
+            listView.disableSections();
+        }
+        for (int k = 0; k < listView.getChildCount(); k++) {
+            View child = listView.getChildAt(k);
+            if (child != null) {
+                child.invalidate();
+            }
+        }
+        listView.invalidateItemDecorations();
+        listView.invalidate();
     }
 
     private String getCustomTitleValueText() {

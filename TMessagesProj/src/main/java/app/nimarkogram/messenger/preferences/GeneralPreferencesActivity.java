@@ -54,6 +54,7 @@ import java.util.List;
 
 import app.nimarkogram.messenger.NimarkoConfig;
 import app.nimarkogram.messenger.utils.NimarkoConfigBackup;
+import app.nimarkogram.messenger.utils.NimarkoSleepTimer;
 import app.nimarkogram.messenger.preferences.helpers.PopupHelper;
 import app.nimarkogram.messenger.preferences.helpers.SettingsHelper;
 
@@ -76,6 +77,10 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
     private final int ghostTypingRow = 21;
     private final int ghostOnlineRow = 22;
     private final int ghostReadReceiptsRow = 23;
+    private final int ghostMasterRow = 33;
+    private final int ghostStoriesRow = 35;
+    private final int ghostReadAfterSendRow = 36;
+    private final int ghostOfflineAfterSendRow = 37;
     private final int lastSeenCacheRow = 32;
     private final int saveDeletedMessagesRow = 24;
     private final int hideStoryViewsRow = 25;
@@ -85,6 +90,7 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
     private final int inBubbleGradient2Row = 29;
     private final int inBubbleGradient3Row = 30;
     private final int sendOriginalPhotoRow = 31;
+    private final int sleepTimerRow = 34;
 
     private final int hideStoriesRow = 7;
     private final int archiveStoriesRow = 8;
@@ -219,7 +225,12 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         );
         items.add(UItem.asShadow(null));
 
+        items.add(UItem.asButton(sleepTimerRow, getString(R.string.CG_Sleep), getSleepTimerValue()));
+
         items.add(UItem.asHeader(getString(R.string.NM_GhostMode)));
+        items.add(SettingsHelper.asSwitchCG(ghostMasterRow, getString(R.string.NM_GhostMaster), getString(R.string.NM_GhostMaster_Desc))
+                .setChecked(NimarkoConfig.isGhostModeActive())
+        );
         items.add(SettingsHelper.asSwitchCG(ghostTypingRow, getString(R.string.NM_GhostTyping), getString(R.string.NM_GhostTyping_Desc))
                 .setChecked(NimarkoConfig.ghostTyping)
         );
@@ -228,6 +239,15 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         );
         items.add(SettingsHelper.asSwitchCG(ghostReadReceiptsRow, getString(R.string.NM_GhostReadReceipts), getString(R.string.NM_GhostReadReceipts_Desc))
                 .setChecked(NimarkoConfig.ghostReadReceipts)
+        );
+        items.add(SettingsHelper.asSwitchCG(ghostStoriesRow, getString(R.string.NM_GhostStories), getString(R.string.NM_GhostStories_Desc))
+                .setChecked(NimarkoConfig.ghostStories)
+        );
+        items.add(SettingsHelper.asSwitchCG(ghostReadAfterSendRow, getString(R.string.NM_GhostReadAfterSend), getString(R.string.NM_GhostReadAfterSend_Desc))
+                .setChecked(NimarkoConfig.ghostReadAfterSend)
+        );
+        items.add(SettingsHelper.asSwitchCG(ghostOfflineAfterSendRow, getString(R.string.NM_GhostOfflineAfterSend), getString(R.string.NM_GhostOfflineAfterSend_Desc))
+                .setChecked(NimarkoConfig.ghostOfflineAfterSend)
         );
         items.add(SettingsHelper.asSwitchCG(lastSeenCacheRow, getString(R.string.NM_LastSeenCache), getString(R.string.NM_LastSeenCache_Desc))
                 .setChecked(NimarkoConfig.lastSeenCacheEnabled)
@@ -260,9 +280,61 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         items.add(UItem.asShadow(getString(R.string.NM_Config_Info)));
     }
 
+    private static final int[] SLEEP_TIMER_MINUTES = {0, 5, 10, 15, 30, 45, 60, 90, 120};
+
+    private String formatClockTime(long at) {
+        try {
+            return java.text.DateFormat
+                    .getTimeInstance(java.text.DateFormat.SHORT)
+                    .format(new java.util.Date(at));
+        } catch (Throwable ignored) {
+            return String.valueOf(at);
+        }
+    }
+
+    private String getSleepTimerValue() {
+        final long at = NimarkoConfig.sleepTimerAt;
+        final int minutes = NimarkoConfig.sleepTimerMinutes;
+        if (minutes <= 0 || at <= 0L) {
+            return getString(R.string.NM_SleepTimer_Off);
+        }
+        return org.telegram.messenger.LocaleController.formatString(
+                R.string.NM_SleepTimer_At, formatClockTime(at));
+    }
+
     @Override
     public void onClick(UItem item, View view, int position, float x, float y) {
-        if (item.id == springAnimationRow) {
+        if (item.id == sleepTimerRow) {
+            ArrayList<String> labels = new ArrayList<>();
+            int selected = 0;
+            // Labelled by the clock time playback will stop rather than by a
+            // duration: the fork has no <plurals>, and "5 мин / 2 минуты" would
+            // need a grammar the picker cannot express.
+            for (int i = 0; i < SLEEP_TIMER_MINUTES.length; i++) {
+                int minutes = SLEEP_TIMER_MINUTES[i];
+                if (minutes == 0) {
+                    labels.add(getString(R.string.NM_SleepTimer_Off));
+                } else {
+                    labels.add(formatClockTime(System.currentTimeMillis() + minutes * 60_000L));
+                }
+                if (minutes == NimarkoConfig.sleepTimerMinutes) {
+                    selected = i;
+                }
+            }
+            final int picked = selected;
+            PopupHelper.show(labels, getString(R.string.CG_Sleep), picked, getContext(), i -> {
+                NimarkoSleepTimer.schedule(getContext(), SLEEP_TIMER_MINUTES[i]);
+                SettingsHelper.updateButtonValue(view, getSleepTimerValue());
+                listView.adapter.update(true);
+                if (SLEEP_TIMER_MINUTES[i] == 0) {
+                    org.telegram.ui.Components.BulletinFactory.of(this).createSimpleBulletin(
+                            R.raw.info, getString(R.string.CG_Sleep_Disabled)).show();
+                } else {
+                    org.telegram.ui.Components.BulletinFactory.of(this)
+                            .createSimpleBulletin(R.raw.info, getSleepTimerValue()).show();
+                }
+            });
+        } else if (item.id == springAnimationRow) {
             ArrayList<String> configStringKeys = new ArrayList<>();
             ArrayList<Integer> configValues = new ArrayList<>();
 
@@ -395,6 +467,20 @@ public class GeneralPreferencesActivity extends NimarkoUniversalPreferencesActiv
         } else if (item.id == ghostTypingRow) {
             NimarkoConfig.toggleGhostTyping();
             SettingsHelper.updateCheckState(view, NimarkoConfig.ghostTyping);
+        } else if (item.id == ghostMasterRow) {
+            NimarkoConfig.setGhostMode(!NimarkoConfig.isGhostModeActive());
+            if (listView != null) {
+                listView.adapter.update(true);
+            }
+        } else if (item.id == ghostStoriesRow) {
+            NimarkoConfig.toggleGhostStories();
+            SettingsHelper.updateCheckState(view, NimarkoConfig.ghostStories);
+        } else if (item.id == ghostReadAfterSendRow) {
+            NimarkoConfig.toggleGhostReadAfterSend();
+            SettingsHelper.updateCheckState(view, NimarkoConfig.ghostReadAfterSend);
+        } else if (item.id == ghostOfflineAfterSendRow) {
+            NimarkoConfig.toggleGhostOfflineAfterSend();
+            SettingsHelper.updateCheckState(view, NimarkoConfig.ghostOfflineAfterSend);
         } else if (item.id == ghostOnlineRow) {
             NimarkoConfig.toggleGhostOnline();
             SettingsHelper.updateCheckState(view, NimarkoConfig.ghostOnline);

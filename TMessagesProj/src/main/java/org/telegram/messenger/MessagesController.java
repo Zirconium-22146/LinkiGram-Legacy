@@ -6862,6 +6862,16 @@ public class MessagesController extends BaseController implements NotificationCe
         }
         fromCache = fromCache && user.id / 1000 != 333 && user.id != 777000;
         TLRPC.User oldUser = users.get(user.id);
+        // --- AyuGram hook: save last seen (exteraless port) ---
+        if (app.nimarkogram.messenger.NimarkoConfig.saveLocalLastSeen
+                && user.id != getUserConfig().getClientUserId()
+                && user.status instanceof TLRPC.TL_userStatusOffline) {
+            int lastSeen = user.status.expires;
+            if (lastSeen > 0) {
+                com.radolyn.ayugram.utils.LastSeenHelper.saveLastSeen(user.id, lastSeen);
+            }
+        }
+        // --- AyuGram hook ---
         if (oldUser == user && !force) {
             return false;
         }
@@ -9324,6 +9334,68 @@ public class MessagesController extends BaseController implements NotificationCe
         if ((messages == null || messages.isEmpty()) && taskId == 0) {
             return;
         }
+
+        // --- AyuGram hook (deleted messages saving; exteraless port) ---
+        if (!scheduled && app.nimarkogram.messenger.NimarkoConfig.saveDeletedMessages && messages != null && !messages.isEmpty()) {
+            com.radolyn.ayugram.messages.AyuMessagesController ayuMessagesController = com.radolyn.ayugram.messages.AyuMessagesController.getInstance();
+            if (DialogObject.isEncryptedDialog(dialogId)) { // process TTL messages from secrets
+                final ArrayList<Integer> messagesCopy = new ArrayList<>(messages);
+                final long dialogIdFinal = dialogId;
+                getMessagesStorage().getStorageQueue().postRunnable(() -> {
+                    for (int a = 0; a < messagesCopy.size(); a++) {
+                        int msgId = messagesCopy.get(a);
+                        if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogIdFinal, msgId)) {
+                            continue;
+                        }
+                        TLRPC.Message msg = getMessagesStorage().getMessageStorageThreadUnsafe(dialogIdFinal, msgId);
+                        if (msg != null) {
+                            com.radolyn.ayugram.messages.AyuSavePreferences prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, currentAccount);
+                            prefs.setDialogId(dialogIdFinal);
+                            ayuMessagesController.onMessageDeleted(prefs);
+                        }
+                    }
+                    AndroidUtilities.runOnUIThread(() -> {
+                        getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, messagesCopy);
+                    });
+                });
+            } else if (taskId != 0 || cacheOnly) { // process TTL messages
+                final ArrayList<Integer> messagesCopy = new ArrayList<>(messages);
+                final long dialogIdFinal = dialogId;
+                getMessagesStorage().getStorageQueue().postRunnable(() -> {
+                    ArrayList<Integer> invalidate = new ArrayList<>();
+                    for (int msgId : messagesCopy) {
+                        if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogIdFinal, msgId)) {
+                            continue;
+                        }
+                        TLRPC.Message msg = getMessagesStorage().getMessageStorageThreadUnsafe(dialogIdFinal, msgId);
+                        if (msg != null && (msg.ttl > 0 || msg.ttl_period > 0)) {
+                            invalidate.add(msgId);
+                            com.radolyn.ayugram.messages.AyuSavePreferences prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, currentAccount);
+                            prefs.setDialogId(dialogIdFinal);
+                            ayuMessagesController.onMessageDeleted(prefs);
+                        }
+                    }
+                    AndroidUtilities.runOnUIThread(() -> {
+                        getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogIdFinal, invalidate);
+                    });
+                });
+            } else { // process manual deletion of already-saved ayu messages
+                long userId = UserConfig.getInstance(currentAccount).clientUserId;
+                ArrayList<Integer> permittedForAyuDeletion = new ArrayList<>();
+                for (int msgId : messages) {
+                    if (com.radolyn.ayugram.utils.AyuState.isDeletePermitted(dialogId, msgId)) {
+                        permittedForAyuDeletion.add(msgId);
+                    }
+                }
+                java.util.List<Integer> existingMessageIds = ayuMessagesController.getExistingMessageIds(userId, dialogId, permittedForAyuDeletion);
+                if (existingMessageIds != null && !existingMessageIds.isEmpty()) {
+                    final java.util.List<Integer> existingMessageIdsFinal = existingMessageIds;
+                    Utilities.globalQueue.postRunnable(() -> ayuMessagesController.deleteMessages(userId, dialogId, existingMessageIdsFinal));
+                }
+            }
+        }
+        // --- AyuGram hook ---
+
         ArrayList<Integer> toSend = null;
         long channelId;
         if (taskId == 0) {
@@ -20997,6 +21069,56 @@ public class MessagesController extends BaseController implements NotificationCe
             }
         });
 
+        // --- AyuGram request hook (save deleted messages; exteraless port) ---
+        if (app.nimarkogram.messenger.NimarkoConfig.saveDeletedMessages && deletedMessages != null) {
+            final com.radolyn.ayugram.messages.AyuMessagesController ayuMessagesController = com.radolyn.ayugram.messages.AyuMessagesController.getInstance();
+            final LongSparseArray<ArrayList<Integer>> deletedMessagesForAyu = deletedMessages.clone();
+            final int accountForAyu = currentAccount;
+            android.util.Log.i("AyuDebug", "save hook: enter, dialogs=" + deletedMessagesForAyu.size());
+            getMessagesStorage().getStorageQueue().postRunnable(() -> {
+                LongSparseArray<ArrayList<Integer>> notificationsToSend = new LongSparseArray<>();
+                for (int a = 0, size = deletedMessagesForAyu.size(); a < size; a++) {
+                    long possibleDialogId = deletedMessagesForAyu.keyAt(a);
+                    ArrayList<Integer> messageIds = deletedMessagesForAyu.valueAt(a);
+                    ArrayList<Long> dialogIds = new ArrayList<>();
+                    if (possibleDialogId == 0) {
+                        // Telegram sometimes won't give us dialog id directly...
+                        ArrayList<Long> possibleIds = getMessagesStorage().getDialogIdsToUpdate(possibleDialogId, messageIds);
+                        if (possibleIds != null && !possibleIds.isEmpty()) {
+                            dialogIds = possibleIds;
+                        }
+                    }
+                    if (dialogIds.isEmpty()) {
+                        dialogIds.add(possibleDialogId);
+                    }
+                    android.util.Log.i("AyuDebug", "save hook: key=" + possibleDialogId + " -> resolved=" + dialogIds + " ids=" + messageIds);
+                    for (long dialogId : dialogIds) {
+                        ArrayList<TLRPC.Message> messagesToSave = getMessagesStorage().getMessagesStorageMessages(dialogId, messageIds);
+                        android.util.Log.i("AyuDebug", "save hook: dialog=" + dialogId + " storageMsgs=" + (messagesToSave == null ? "null" : messagesToSave.size()));
+                        if (messagesToSave != null && !messagesToSave.isEmpty()) {
+                            for (TLRPC.Message msg : messagesToSave) {
+                                long topicId = MessageObject.getTopicId(accountForAyu, msg, isForum(dialogId));
+                                com.radolyn.ayugram.messages.AyuSavePreferences prefs = new com.radolyn.ayugram.messages.AyuSavePreferences(msg, accountForAyu, dialogId, topicId, msg.id, (int) (getConnectionsManager().getCurrentTime()));
+                                ayuMessagesController.onMessageDeleted(prefs);
+                            }
+                        }
+                        notificationsToSend.put(dialogId, messageIds);
+                    }
+                }
+                if (!notificationsToSend.isEmpty()) {
+                    final LongSparseArray<ArrayList<Integer>> notificationsToSendFinal = notificationsToSend;
+                    AndroidUtilities.runOnUIThread(() -> {
+                        for (int i = 0, n = notificationsToSendFinal.size(); i < n; i++) {
+                            long dialogId = notificationsToSendFinal.keyAt(i);
+                            ArrayList<Integer> messageIds = notificationsToSendFinal.valueAt(i);
+                            getNotificationCenter().postNotificationName(com.radolyn.ayugram.AyuConstants.MESSAGES_DELETED_NOTIFICATION, dialogId, messageIds);
+                        }
+                    });
+                }
+            });
+        }
+        // --- AyuGram request hook ---
+
         LongSparseIntArray markAsReadMessagesInboxFinal = markAsReadMessagesInbox;
         LongSparseIntArray markAsReadMessagesOutboxFinal = markAsReadMessagesOutbox;
         LongSparseArray<ArrayList<Integer>> markContentAsReadMessagesFinal = markContentAsReadMessages;
@@ -21174,6 +21296,13 @@ public class MessagesController extends BaseController implements NotificationCe
         if (webPages != null) {
             getMessagesStorage().putWebPages(webPages);
         }
+        // --- AyuGram hook: save outgoing read dates (exteraless port) ---
+        try {
+            com.radolyn.ayugram.messages.AyuSpyController.onUpdatesRead(currentAccount, markAsReadMessagesOutbox, markAsReadEncrypted, markContentAsReadMessages, markContentAsReadMessagesDate, date);
+        } catch (Throwable t) {
+            FileLog.e("nimarko: ayu spy hook failed", t);
+        }
+        // --- AyuGram hook ---
         if (markAsReadMessagesInbox != null || markAsReadMessagesOutbox != null || markAsReadEncrypted != null || markContentAsReadMessages != null || stillUnreadMessagesCount != null) {
             if (markAsReadMessagesInbox != null || markAsReadMessagesOutbox != null || markContentAsReadMessages != null || stillUnreadMessagesCount != null) {
                 getMessagesStorage().updateDialogsWithReadMessages(markAsReadMessagesInbox, markAsReadMessagesOutbox, markContentAsReadMessages, stillUnreadMessagesCount, true);

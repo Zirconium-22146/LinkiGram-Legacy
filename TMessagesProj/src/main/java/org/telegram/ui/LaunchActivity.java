@@ -1884,6 +1884,19 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                 } else if (Intent.ACTION_VIEW.equals(intent.getAction())) {
                     Uri data = intent.getData();
 
+                    if (data != null) {
+                        String dlUrl = data.toString();
+                        if (dlUrl.startsWith("tg:nimarko_updates") || dlUrl.startsWith("tg://nimarko_updates")) {
+                            AndroidUtilities.runOnUIThread(() -> {
+                                if (!actionBarLayout.getFragmentStack().isEmpty()) {
+                                    BaseFragment fragment = actionBarLayout.getFragmentStack().get(actionBarLayout.getFragmentStack().size() - 1);
+                                    app.nimarkogram.messenger.updater.LinkiUpdateSheet.show(fragment);
+                                }
+                            });
+                            return true;
+                        }
+                    }
+
                     final LinkManager linkManager = new LinkManager(this, intentAccount[0], progress, openedTelegram);
                     if (linkManager.handle(data)) {
                         if (intent.hasExtra(EXTRA_ACTION_TOKEN)) {
@@ -6970,6 +6983,17 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         // after the process was killed while backgrounded.
         try { app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().onAppResume(); } catch (Throwable ignore) {}
         try { app.nimarkogram.messenger.utils.LinkiReleasesAutoJoin.ensureAsync(); } catch (Throwable ignore) {}
+        // Auto update check on launch (only once per process; guarded inside checkOnLaunch).
+        try {
+            AndroidUtilities.runOnUIThread(() -> {
+                try {
+                    if (actionBarLayout != null && !actionBarLayout.getFragmentStack().isEmpty()) {
+                        app.nimarkogram.messenger.updater.NimarkoUpdater.checkOnLaunch(
+                                actionBarLayout.getFragmentStack().get(actionBarLayout.getFragmentStack().size() - 1));
+                    }
+                } catch (Throwable ignore) {}
+            }, 2500);
+        } catch (Throwable ignore) {}
         if (onResumeStaticCallback != null) {
             onResumeStaticCallback.run();
             onResumeStaticCallback = null;
@@ -7065,7 +7089,33 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     public static Runnable whenResumed;
 
+    /**
+     * Applies a pending icon pack change and refreshes the visible UI.
+     *
+     * <p>Icon packs are applied by wrapping the application Resources (see
+     * ApplicationLoader.getResources()). That swap alone does not repaint views that
+     * already hold their drawables, so the visible screens are rebuilt here as well.
+     */
     public void reloadResources() {
+        try {
+            org.telegram.messenger.ApplicationLoader.reloadAppIconResources();
+        } catch (Throwable ignored) {
+        }
+        try {
+            if (actionBarLayout != null) {
+                actionBarLayout.rebuildFragments(
+                        org.telegram.ui.ActionBar.INavigationLayout.REBUILD_FLAG_REBUILD_LAST);
+            }
+            if (rightActionBarLayout != null) {
+                rightActionBarLayout.rebuildFragments(
+                        org.telegram.ui.ActionBar.INavigationLayout.REBUILD_FLAG_REBUILD_LAST);
+            }
+            if (layersActionBarLayout != null) {
+                layersActionBarLayout.rebuildFragments(
+                        org.telegram.ui.ActionBar.INavigationLayout.REBUILD_FLAG_REBUILD_LAST);
+            }
+        } catch (Throwable ignored) {
+        }
     }
     public void invalidateTabletMode() {
         Boolean wasTablet = AndroidUtilities.getWasTablet();

@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  LinkiGram default launcher icon (see config/release/AndroidManifest_standalone.xml).
+  Foreground PNG no longer has the background baked in - it is just the plane.
+  RECOLOR: change the hex in @drawable/icon_background_sa, or drop your own
+  PNG over mipmap-*/icon_foreground_sa.png to recolor the plane itself.
+-->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@mipmap/icon_background_sa" />
+    <background android:drawable="@drawable/icon_background_sa" />
     <foreground android:drawable="@mipmap/icon_foreground_sa" />
 </adaptive-icon>
