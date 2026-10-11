@@ -39,10 +39,16 @@ jobs:
       # The GitHub runner already ships a working Android SDK. android-actions/setup-android
       # is intentionally not used: it tries to install the legacy "tools" package, which
       # Google has removed from its repository and which makes the whole step fail.
+      - name: Locate Android SDK
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-$ANDROID_SDK_ROOT}" >> "$GITHUB_ENV"
+          echo "SDKMANAGER=${ANDROID_SDK_ROOT:-${ANDROID_HOME}}/cmdline-tools/latest/bin/sdkmanager" >> "$GITHUB_ENV"
+          echo "using: ${ANDROID_SDK_ROOT:-${ANDROID_HOME}}"
+
       - name: Install Android SDK, NDK and CMake
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
 
       - name: Setup Python 3.11
         uses: actions/setup-python@v5
