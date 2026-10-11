@@ -36,11 +36,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
+      # The GitHub runner already ships a working Android SDK. android-actions/setup-android
+      # is intentionally not used: it tries to install the legacy "tools" package, which
+      # Google has removed from its repository and which makes the whole step fail.
       - name: Install Android SDK, NDK and CMake
         run: |
+          yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
 
       - name: Setup Python 3.11
