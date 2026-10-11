@@ -103,7 +103,8 @@ android {
     productFlavors {
         afat {
             ndk {
-                abiFilters rootProject.ext.liteAbi
+                // abiFilters() takes varargs, not a list
+                abiFilters(*rootProject.ext.liteAbi)
             }
             ext {
                 abiVersionCode = 9

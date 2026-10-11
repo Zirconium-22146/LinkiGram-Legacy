@@ -228,7 +228,8 @@ android {
         multiDexEnabled true
 
         ndk {
-            abiFilters rootProject.ext.liteAbi
+            // abiFilters() takes varargs, not a list
+            abiFilters(*rootProject.ext.liteAbi)
         }
 
         externalNativeBuild {
