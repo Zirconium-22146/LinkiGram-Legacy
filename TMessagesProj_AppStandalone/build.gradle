@@ -110,8 +110,12 @@ android {
                 abiVersionCode = 9
             }
             if (rootProject.ext.liteBuild) {
-                // let the lite build be installed next to the full one
-                applicationIdSuffix ".lite"
+                // NOTE: no applicationIdSuffix here on purpose. The Google Services
+                // plugin requires every applicationId to be registered in the
+                // google-services.json of the project, and "app.linkigram.messenger.lite"
+                // is not registered there. A suffix would break
+                // :processAfatStandaloneGoogleServices with
+                // "No matching client found for package name".
                 versionNameSuffix "-lite"
             }
             sourceSets.standalone {
