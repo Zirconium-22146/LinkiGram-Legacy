@@ -143,8 +143,9 @@ public class LiteMode {
     }
 
     private static int preprocessFlag(int flag) {
-        if (BuildVars.LITE_VERSION && (flag & FLAG_LIQUID_GLASS) > 0) {
-            // Liquid glass is removed from the lite build.
+        if ((flag & FLAG_LIQUID_GLASS) > 0) {
+            // Linkigram Legacy: liquid glass is removed from the client entirely,
+            // in every build. It is one of the most expensive effects in the UI.
             return 0;
         }
         if ((flag & FLAG_ANIMATED_EMOJI_KEYBOARD) > 0) {
@@ -189,6 +190,8 @@ public class LiteMode {
         if (BuildVars.LITE_VERSION) {
             flags |= FLAGS_LITE;
         }
+        // Linkigram Legacy: liquid glass cannot be turned back on.
+        flags &= ~FLAG_LIQUID_GLASS;
         value = flags;
         savePreference();
     }
@@ -305,10 +308,10 @@ public class LiteMode {
 
         int prevValue = value;
         value = preferences.getInt("lite_mode6", defaultValue);
+        // Liquid glass is gone for good; lite-only flags stay forced on.
+        value &= ~FLAG_LIQUID_GLASS;
         if (BuildVars.LITE_VERSION) {
-            // Lite-only flags are forced on and cannot be switched off;
-            // liquid glass is removed entirely.
-            value = (value | FLAGS_LITE) & ~FLAG_LIQUID_GLASS;
+            value |= FLAGS_LITE;
         }
         if (loaded) {
             onFlagsUpdate(prevValue, value);

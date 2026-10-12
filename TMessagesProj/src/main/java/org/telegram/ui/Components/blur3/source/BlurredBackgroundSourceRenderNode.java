@@ -61,12 +61,25 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
 
     @RequiresApi(api = Build.VERSION_CODES.S)
     public void setBlur(float radius) {
+        // Linkigram Legacy: blur is a GPU-heavy effect and the whole point of this build
+        // is to stay usable on weak hardware, so it is off in both the lite build and the
+        // classic layout. Every blurred header, sheet and frosted panel passes through
+        // here, so this is the one place that removes them all.
+        if (org.telegram.messenger.BuildVars.LITE_VERSION
+                || app.nimarkogram.messenger.NimarkoConfig.classicUi) {
+            radius = 0f;
+        }
         renderNode.setRenderEffect(radius > 0 ? RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP) : null);
     }
 
     @RequiresApi(api = Build.VERSION_CODES.S)
     public void setBlur(float radius, RenderEffect effect) {
-        renderNode.setRenderEffect(RenderEffect.createChainEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP), effect));
+        if (org.telegram.messenger.BuildVars.LITE_VERSION
+                || app.nimarkogram.messenger.NimarkoConfig.classicUi) {
+            radius = 0f;
+            effect = null;
+        }
+        renderNode.setRenderEffect(radius > 0 ? RenderEffect.createChainEffect(RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP), effect) : null);
     }
 
 
