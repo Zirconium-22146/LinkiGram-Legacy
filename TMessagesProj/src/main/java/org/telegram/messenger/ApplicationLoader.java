@@ -400,7 +400,13 @@ public class ApplicationLoader extends Application {
         // controller is the only thing that can arm the local SOCKS listener, so
         // without these calls "Bypass" stays off with no error anywhere.
         try { app.nimarkogram.messenger.wsbypass.NimarkoVpnDetector.start(); } catch (Throwable ignored) {}
-        try { app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().ensureStartedSync(); } catch (Throwable ignored) {}
+        // Linkigram Legacy: arm the relay off the main thread. ensureStartedSync() binds
+        // the local SOCKS listener and can block for as long as the relay takes to answer,
+        // which was delaying the first chat list paint on every cold start.
+        try {
+            app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance()
+                    .ensureStarted();
+        } catch (Throwable ignored) {}
 
         // Re-arm the sleep timer. AlarmManager does not survive a reboot, so a
         // timer set before one would otherwise never fire and the row would keep
