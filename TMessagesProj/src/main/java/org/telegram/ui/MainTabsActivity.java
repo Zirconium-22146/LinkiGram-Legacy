@@ -310,6 +310,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsView.setPadding(dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4), dp(DialogsActivity.MAIN_TABS_MARGIN + 4));
         tabsView.setMaxWidth(dp(328 + DialogsActivity.MAIN_TABS_MARGIN * 2));
 
+        // Linkigram Legacy: the classic layout has no bottom tab bar at all. Keep the
+        // instance (lots of code still reads tabs[]/viewPager) but keep it off screen.
+        if (app.nimarkogram.messenger.NimarkoConfig.classicUi) {
+            tabsView.setVisibility(View.GONE);
+        }
+
         tabs = new GlassTabView[5];
         tabs[INDEX_CHATS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CHATS, R.string.MainTabsChats);
         tabs[INDEX_CONTACTS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CONTACTS, R.string.MainTabsContacts);
@@ -381,6 +387,11 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsViewWrapper.setOnClickListener(v -> {});
         tabsViewWrapper.addView(tabsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
         tabsViewWrapper.setClipToPadding(false);
+        // Linkigram Legacy: hide the wrapper too, otherwise the empty container keeps
+        // reserving the height of the bar at the bottom of the screen.
+        if (app.nimarkogram.messenger.NimarkoConfig.classicUi) {
+            tabsViewWrapper.setVisibility(View.GONE);
+        }
         contentView.addView(tabsViewWrapper, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
 
         updateLayoutWrapper = new UpdateLayoutWrapper(context);
@@ -797,7 +808,10 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             bundle = new Bundle();
         }
 
-        bundle.putBoolean("hasMainTabs", true);
+        // In the classic layout the bottom tab bar is not shown, so the chats list must
+        // not reserve space for it and must render the "three lines" menu in its header
+        // instead -- that is how navigation worked before the tab bar existed.
+        bundle.putBoolean("hasMainTabs", !app.nimarkogram.messenger.NimarkoConfig.classicUi);
         dialogsActivity = new DialogsActivity(bundle);
         dialogsActivity.setMainTabsActivityController(new MainTabsActivityControllerImpl());
         putFragmentAtPosition(POSITION_CHATS, dialogsActivity);
