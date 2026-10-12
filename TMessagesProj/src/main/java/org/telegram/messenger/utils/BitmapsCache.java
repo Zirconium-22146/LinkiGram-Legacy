@@ -100,7 +100,11 @@ public class BitmapsCache {
         useSharedBuffers = w < AndroidUtilities.dp(60) && h < AndroidUtilities.dp(60);
 
         // check cache created in file load queue only for high devices
-        if (SharedConfig.getDevicePerformanceClass() >= SharedConfig.PERFORMANCE_CLASS_HIGH) {
+        // Linkigram Legacy: taking the fast path on every device too. Reading the frame
+        // offsets straight from the file avoids re-decoding the whole cache on the first
+        // open, which is what the chat list hits right after launch.
+        if (SharedConfig.getDevicePerformanceClass() >= SharedConfig.PERFORMANCE_CLASS_HIGH
+                || org.telegram.messenger.BuildVars.LITE_VERSION) {
             fileExist = file.exists();
             if (fileExist) {
                 RandomAccessFile randomAccessFile = null;

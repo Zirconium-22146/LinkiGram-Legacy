@@ -936,7 +936,15 @@ public class ImageLoader {
                         if (args.length >= 3 && "pcache".equals(args[2])) {
                             precache = true;
                         } else {
-                            precache = cacheImage.filter.contains("pcache") || !cacheImage.filter.contains("nolimit") && SharedConfig.getDevicePerformanceClass() != SharedConfig.PERFORMANCE_CLASS_HIGH;
+                            // Linkigram Legacy: forking off precaching on every non-HIGH
+                            // device was what made the chat list crawl -- thumbnails were
+                            // then fetched one cell at a time as they scrolled into view.
+                            // Precaching only changes *when* a bitmap is fetched, it does
+                            // not make it bigger, and the in-memory budget is still capped
+                            // separately. A device with very little RAM opts out below.
+                            precache = cacheImage.filter.contains("pcache")
+                                    || !cacheImage.filter.contains("nolimit")
+                                    && precacheAllowed();
                         }
 
                         if (cacheImage.filter.contains("lastframe")) {
@@ -2045,9 +2053,28 @@ public class ImageLoader {
         return localInstance;
     }
 
+    /**
+     * Whether thumbnails may be fetched ahead of being scrolled into view.
+     * Linkigram Legacy: the in-memory cache is already capped from memoryClass and
+     * trims itself, so prefetching costs memory only transiently and keeps the chat list
+     * from filling in cell by cell. Devices with almost no heap still opt out.
+     */
+    private static Boolean precacheAllowedCache;
+
+    private static boolean precacheAllowed() {
+        if (precacheAllowedCache == null) {
+            int memoryClass = 0;
+            try {
+                memoryClass = ((ActivityManager) ApplicationLoader.applicationContext
+                        .getSystemService(Context.ACTIVITY_SERVICE)).getMemoryClass();
+            } catch (Throwable ignored) {}
+            precacheAllowedCache = memoryClass >= 96;
+        }
+        return precacheAllowedCache;
+    }
+
     public ImageLoader() {
         thumbGeneratingQueue.setPriority(Thread.MIN_PRIORITY);
-
         int memoryClass = ((ActivityManager) ApplicationLoader.applicationContext.getSystemService(Context.ACTIVITY_SERVICE)).getMemoryClass();
         int maxSize;
         if (canForce8888 = memoryClass >= 192) {
