@@ -2877,6 +2877,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         public void resetStuckState() {
             nextPressed = false;
             isRequestingFirebaseSms = false;
+            cancelSendCodeWatchdog();
             if (getParentActivity() != null) {
                 needHideProgress(false);
                 // The page owns the floating button; make sure we are addressing that one.
@@ -3244,6 +3245,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             phoneInputData.patterns = phoneFormatMap.get(codeField.getText().toString());
             int reqId = ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
                 nextPressed = false;
+                cancelSendCodeWatchdog();
                 if (error == null) {
                     if (response instanceof TLRPC.TL_auth_sentCodeSuccess) {
                         final TLRPC.auth_Authorization auth = ((TLRPC.TL_auth_sentCodeSuccess) response).authorization;
@@ -3334,6 +3336,43 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 }
             }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagTryDifferentDc | ConnectionsManager.RequestFlagEnableUnauthorized);
             needShowProgress(reqId);
+            startSendCodeWatchdog();
+        }
+
+        private Runnable sendCodeWatchdog;
+
+        /**
+         * auth.sendCode can hang forever without any callback when the connection cannot
+         * reach Telegram (blocked network, dead pre-auth bypass relay). The screen then
+         * spins with no way out, which looks exactly like a broken button. Give the
+         * request a deadline and release the UI when it is exceeded.
+         */
+        private void startSendCodeWatchdog() {
+            cancelSendCodeWatchdog();
+            sendCodeWatchdog = () -> {
+                if (nextPressed) {
+                    nextPressed = false;
+                    isRequestingFirebaseSms = false;
+                    if (getParentActivity() == null) {
+                        return;
+                    }
+                    needHideProgress(false);
+                    showDoneButton(true, false);
+                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle),
+                            getString(R.string.ErrorOccurred));
+                }
+            };
+            postDelayed(sendCodeWatchdog, 30000);
+        }
+
+        private void cancelSendCodeWatchdog() {
+            if (sendCodeWatchdog != null) {
+                // The runnable was posted on this View, so it must be removed from this
+                // View too -- AndroidUtilities.cancelRunOnUIThread() targets the global
+                // application handler and would silently do nothing here.
+                removeCallbacks(sendCodeWatchdog);
+                sendCodeWatchdog = null;
+            }
         }
 
         private boolean numberFilled;

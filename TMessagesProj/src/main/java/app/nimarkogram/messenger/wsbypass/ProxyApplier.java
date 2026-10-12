@@ -366,8 +366,7 @@ public final class ProxyApplier {
                 return false;
             }
 
-            if (enable && !anyAccountActivated()
-                    && NimarkoWsBypassConfig.routeMode != NimarkoWsBypassConfig.ROUTE_TGWS) {
+            if (enable && !anyAccountActivated()) {
                 // Pre-auth: auth.sendCode/auth.signUp must not be routed through the bypass
                 // relay. Dropping the request with no callback is exactly the silent hang we
                 // are fixing, so refuse to arm the proxy and clear any stale one left over
@@ -379,9 +378,15 @@ public final class ProxyApplier {
                 // here used to wedge the status on "starting" forever -- running=true with
                 // no proxy armed, so no client ever connected and no bridge ever formed.
                 //
-                // The guard is relay-only. tg-ws-linki talks straight to the Telegram
-                // datacenters, so arming it before login is safe and often necessary: on
-                // a blocked network it is the only way to receive the login code at all.
+                // The guard now covers every route mode, tg-ws-linki included. The
+                // embedded WebSocket engine has no way to report "not connected yet" to
+                // ConnectionsManager: it arms 127.0.0.1:port immediately, and while the
+                // bridge is still forming the MTProto connection is simply dropped. auth
+                // .sendCode then never gets a callback and never reports an error, which
+                // is indistinguishable from a dead button on the login screen. Letting the
+                // login use a direct connection makes the failure honest: either it works,
+                // or it errors out instead of hanging. The bypass is armed right after the
+                // account is activated.
                 FileLog.d("ProxyApplier.apply: skipping bypass proxy before authorization");
                 android.util.Log.i("NimarkoProxy", "apply(): skipping bypass proxy before authorization");
                 clearIfLocalProxyPersisted(host);
