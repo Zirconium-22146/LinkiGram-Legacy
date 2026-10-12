@@ -1528,6 +1528,15 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             animated = false;
         }
 
+        // Clear the in-flight flags of the outgoing page. Both are only reset by their
+        // own request callbacks; if such a callback never arrives (dropped connection,
+        // process death during restore) they stay set and onNextPressed() silently
+        // returns forever, leaving the arrow looking dead.
+        if (views[currentViewNum] instanceof PhoneView) {
+            PhoneView phoneView = (PhoneView) views[currentViewNum];
+            phoneView.resetStuckState();
+        }
+
         if (needFloatingButton) {
             if (page == VIEW_PHONE_INPUT) {
                 checkPermissions = true;
@@ -2860,6 +2869,24 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             nextPressed = false;
         }
 
+        /**
+         * Releases the button when leaving this page. Both flags are normally cleared by
+         * their own request callbacks, so a callback that never arrives (connection drop,
+         * process death while restoring) leaves the arrow permanently unresponsive.
+         */
+        public void resetStuckState() {
+            nextPressed = false;
+            isRequestingFirebaseSms = false;
+            if (getParentActivity() != null) {
+                needHideProgress(false);
+                // The page owns the floating button; make sure we are addressing that one.
+                int prevType = currentDoneType;
+                currentDoneType = DONE_TYPE_FLOATING;
+                showDoneButton(true, false);
+                currentDoneType = prevType;
+            }
+        }
+
         @Override
         public void onItemSelected(AdapterView<?> adapterView, View view, int i, long l) {
             if (ignoreSelection) {
@@ -2879,7 +2906,21 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
         @Override
         public void onNextPressed(String code) {
-            if (getParentActivity() == null || nextPressed || isRequestingFirebaseSms) {
+            if (getParentActivity() == null) {
+                return;
+            }
+            if (isRequestingFirebaseSms) {
+                // The automatic SMS read (Firebase/SafetyNet) is in flight and owns the
+                // button until its callback arrives. If that callback never comes the flag
+                // stays true forever and every further tap is dropped without a trace,
+                // leaving the arrow looking dead. Break out of that state and continue.
+                if (nextPressed) {
+                    return;
+                }
+                isRequestingFirebaseSms = false;
+                needHideProgress(false);
+            }
+            if (nextPressed) {
                 return;
             }
 
@@ -3279,6 +3320,13 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                         } else if (error.code != -1000) {
                             AlertsCreator.processError(currentAccount, error, LoginActivity.this, req, phoneInputData.phoneNumber);
                         }
+                    } else if (error.code != -1000) {
+                        // No error text at all. AlertsCreator.processError() also returns
+                        // null in this case, which left the screen silent: no alert and no
+                        // page change, so the arrow just looked broken. Show a generic one.
+                        AlertsCreator.showSimpleAlert(LoginActivity.this,
+                                getString(R.string.RestorePasswordNoEmailTitle),
+                                getString(R.string.ErrorOccurred));
                     }
                 }
                 if (!isRequestingFirebaseSms) {
