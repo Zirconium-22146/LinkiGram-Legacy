@@ -379,13 +379,11 @@ public final class ProxyApplier {
                 // here used to wedge the status on "starting" forever -- running=true with
                 // no proxy armed, so no client ever connected and no bridge ever formed.
                 //
-                // The guard is relay-only, and must stay that way. Extending it to
-                // tg-ws-linki stopped the embedded engine from ever starting: startEmbedded()
-                // is only reached below this gate, so the status flipped to "failed" and
-                // the bypass never came up. tg-ws-linki talks straight to the Telegram
-                // datacenters rather than through the local relay bridge, so it is safe
-                // to arm before login and is the only way to receive the code on a blocked
-                // network.
+                // The guard is relay-only. tg-ws-linki is the mode used to reach Telegram on
+                // a blocked network, including before signing in, so it must stay armable
+                // pre-authorization. What used to break login was not arming it, but arming
+                // it too early: startEmbedded() now waits for the bridge to report ready
+                // before the proxy is pointed at it.
                 FileLog.d("ProxyApplier.apply: skipping bypass proxy before authorization");
                 android.util.Log.i("NimarkoProxy", "apply(): skipping bypass proxy before authorization");
                 clearIfLocalProxyPersisted(host);

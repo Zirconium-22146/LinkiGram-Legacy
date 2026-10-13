@@ -367,6 +367,28 @@ public final class NimarkoWsBypassController {
             return true;
         }
         desiredPort = port;
+
+        // Linkigram Legacy: wait for the bridge to actually come up before the proxy is
+        // armed. Previously ConnectionsManager was pointed at 127.0.0.1 while the core was
+        // still forming its WebSocket, and those MTProto attempts were dropped without any
+        // callback -- which is exactly why auth.sendCode looked like a dead button. The
+        // core reports liveness through stats(); give it a bounded window to produce it.
+        long deadline = android.os.SystemClock.elapsedRealtime() + 10000;
+        while (android.os.SystemClock.elapsedRealtime() < deadline) {
+            String s = TgWsBridge.stats();
+            if (s != null && !s.isEmpty()) {
+                break;
+            }
+            try {
+                Thread.sleep(150);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+        }
+        FileLog.d("NimarkoWsBypassController.startEmbedded: bridge stats after wait = "
+                + TgWsBridge.stats());
+
         boolean applied;
         try {
             applied = ProxyApplier.apply(desiredPort, true, secret, WsBypassCore.LOCAL_PROXY_HOST);
