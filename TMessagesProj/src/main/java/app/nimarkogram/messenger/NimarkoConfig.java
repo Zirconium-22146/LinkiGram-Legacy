@@ -1937,6 +1937,9 @@ public final class NimarkoConfig {
     public static void setClassicUi(boolean value) {
         classicUi = value;
         getEditor().putBoolean("classicUi", classicUi).apply();
+        // SharedConfig caches this flag for the blur/bubble paths; without this the
+        // change would only take effect after a restart.
+        org.telegram.messenger.SharedConfig.invalidateLegacyUiCache();
         // нижняя панель вкладок скрывается полностью (mainTabsVisible); навигация — через меню «три полоски»
         iosStyleComposer = !value;
         getEditor().putBoolean("iosStyleComposer", iosStyleComposer).apply();

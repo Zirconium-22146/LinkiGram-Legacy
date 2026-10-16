@@ -65,8 +65,12 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
         // is to stay usable on weak hardware, so it is off in both the lite build and the
         // classic layout. Every blurred header, sheet and frosted panel passes through
         // here, so this is the one place that removes them all.
-        if (org.telegram.messenger.BuildVars.LITE_VERSION
-                || app.nimarkogram.messenger.NimarkoConfig.classicUi) {
+        //
+        // Read the flag through SharedConfig rather than NimarkoConfig directly: touching
+        // NimarkoConfig here triggers its static initialiser (276 fields, each one hitting
+        // ApplicationLoader.applicationContext), and setBlur() can run early enough for
+        // that context to still be null -- which would turn this into a startup crash.
+        if (org.telegram.messenger.SharedConfig.isLegacyUi()) {
             radius = 0f;
         }
         renderNode.setRenderEffect(radius > 0 ? RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP) : null);
@@ -74,8 +78,7 @@ public class BlurredBackgroundSourceRenderNode implements BlurredBackgroundSourc
 
     @RequiresApi(api = Build.VERSION_CODES.S)
     public void setBlur(float radius, RenderEffect effect) {
-        if (org.telegram.messenger.BuildVars.LITE_VERSION
-                || app.nimarkogram.messenger.NimarkoConfig.classicUi) {
+        if (org.telegram.messenger.SharedConfig.isLegacyUi()) {
             radius = 0f;
             effect = null;
         }

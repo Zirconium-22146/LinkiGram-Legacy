@@ -627,7 +627,7 @@ public class SharedConfig {
             // Linkigram Legacy: the classic layout uses the pre-2023 bubble shape.
             // 17 is the modern fully-rounded bubble; <=11 also disables the circular
             // avatars/media variants that ChatMessageCell branches on.
-            int defaultBubbleRadius = app.nimarkogram.messenger.NimarkoConfig.classicUi ? 10 : 17;
+            int defaultBubbleRadius = isLegacyUi() ? 10 : 17;
             bubbleRadius = preferences.getInt("bubbleRadius", defaultBubbleRadius);
             ivFontSize = preferences.getInt("iv_font_size", fontSize);
             allowBigEmoji = preferences.getBoolean("allowBigEmoji", true);
@@ -1665,6 +1665,44 @@ public class SharedConfig {
             return Math.max(0, normalMs / 4);
         }
         return normalMs;
+    }
+
+    private static Boolean legacyUiCache;
+
+    /**
+     * True in the lite build or when the classic (pre-2023) layout is selected.
+     *
+     * Deliberately does not touch app.nimarkogram.messenger.NimarkoConfig: that class has
+     * hundreds of static fields which each read preferences through
+     * ApplicationLoader.applicationContext, so touching it from a low level render or
+     * animation path can run before the context exists and crash startup. Reading the
+     * single preference directly keeps those call sites cheap and safe.
+     */
+    public static boolean isLegacyUi() {
+        if (legacyUiCache == null) {
+            if (BuildVars.LITE_VERSION) {
+                legacyUiCache = true;
+            } else {
+                boolean v;
+                try {
+                    if (ApplicationLoader.applicationContext == null) {
+                        return false;
+                    }
+                    v = ApplicationLoader.applicationContext
+                            .getSharedPreferences("nimarkoconfig", Context.MODE_PRIVATE)
+                            .getBoolean("classicUi", true);
+                } catch (Throwable ignored) {
+                    return false;
+                }
+                legacyUiCache = v;
+            }
+        }
+        return legacyUiCache;
+    }
+
+    /** Drop the cached legacy-UI flag after the user toggles it in settings. */
+    public static void invalidateLegacyUiCache() {
+        legacyUiCache = null;
     }
 
     public static int measureDevicePerformanceClass() {
