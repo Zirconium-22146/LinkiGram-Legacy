@@ -459,6 +459,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         frameLayout.setClipToPadding(false);
         frameLayout.setClipChildren(false);
         setContentView(frameLayout);
+        attachAnimatedSplash(frameLayout);
         rootAnimatedInsetsListener = new WindowAnimatedInsetsProvider(frameLayout);
         pipActivityController.addPipListener(new IPipActivityListener() {
             final ActivityVisibilityController activityVisibilityController = createActivityVisibilityController(false);
@@ -1192,6 +1193,43 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     public FrameLayout getMainContainerFrameLayout() {
         return frameLayout;
+    }
+
+    /**
+     * Linkigram Legacy: the system splash can only show a static icon, so the "grow into
+     * place" entrance is drawn here instead -- the cat scales up from slightly small and
+     * fades in, then the overlay is dropped. Purely visual and self-removing, so it never
+     * blocks the UI if anything goes wrong.
+     */
+    private void attachAnimatedSplash(FrameLayout parent) {
+        try {
+            final android.widget.ImageView logo = new android.widget.ImageView(this);
+            logo.setImageResource(R.drawable.splash_linki_avd);
+            logo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+            final int pad = AndroidUtilities.dp(48);
+            logo.setPadding(pad, pad, pad, pad);
+
+            // The main layout is attached to this container after this call, so post the
+            // overlay and lift it to the front; added now it would sit underneath.
+            parent.post(() -> {
+                parent.addView(logo, new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+                logo.bringToFront();
+
+                logo.setAlpha(0f);
+                logo.setScaleX(0.72f);
+                logo.setScaleY(0.72f);
+                logo.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(420)
+                        .setInterpolator(new android.view.animation.DecelerateInterpolator())
+                        .withEndAction(() -> logo.animate().alpha(0f).setDuration(220).setStartDelay(140)
+                                .withEndAction(() -> {
+                                    if (logo.getParent() instanceof ViewGroup) {
+                                        ((ViewGroup) logo.getParent()).removeView(logo);
+                                    }
+                                }).start())
+                        .start();
+            });
+        } catch (Throwable ignored) {
+        }
     }
 
     private boolean switchingAccount;
