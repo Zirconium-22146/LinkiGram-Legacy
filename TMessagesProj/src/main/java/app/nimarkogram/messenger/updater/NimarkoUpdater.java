@@ -291,10 +291,12 @@ public class NimarkoUpdater {
     public interface OnCheckFailed { void run(); }
 
     public static void checkOnLaunch(BaseFragment fragment) {
+        // Linkigram Legacy: do not poll timaa130704/LinkiGram on every launch. This fork
+        // ships its own releases and must not be told to install the upstream builds.
         if (launchChecked || !NimarkoUpdateConfig.getAutoOTA()) return;
         launchChecked = true;
-        
-        checkUpdates(fragment, false);
+
+        FileLog.d("NimarkoUpdater: auto update check disabled on launch");
     }
 
     public static void checkUpdates(BaseFragment fragment, boolean manual, OnUpdateNotFound onUpdateNotFound, Runnable onUpdateFound) {
