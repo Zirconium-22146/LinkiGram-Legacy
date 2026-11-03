@@ -218,7 +218,7 @@ android {
         buildConfigField "String", "NIMARKO_TRUSTED_PLUGIN_IDS", configString(privateValue('NIMARKO_TRUSTED_PLUGIN_IDS'))
         buildConfigField "boolean", "LITE_VERSION", (rootProject.ext.liteBuild ? "true" : "false")
 
-        minSdkVersion 24
+        minSdkVersion 21
         targetSdkVersion 36
 
         vectorDrawables.generatedDensities = rootProject.ext.liteBuild
@@ -235,7 +235,7 @@ android {
         externalNativeBuild {
             cmake {
                 version '3.22.1'
-                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-24' //, '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-21' //, '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
                 targets 'tmessages.49'
             }
         }
@@ -372,12 +372,7 @@ def getProps(String propName) {
         return "";
     }
 }
-// Google Services is applied only for the package registered in google-services.json.
-// The Legacy build ships under its own package id (APP_PACKAGE in gradle.properties)
-// and keeps working without FCM: notifications arrive through the project's own proxy.
-if (project.hasProperty("APP_PACKAGE") && project.property("APP_PACKAGE") == 'app.linkigram.messenger') {
-    apply plugin: 'com.google.gms.google-services'
-}
+apply plugin: 'com.google.gms.google-services'
 
 task checkVisibility {
     doFirst {

@@ -58,19 +58,23 @@ jobs:
       - name: Create private.properties
         run: |
           mkdir -p TMessagesProj/config
-          if [ -n "${{ secrets.RELEASE_KEYSTORE_B64 }}" ]; then
-            echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > release.keystore
+          # The Legacy build must not share a signing key with the main LinkiGram
+          # app: with a separate key it can never be updated by, or update, that
+          # build. LEGACY_KEYSTORE_B64 wins over the shared RELEASE_KEYSTORE_B64.
+          if [ -n "${{ secrets.LEGACY_KEYSTORE_B64 }}" ]; then
+            echo "${{ secrets.LEGACY_KEYSTORE_B64 }}" | base64 -d > release.keystore
             cp release.keystore TMessagesProj/config/release.keystore
-            echo "using the keystore from secrets"
+            echo "using the Legacy keystore from secrets"
           else
-            # No signing key configured: generate a throwaway one so CI can still
-            # produce a working (but self-signed) APK.
-            echo "no RELEASE_KEYSTORE_B64 secret, generating a temporary keystore"
+            # No Legacy key configured: generate a throwaway one. The APK will
+            # install, but every build gets a new signature, so updates over an
+            # existing installation will be rejected.
+            echo "no LEGACY_KEYSTORE_B64 secret, generating a temporary keystore"
             keytool -genkeypair -v \
               -keystore TMessagesProj/config/release.keystore \
               -alias androidkey -keyalg RSA -keysize 2048 -validity 10000 \
               -storepass android -keypass android \
-              -dname "CN=Linkigram Legacy, O=Linkigram, C=RU"
+              -dname "CN=Linkigram Legacy, OU=Legacy, O=Linkigram, C=RU"
           fi
           cat > private.properties << 'EOF'
           TELEGRAM_API_ID=${{ secrets.TELEGRAM_API_ID }}
@@ -94,9 +98,9 @@ jobs:
           # Secrets default to the values used by the throwaway keystore above, so the
           # build does not depend on every secret being configured.
           cat >> private.properties << 'EOF'
-          RELEASE_STORE_PASSWORD=${{ secrets.RELEASE_STORE_PASSWORD || 'android' }}
-          RELEASE_KEY_ALIAS=${{ secrets.RELEASE_KEY_ALIAS || 'androidkey' }}
-          RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD || 'android' }}
+          RELEASE_STORE_PASSWORD=${{ secrets.LEGACY_STORE_PASSWORD || secrets.RELEASE_STORE_PASSWORD || 'android' }}
+          RELEASE_KEY_ALIAS=${{ secrets.LEGACY_KEY_ALIAS || secrets.RELEASE_KEY_ALIAS || 'androidkey' }}
+          RELEASE_KEY_PASSWORD=${{ secrets.LEGACY_KEY_PASSWORD || secrets.RELEASE_KEY_PASSWORD || 'android' }}
           EOF
 
       - name: Setup Gradle
