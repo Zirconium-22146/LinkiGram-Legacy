@@ -2,7 +2,6 @@ import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
-apply plugin: 'com.chaquo.python'
 apply plugin: 'org.telegram.build-plugin'
 apply plugin: 'idea'
 
@@ -28,7 +27,6 @@ idea {
 repositories {
     mavenCentral()
     google()
-    maven { url 'https://chaquo.com/maven' }
 }
 
 configurations {
@@ -325,42 +323,6 @@ android {
 }
 
 
-chaquopy {
-    defaultConfig {
-        version = "3.11"
-        def nimarkoBuildPython = System.getenv("NIMARKO_BUILD_PYTHON")
-        if (!nimarkoBuildPython) {
-            nimarkoBuildPython = [
-                    "/usr/bin/python3.11",
-                    "/usr/local/bin/python3.11",
-                    "/opt/nimarko-python-3.11.14/bin/python3.11"
-            ].find { file(it).canExecute() }
-        }
-        buildPython(nimarkoBuildPython ?: "python3.11")
-        pip {
-            options "--find-links", "${project.projectDir}/python-wheels/arm64-v8a"
-            install "requests==2.31.0"
-            install "certifi"
-            install "urllib3"
-            install "mpmath"
-            install "tinydb"
-            install "packaging"
-            install "humanize"
-            install "typing_extensions"
-            install "Pillow"
-            install "lxml"
-            install "numpy==1.26.2"
-            install "cryptography==42.0.8"
-            install "pycryptodome"
-            install "regex==2023.10.3"
-            install "PyYAML"
-            install "beautifulsoup4"
-            install "soupsieve"
-            install "markupsafe"
-            install "mutagen"
-        }
-    }
-}
 
 def getProps(String propName) {
     def propsFile = rootProject.file('local.properties')
