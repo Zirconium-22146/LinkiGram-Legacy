@@ -171,4 +171,9 @@ android {
     }
 }
 
-apply plugin: 'com.google.gms.google-services'
+// Same rule as in TMessagesProj/build.gradle: google-services.json only knows the
+// main package, and the plugin refuses to build for an unregistered applicationId.
+// The Legacy build (app.linkigram.legacy) has no FCM and uses the project proxy.
+if (project.hasProperty("APP_PACKAGE") && project.property("APP_PACKAGE") == 'app.linkigram.messenger') {
+    apply plugin: 'com.google.gms.google-services'
+}
