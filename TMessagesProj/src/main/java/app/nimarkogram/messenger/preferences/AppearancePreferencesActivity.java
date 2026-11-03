@@ -82,7 +82,6 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
     public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         
         items.add(UItem.asHeader(getString(R.string.AP_Header_Appearance)));
-        items.add(UItem.asButton(iconPackRow, getString(R.string.AP_IconReplacements), getIconPackValueText()));
         items.add(UItem.asButton(oneUISwitchesRow, getString(R.string.NM_SwitchStyle), getSwitchStyleValueText()));
         items.add(SettingsHelper.asSwitchCG(disableDividersRow, getString(R.string.AP_DisableDividers))
                 .setChecked(app.nimarkogram.messenger.NimarkoConfig.disableDividers)
@@ -109,13 +108,6 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
                 .setChecked(app.nimarkogram.messenger.NimarkoConfig.drawSnowInActionBar)
         );
         items.add(UItem.asButton(customTitleRow, getString(R.string.NM_CustomTitle), getCustomTitleValueText()));
-        items.add(UItem.asShadow(null));
-
-        items.add(UItem.asHeader(getString(R.string.NM_ClassicUi_Header)));
-        items.add(SettingsHelper.asSwitchCG(classicUiRow,
-                        getString(R.string.NM_ClassicUi),
-                        getString(R.string.NM_ClassicUi_Desc))
-                .setChecked(NimarkoConfig.classicUi));
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(getString(R.string.NM_Chat_Section)));
@@ -173,7 +165,6 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
 
         items.add(UItem.asHeader(getString(R.string.LocalMiscellaneousCache)));
         items.add(UItem.asButton(foldersRow, R.drawable.msg_folders, getString(R.string.CP_Filters_Header)));
-        items.add(UItem.asButton(bottomTabsRow, R.drawable.tabs_reorder, getString(R.string.CP_MainTabs_Header)));
         items.add(UItem.asButton(appBackgroundRow, R.drawable.msg_media, getString(R.string.NM_BG_Title)));
         items.add(UItem.asButton(messagesAndProfilesRow, R.drawable.msg_customize, getString(R.string.CP_ProfileReplyBackground)));
         items.add(UItem.asShadow(null));

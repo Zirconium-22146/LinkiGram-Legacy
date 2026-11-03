@@ -74,7 +74,9 @@ public class BlurredBackgroundDrawableViewFactory {
     private boolean isLiquidGlassEffectAllowed;
 
     public void setLiquidGlassEffectAllowed(boolean liquidGlassEffectAllowed) {
-        isLiquidGlassEffectAllowed = liquidGlassEffectAllowed;
+        // Linkigram Legacy: «жидкое стекло» отключено. Панели используют обычное
+        // размытие blur3 без шейдера преломления.
+        isLiquidGlassEffectAllowed = false;
     }
 
     public BlurredBackgroundDrawable create() {

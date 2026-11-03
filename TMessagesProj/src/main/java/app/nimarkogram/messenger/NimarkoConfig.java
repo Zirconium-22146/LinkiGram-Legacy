@@ -610,7 +610,7 @@ public final class NimarkoConfig {
         getEditor().putInt("lockedChatsBiometricTtlSec", seconds).apply();
     }
 
-    public static boolean glareOnElements = getPreferences().getBoolean("glareOnElements", true);
+    public static boolean glareOnElements = getPreferences().getBoolean("glareOnElements", false);
     public static void toggleGlareOnElements() {
         glareOnElements = !glareOnElements;
         getEditor().putBoolean("glareOnElements", glareOnElements).apply();
@@ -775,7 +775,7 @@ public final class NimarkoConfig {
      * post-2022 look. In the classic layout everything must be drawn on a solid
      * background with the old angular shapes, so this reads as disabled there.
      */
-    public static boolean iosStyleComposer = getPreferences().getBoolean("iosStyleComposer", true);
+    public static boolean iosStyleComposer = getPreferences().getBoolean("iosStyleComposer", false);
     public static void toggleIosStyleComposer() {
         iosStyleComposer = !iosStyleComposer;
         getEditor().putBoolean("iosStyleComposer", iosStyleComposer).apply();
@@ -813,7 +813,7 @@ public final class NimarkoConfig {
     /** Material 3: секции настроек в виде карточек с elevation-тенью.
      *  Перенесено из exteraless (SectionCardRecyclerView): там тень рисуется
      *  принудительно, минуя выключенный по умолчанию SharedConfig.shadowsInSections. */
-    public static boolean materialCards = getPreferences().getBoolean("materialCards", true);
+    public static boolean materialCards = getPreferences().getBoolean("materialCards", false);
     public static void toggleMaterialCards() { materialCards = !materialCards; getEditor().putBoolean("materialCards", materialCards).apply(); }
 
     /** Радиус карточек секций, dp. 0 — секции плоские, без скругления. */
@@ -832,7 +832,9 @@ public final class NimarkoConfig {
     public static final int ICON_REPLACE_MD3 = 2;           
     public static final int ICON_REPLACE_LIQUID_GLASS = 3;  
     public static final int ICON_REPLACE_PLUMPY = 4;        
-    public static volatile int iconReplacement = nmForcePlumpyOnce();
+    // Linkigram Legacy: по умолчанию стандартные иконки Telegram, наборы замены
+    // больше не включаются автоматически.
+    public static volatile int iconReplacement = ICON_REPLACE_NONE;
     public static void setIconReplacement(int v) { iconReplacement = v; getEditor().putInt("iconReplacement", v).apply(); }
 
     private static final int PLUMPY_DEFAULT_VERSION = 1;
@@ -939,8 +941,10 @@ public final class NimarkoConfig {
         getEditor().putString("folderGroupsJson", folderGroupsJson).apply();
     }
 
-    public static boolean showMainTabs = getPreferences().getBoolean("showMainTabs", true);
-    public static void toggleShowMainTabs() { showMainTabs = !showMainTabs; getEditor().putBoolean("showMainTabs", showMainTabs).apply(); }
+    // Linkigram Legacy: нижней панели вкладок больше нет. Поле оставлено только
+    // для совместимости с кодом, который его читает.
+    public static boolean showMainTabs = false;
+    public static void toggleShowMainTabs() { showMainTabs = false; getEditor().putBoolean("showMainTabs", false).apply(); }
 
     /**
      * LinkiGram: показывать ли нижнюю панель вкладок на самом деле.
@@ -948,7 +952,8 @@ public final class NimarkoConfig {
      * навигация идёт через меню «три полоски» в шапке списка чатов.
      */
     public static boolean mainTabsVisible() {
-        return showMainTabs && !classicUi;
+        // Классический интерфейс: нижняя панель не показывается никогда.
+        return false;
     }
 
     public static boolean showMainTabsTitle = getPreferences().getBoolean("showMainTabsTitle", true);
@@ -1931,18 +1936,13 @@ public final class NimarkoConfig {
      * нижнюю панель вкладок, стеклянную шапку и разделённое поле ввода,
      * возвращая старую раскладку со меню «три полоски» в шапке списка чатов.
      */
-    // Linkigram Legacy: the classic pre-2023 layout (hamburger menu, no bottom tab
-    // bar) is the default. It can still be turned off from Appearance settings.
-    public static boolean classicUi = getPreferences().getBoolean("classicUi", true);
+    // Linkigram Legacy: классический интерфейс включён жёстко — нижней панели
+    // вкладок нет, навигация идёт через меню «три полоски» в шапке списка чатов.
+    public static final boolean classicUi = true;
+
+    /** Оставлено для совместимости: переключателя больше нет, значение всегда true. */
     public static void setClassicUi(boolean value) {
-        classicUi = value;
-        getEditor().putBoolean("classicUi", classicUi).apply();
-        // SharedConfig caches this flag for the blur/bubble paths; without this the
-        // change would only take effect after a restart.
         org.telegram.messenger.SharedConfig.invalidateLegacyUiCache();
-        // нижняя панель вкладок скрывается полностью (mainTabsVisible); навигация — через меню «три полоски»
-        iosStyleComposer = !value;
-        getEditor().putBoolean("iosStyleComposer", iosStyleComposer).apply();
     }
 
 

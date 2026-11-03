@@ -1265,8 +1265,9 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
         } else {
             actionBarLayout.removeFragmentFromStack(0);
         }
-        MainTabsActivity mainTabsActivity = dialogsActivityProvider.provide(null);
-        actionBarLayout.addFragmentToStack(mainTabsActivity, INavigationLayout.FORCE_ATTACH_VIEW_AS_FIRST);
+        Bundle classicArgs = new Bundle();
+        classicArgs.putBoolean("needFinishFragment", false);
+        actionBarLayout.addFragmentToStack(new DialogsActivity(classicArgs), INavigationLayout.FORCE_ATTACH_VIEW_AS_FIRST);
         actionBarLayout.rebuildFragments(INavigationLayout.REBUILD_FLAG_REBUILD_LAST);
         if (AndroidUtilities.isTablet()) {
             layersActionBarLayout.rebuildFragments(INavigationLayout.REBUILD_FLAG_REBUILD_LAST);
@@ -3359,12 +3360,13 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     }
                 } else {
                     if (actionBarLayout.getFragmentStack().isEmpty()) {
-                        MainTabsActivity mainTabsActivity = new MainTabsActivity();
-                        DialogsActivity dialogsActivity = mainTabsActivity.prepareDialogsActivity(null);
+                        Bundle classicArgs = new Bundle();
+                        classicArgs.putBoolean("needFinishFragment", false);
+                        DialogsActivity dialogsActivity = new DialogsActivity(classicArgs);
                         if (searchQuery != null) {
                             dialogsActivity.setInitialSearchString(searchQuery);
                         }
-                        actionBarLayout.addFragmentToStack(mainTabsActivity, INavigationLayout.FORCE_NOT_ATTACH_VIEW);
+                        actionBarLayout.addFragmentToStack(dialogsActivity, INavigationLayout.FORCE_NOT_ATTACH_VIEW);
                     }
                 }
             } else {
@@ -3372,12 +3374,13 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
                     if (!UserConfig.getInstance(currentAccount).isClientActivated()) {
                         actionBarLayout.addFragmentToStack(getClientNotActivatedFragment(), INavigationLayout.FORCE_NOT_ATTACH_VIEW);
                     } else {
-                        MainTabsActivity mainTabsActivity = new MainTabsActivity();
-                        DialogsActivity dialogsActivity = mainTabsActivity.prepareDialogsActivity(null);
+                        Bundle classicArgs = new Bundle();
+                        classicArgs.putBoolean("needFinishFragment", false);
+                        DialogsActivity dialogsActivity = new DialogsActivity(classicArgs);
                         if (searchQuery != null) {
                             dialogsActivity.setInitialSearchString(searchQuery);
                         }
-                        actionBarLayout.addFragmentToStack(mainTabsActivity, INavigationLayout.FORCE_NOT_ATTACH_VIEW);
+                        actionBarLayout.addFragmentToStack(dialogsActivity, INavigationLayout.FORCE_NOT_ATTACH_VIEW);
                     }
                 }
             }
