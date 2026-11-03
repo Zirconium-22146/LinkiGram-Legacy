@@ -1,4 +1,4 @@
-package app.nimarkogram.messenger.hooks;
+package app.nimarkogram.messenger.plugins.xposed;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XC_MethodReplacement;
@@ -12,6 +12,8 @@ import java.util.ArrayDeque;
 import java.util.Arrays;
 
 import org.telegram.messenger.FileLog;
+
+import app.nimarkogram.messenger.plugins.bridge.PythonBoundarySanitizer;
 
 public final class PineAdapter extends MethodHook {
 
@@ -156,6 +158,10 @@ public final class PineAdapter extends MethodHook {
 
     private boolean receiverMismatched(Pine.CallFrame cf) {
         if (cf == null) return true;
+        if (PythonBoundarySanitizer.containsRawPythonProxy(
+                cf.thisObject)) {
+            return true;
+        }
         if (member instanceof Method
                 && Modifier.isStatic(((Method) member).getModifiers())) {
             return cf.thisObject != null;
@@ -170,6 +176,15 @@ public final class PineAdapter extends MethodHook {
         if (cf == null) return "<null call frame>";
         Object receiver = cf.thisObject;
         return receiver == null ? "<null>" : receiver.getClass().getName();
+    }
+
+    private static boolean invocationContainsRawPythonProxy(
+            Pine.CallFrame cf) {
+        return cf != null
+                && (PythonBoundarySanitizer.containsRawPythonProxy(
+                cf.thisObject)
+                || PythonBoundarySanitizer.containsRawPythonProxy(
+                cf.args));
     }
 
     private static Object defaultReturnFor(Member m) {
@@ -192,6 +207,9 @@ public final class PineAdapter extends MethodHook {
         if (pt == null || cf == null) return false;
         final Object[] args = cf.args;
         if (args == null || args.length != pt.length) return true;
+        if (PythonBoundarySanitizer.containsRawPythonProxy(args)) {
+            return true;
+        }
         for (int i = 0; i < pt.length; i++) {
             if (!argCompatible(pt[i], args[i])) return true;
         }
@@ -223,6 +241,9 @@ public final class PineAdapter extends MethodHook {
     }
 
     private static Object normalizeResult(Member member, Object value) {
+        if (PythonBoundarySanitizer.containsRawPythonProxy(value)) {
+            return INVALID_RESULT;
+        }
         if (!(member instanceof Method)) return value;
         Class<?> type = ((Method) member).getReturnType();
         if (type == void.class) return null;
@@ -288,6 +309,11 @@ public final class PineAdapter extends MethodHook {
             if (!callbackFailed) {
                 cf.thisObject = param.thisObject;
                 cf.args = param.args;
+                if (invocationContainsRawPythonProxy(cf)) {
+                    FileLog.w("nimarko: raw Python proxy in hook invocation state on "
+                            + member + " — restoring original receiver/arguments");
+                    param.restoreInvocation(cf);
+                }
             }
             if (param.hasThrowable()) {
                 cf.setThrowable(param.getThrowable());
@@ -307,7 +333,7 @@ public final class PineAdapter extends MethodHook {
             } else if (argsTypeMismatched(cf)) {
                 
                 FileLog.w("nimarko: Pine arg type-mismatch on " + member
-                        + " from a hook — restoring original arguments");
+                        + " from a plugin hook — restoring original arguments");
                 param.restoreInvocation(cf);
             } else if (receiverMismatched(cf)) {
                 FileLog.w("nimarko: Pine receiver type-mismatch on " + member

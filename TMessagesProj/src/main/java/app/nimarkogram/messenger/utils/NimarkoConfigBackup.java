@@ -235,7 +235,9 @@ public final class NimarkoConfigBackup {
     }
 
     public static String exportJson() throws Exception {
-        return NimarkoConfig.withSettingsTransaction(NimarkoConfigBackup::exportJsonLocked);
+        return app.nimarkogram.messenger.plugins.PluginsController
+                .withPortablePluginSettingsTransaction(() ->
+                        NimarkoConfig.withSettingsTransaction(NimarkoConfigBackup::exportJsonLocked));
     }
 
     private static String exportJsonLocked() throws Exception {
@@ -402,7 +404,8 @@ public final class NimarkoConfigBackup {
     private static boolean rollbackImport(Throwable failure, List<String> touched,
                                           Map<String, Map<String, Object>> snapshots,
                                           PreparedPythonReplacement preparedPython,
-                                          boolean pythonCommitAttempted) {
+                                          boolean pythonCommitAttempted,
+                                          boolean reloadPythonSettings) {
         boolean preferencesRestored = restoreAllSnapshots(touched, snapshots);
         boolean pythonRestored = true;
         if (preparedPython != null) {
@@ -410,9 +413,18 @@ public final class NimarkoConfigBackup {
                     ? preparedPython.rollback()
                     : preparedPython.abort();
         }
-        if (!preferencesRestored || !pythonRestored) {
+        boolean pythonReloaded = true;
+        if (reloadPythonSettings) {
+            try {
+                pythonReloaded = app.nimarkogram.messenger.plugins.PluginsController.reloadPortablePluginSettings();
+            } catch (Throwable t) {
+                pythonReloaded = false;
+                FileLog.e("Nimarko config rollback could not reload restored plugin settings", t);
+            }
+        }
+        if (!preferencesRestored || !pythonRestored || !pythonReloaded) {
             FileLog.e("Nimarko config import ROLLBACK FAILED: preferences=" + preferencesRestored
-                    + ", python=" + pythonRestored, failure);
+                    + ", python=" + pythonRestored + ", reload=" + pythonReloaded, failure);
             return false;
         }
         FileLog.e("Nimarko config import failed; verified rollback completed", failure);
@@ -421,7 +433,9 @@ public final class NimarkoConfigBackup {
 
     public static boolean importJson(String json) {
         try {
-            return NimarkoConfig.withSettingsTransaction(() -> importJsonLocked(json));
+            return app.nimarkogram.messenger.plugins.PluginsController
+                    .withPortablePluginSettingsTransaction(() ->
+                            NimarkoConfig.withSettingsTransaction(() -> importJsonLocked(json)));
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
@@ -437,6 +451,7 @@ public final class NimarkoConfigBackup {
         ArrayList<String> touched = new ArrayList<>();
         boolean mutationStarted = false;
         boolean pythonCommitAttempted = false;
+        boolean pythonSettingsReloaded = false;
         int version = 0;
         try {
             JSONObject root = new JSONObject(json.trim());
@@ -507,13 +522,19 @@ public final class NimarkoConfigBackup {
                     throw new IllegalStateException("Python settings commit verification failed");
                 }
             }
+            if (version >= 4) {
+                pythonSettingsReloaded = true;
+                if (!app.nimarkogram.messenger.plugins.PluginsController.reloadPortablePluginSettings()) {
+                    throw new IllegalStateException("Python plugin settings reload failed");
+                }
+            }
             if (preparedPython != null && !preparedPython.finish()) {
                 throw new IllegalStateException("Python settings recovery cleanup failed");
             }
         } catch (Throwable failure) {
             if (mutationStarted) {
                 boolean rollbackSucceeded = rollbackImport(failure, touched, snapshots, preparedPython,
-                        pythonCommitAttempted);
+                        pythonCommitAttempted, version >= 4 && pythonSettingsReloaded);
                 if (!rollbackSucceeded) {
                     
                     throw new IllegalStateException("Nimarko config import rollback failed", failure);

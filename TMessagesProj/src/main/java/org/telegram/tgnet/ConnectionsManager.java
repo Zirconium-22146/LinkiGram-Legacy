@@ -408,9 +408,47 @@ public class ConnectionsManager extends BaseController {
             FileLog.e("nimarko: ghost intercept threw", t);
         }
 
+        TLObject hookedObject = objectIn;
+        String requestName = "";
+        try {
+            requestName = objectIn != null ? objectIn.getClass().getSimpleName() : "";
+            TLObject pre = app.nimarkogram.messenger.plugins.PluginsController.getInstance()
+                    .executePreRequestHook(requestName, currentAccount, objectIn);
+            if (pre == null) {
+                // A hook cancelled the request. Log through android.util.Log, not FileLog:
+                // FileLog is gated on BuildVars.LOGS_ENABLED which is false in release
+                // builds, so the drop would be invisible. Without this, auth.sendCode and
+                // friends hang forever with no callback and no error.
+                android.util.Log.e("NimarkoAuth", "pre-request hook cancelled " + requestName + " (account " + currentAccount + ")");
+                return;
+            }
+            hookedObject = pre;
+        } catch (Throwable t) {
+            FileLog.e("nimarko: pre-request hook threw", t);
+        }
+
         final RequestDelegate userOnComplete = onCompleteIn;
-        final TLObject object = objectIn;
-        final RequestDelegate onComplete = (userOnComplete == null) ? null : userOnComplete::run;
+        final String finalRequestName = requestName;
+        final TLObject object = hookedObject;
+        final RequestDelegate onComplete = (userOnComplete == null) ? null : (response, error) -> {
+            try {
+                app.nimarkogram.messenger.plugins.hooks.PluginsHooks.PostRequestResult post =
+                        app.nimarkogram.messenger.plugins.PluginsController.getInstance()
+                                .executePostRequestHook(finalRequestName, currentAccount, response, error);
+                if (post != null) {
+                    userOnComplete.run(post.response, post.error);
+                    return;
+                } else {
+                    // Swallowing the callback leaves the caller waiting forever. Log before
+                    // dropping it so the next capture names the responsible request.
+                    android.util.Log.e("NimarkoAuth", "post-request hook swallowed callback for " + finalRequestName + " (account " + currentAccount + ")");
+                    return;
+                }
+            } catch (Throwable t) {
+                FileLog.e("nimarko: post-request hook threw", t);
+            }
+            userOnComplete.run(response, error);
+        };
         if (BuildVars.LOGS_ENABLED) {
             FileLog.d("send request " + object + " with token = " + requestToken);
         }

@@ -49,8 +49,8 @@ public final class XposedBridge {
             return null;
         }
         try {
-            app.nimarkogram.messenger.hooks.PineAdapter adapter =
-                    new app.nimarkogram.messenger.hooks.PineAdapter(member, callback);
+            app.nimarkogram.messenger.plugins.xposed.PineAdapter adapter =
+                    new app.nimarkogram.messenger.plugins.xposed.PineAdapter(member, callback);
             
             Object pineHandle = top.canyie.pine.Pine.hook(member, adapter);
             if (pineHandle == null) {

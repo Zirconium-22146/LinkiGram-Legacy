@@ -64,6 +64,8 @@ public class UItem extends AdapterWithDiffUtils.Item {
     public Object object2;
 
     public boolean withUsername = true;
+    public app.nimarkogram.messenger.plugins.Plugin plugin;
+    public app.nimarkogram.messenger.plugins.models.SettingItem settingItem;
 
     public UItem(int viewType, boolean selectable) {
         super(viewType, selectable);

@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Locale;
 import java.util.Set;
 
+import app.nimarkogram.messenger.plugins.PluginsController;
 import app.nimarkogram.messenger.preferences.MainPreferencesActivity;
 
 public class SettingsRegistry {
@@ -133,6 +134,9 @@ public class SettingsRegistry {
             addBuiltIn("nimarko_chats", MainPreferencesActivity.ID_CHATS, R.string.NM_Cat_Chats);
             addBuiltIn("nimarko_camera", MainPreferencesActivity.ID_CAMERA, R.string.NM_Cat_Camera);
             addBuiltIn("nimarko_privacy", MainPreferencesActivity.ID_PRIVACY, R.string.NM_Cat_Privacy);
+            if (PluginsController.isPluginEngineSupported()) {
+                addBuiltIn("nimarko_plugins", MainPreferencesActivity.ID_PLUGINS, R.string.Plugins);
+            }
             addBuiltIn("nimarko_media", MainPreferencesActivity.ID_NIMARKO_MEDIA, R.string.NM_DownloadMedia);
             addBuiltIn("nimarko_banners", MainPreferencesActivity.ID_BANNERS, R.string.NM_BAN_Title);
             addBuiltIn("nimarko_wsbypass", MainPreferencesActivity.ID_WSBYPASS, R.string.NM_WSB_Title);

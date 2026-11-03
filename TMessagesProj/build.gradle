@@ -2,6 +2,7 @@ import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 
 apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
+apply plugin: 'com.chaquo.python'
 apply plugin: 'org.telegram.build-plugin'
 apply plugin: 'idea'
 
@@ -27,6 +28,7 @@ idea {
 repositories {
     mavenCentral()
     google()
+    maven { url 'https://chaquo.com/maven' }
 }
 
 configurations {
@@ -63,10 +65,7 @@ dependencies {
     implementation 'androidx.car.app:app-projected:1.4.0'
     implementation 'org.nanohttpd:nanohttpd:2.3.1'
 
-    // CameraX 1.6 switched to CameraPipe and raised its minSdk to 23, which would
-    // drop Android 5.0/5.1 for the whole app. 1.5.3 is the newest release that
-    // still supports API 21; the SessionConfig APIs this fork uses exist in it.
-    def cameraxVersion = '1.5.3'
+    def cameraxVersion = '1.6.1'
     implementation "androidx.camera:camera-camera2:$cameraxVersion"
     implementation "androidx.camera:camera-core:$cameraxVersion"
     implementation "androidx.camera:camera-lifecycle:$cameraxVersion"
@@ -219,7 +218,7 @@ android {
         buildConfigField "String", "NIMARKO_TRUSTED_PLUGIN_IDS", configString(privateValue('NIMARKO_TRUSTED_PLUGIN_IDS'))
         buildConfigField "boolean", "LITE_VERSION", (rootProject.ext.liteBuild ? "true" : "false")
 
-        minSdkVersion 21
+        minSdkVersion 24
         targetSdkVersion 36
 
         vectorDrawables.generatedDensities = rootProject.ext.liteBuild
@@ -236,7 +235,7 @@ android {
         externalNativeBuild {
             cmake {
                 version '3.22.1'
-                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-21' //, '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
+                arguments '-DANDROID_STL=c++_static', '-DANDROID_PLATFORM=android-24' //, '-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON'
                 targets 'tmessages.49'
             }
         }
@@ -326,6 +325,42 @@ android {
 }
 
 
+chaquopy {
+    defaultConfig {
+        version = "3.11"
+        def nimarkoBuildPython = System.getenv("NIMARKO_BUILD_PYTHON")
+        if (!nimarkoBuildPython) {
+            nimarkoBuildPython = [
+                    "/usr/bin/python3.11",
+                    "/usr/local/bin/python3.11",
+                    "/opt/nimarko-python-3.11.14/bin/python3.11"
+            ].find { file(it).canExecute() }
+        }
+        buildPython(nimarkoBuildPython ?: "python3.11")
+        pip {
+            options "--find-links", "${project.projectDir}/python-wheels/arm64-v8a"
+            install "requests==2.31.0"
+            install "certifi"
+            install "urllib3"
+            install "mpmath"
+            install "tinydb"
+            install "packaging"
+            install "humanize"
+            install "typing_extensions"
+            install "Pillow"
+            install "lxml"
+            install "numpy==1.26.2"
+            install "cryptography==42.0.8"
+            install "pycryptodome"
+            install "regex==2023.10.3"
+            install "PyYAML"
+            install "beautifulsoup4"
+            install "soupsieve"
+            install "markupsafe"
+            install "mutagen"
+        }
+    }
+}
 
 def getProps(String propName) {
     def propsFile = rootProject.file('local.properties')

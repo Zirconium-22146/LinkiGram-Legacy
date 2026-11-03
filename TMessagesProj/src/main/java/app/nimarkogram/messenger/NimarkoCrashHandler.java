@@ -4,6 +4,7 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Environment;
 
+import app.nimarkogram.messenger.plugins.PluginsController;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -35,6 +36,38 @@ public final class NimarkoCrashHandler {
             try {
                 dump(thread, throwable);
             } catch (Throwable ignored) {}
+            
+            try {
+                Context context = appContext;
+                if (context != null) {
+                    android.content.SharedPreferences pp = context.getSharedPreferences("plugin_settings", 0);
+                    android.content.SharedPreferences.Editor ed = pp.edit();
+
+                    String attributedId = null;
+                    try {
+                        attributedId = PluginsController.getInstance().attributePluginFromCrashStack(thread, throwable);
+                    } catch (Throwable ignored) {}
+
+                    if (isLikelyPluginCrash(throwable) || attributedId != null) {
+                        ed.putBoolean("had_crash", true);
+                    }
+
+                    if (attributedId != null) {
+                        
+                        ed.putString("crashed_plugin_id", attributedId)
+                                .putBoolean("crashed_plugin_attribution_exact", true);
+                    } else {
+                        ed.remove("crashed_plugin_attribution_exact");
+                        
+                        String tn = thread != null ? thread.getName() : null;
+                        boolean onPluginThread = tn != null && tn.contains("pluginsQueue");
+                        if (!onPluginThread) {
+                            ed.remove("crashed_plugin_id");
+                        }
+                    }
+                    ed.commit();
+                }
+            } catch (Throwable ignored) {}
             if (prior != null) {
                 prior.uncaughtException(thread, throwable);
             } else {
@@ -44,6 +77,30 @@ public final class NimarkoCrashHandler {
         };
         Thread.setDefaultUncaughtExceptionHandler(handler);
         installed = true;
+    }
+
+    private static boolean isLikelyPluginCrash(Throwable t) {
+        Throwable cur = t;
+        int depth = 0;
+        while (cur != null && depth++ < 10) {
+            StackTraceElement[] trace = cur.getStackTrace();
+            if (trace != null) {
+                for (StackTraceElement el : trace) {
+                    String cls = el.getClassName();
+                    if (cls == null) continue;
+                    
+                    if (cls.startsWith("com.chaquo.python.")
+                            || cls.startsWith("app.nimarkogram.messenger.plugins.xposed.")
+                            || cls.startsWith("app.nimarkogram.messenger.plugins.hooks.")
+                            || cls.startsWith("app.nimarkogram.messenger.plugins.intents.")) {
+                        return true;
+                    }
+                    
+                }
+            }
+            cur = cur.getCause();
+        }
+        return false;
     }
 
     public static void dump(Thread thread, Throwable t) {
@@ -104,6 +161,23 @@ public final class NimarkoCrashHandler {
                             }
                             pw.println("Finalizer queue: "
                                     + (n >= 200000 ? ">=200000" : String.valueOf(n)) + " pending");
+                        } catch (Throwable ignored) {
+                        }
+                        try {
+                            StringBuilder sb = new StringBuilder(128);
+                            java.util.Map<String, ?> all = appContext
+                                    .getSharedPreferences("plugin_settings", 0).getAll();
+                            for (java.util.Map.Entry<String, ?> e : all.entrySet()) {
+                                String key = e.getKey();
+                                if (key.startsWith("plugin_enabled_")
+                                        && Boolean.TRUE.equals(e.getValue())) {
+                                    if (sb.length() > 0) sb.append(", ");
+                                    if (sb.length() < 512) {
+                                        sb.append(key.substring("plugin_enabled_".length()));
+                                    }
+                                }
+                            }
+                            pw.println("Enabled plugins: " + (sb.length() > 0 ? sb : "(none)"));
                         } catch (Throwable ignored) {
                         }
                         pw.println("Heap dump: nimarko-logs/oom-" + reportId
