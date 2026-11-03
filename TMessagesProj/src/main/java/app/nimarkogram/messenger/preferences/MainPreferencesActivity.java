@@ -5,8 +5,6 @@ import android.text.Html;
 import android.text.SpannableString;
 import android.view.View;
 
-import app.nimarkogram.messenger.plugins.PluginsController;
-import app.nimarkogram.messenger.plugins.ui.PluginsActivity;
 import app.nimarkogram.messenger.utils.AppRestartHelper;
 import app.nimarkogram.messenger.utils.text.LocaleUtils;
 import app.nimarkogram.messenger.wsbypass.preferences.WsBypassPreferencesActivity;
@@ -30,7 +28,6 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
 
     public static final int ID_RESTART      = 10;
 
-    public static final int ID_PLUGINS        = 20;
     public static final int ID_DEBUG          = 21;
     private static final int ID_EXPERIMENTAL   = 22;
     public static final int ID_NIMARKO_MEDIA  = 23;
@@ -77,10 +74,6 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
         arrayList.add(UItem.asShadow(null));
 
         arrayList.add(UItem.asHeader(LocaleController.getString(R.string.NM_HUB_Header_Misc)));
-        if (PluginsController.isPluginEngineSupported()) {
-            arrayList.add(category(ID_PLUGINS, IconBackgroundColors.PURPLE,
-                    R.drawable.msg_plugins, R.string.Plugins, "nimarko_plugins"));
-        }
         arrayList.add(category(ID_NIMARKO_MEDIA, IconBackgroundColors.BLUE_DEEP,
                 R.drawable.msg_download_solar, R.string.NM_DownloadMedia, "nimarko_media"));
         arrayList.add(category(ID_BANNERS, IconBackgroundColors.ORANGE,
@@ -137,9 +130,6 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
                 break;
             case ID_AYUMOMENTS:
                 presentFragment(new AyuMomentsPreferencesActivity());
-                break;
-            case ID_PLUGINS:
-                presentFragment(new PluginsActivity());
                 break;
             case ID_NIMARKO_MEDIA:
                 presentFragment(new NimarkoMediaPreferencesActivity());
