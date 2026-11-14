@@ -174,12 +174,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         items.add(UItem.asButton(sectionRadiusRow, getString(R.string.AP_SectionRadius), getSectionRadiusValueText()));
         items.add(SettingsHelper.asSwitchCG(forceBlurRow, getString(R.string.NM_ForceBlur))
                 .setChecked(NimarkoConfig.forceBlur));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            items.add(SettingsHelper.asSwitchCG(liquidGlassRow,
-                            getString(R.string.NM_LiquidGlass),
-                            getString(R.string.NM_LiquidGlass_Desc))
-                    .setChecked(LiteMode.isEnabledSetting(LiteMode.FLAG_LIQUID_GLASS)));
-        }
+        // Linkigram Legacy: жидкого стекла в клиенте нет, поэтому и переключателя нет.
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(getString(R.string.AP_Header)));
@@ -437,13 +432,6 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
             updateCheckState(view, NimarkoConfig.forumAvatarsLikeChats);
             
             if (getParentLayout() != null) getParentLayout().rebuildAllFragmentViews(false, false);
-        } else if (item.id == liquidGlassRow) {
-            LiteMode.toggleFlag(LiteMode.FLAG_LIQUID_GLASS);
-            updateCheckState(view, LiteMode.isEnabledSetting(LiteMode.FLAG_LIQUID_GLASS));
-            if (getParentLayout() != null) {
-                getParentLayout().rebuildAllFragmentViews(false, false);
-            }
-            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.cgTabsUpdated);
         } else if (item.id == forceBlurRow) {
             NimarkoConfig.toggleForceBlur();
             updateCheckState(view, NimarkoConfig.forceBlur);

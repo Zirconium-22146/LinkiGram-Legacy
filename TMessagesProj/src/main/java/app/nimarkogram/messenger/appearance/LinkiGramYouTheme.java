@@ -41,7 +41,7 @@ public final class LinkiGramYouTheme {
         try {
             synchronized (LinkiGramYouTheme.class) {
                 if (!loaded) {
-                    enabled = app.nimarkogram.messenger.NimarkoConfig.getPreferences().getBoolean(PREF_ENABLED, true);
+                    enabled = app.nimarkogram.messenger.NimarkoConfig.getPreferences().getBoolean(PREF_ENABLED, false);
                     loaded = true;
                 }
                 return enabled;
