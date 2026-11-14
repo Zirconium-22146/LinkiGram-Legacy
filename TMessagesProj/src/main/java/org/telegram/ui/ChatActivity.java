@@ -1440,6 +1440,32 @@ public class ChatActivity extends BaseFragment implements
                 + (active ? status : LocaleController.getString(R.string.NM_GhostNormalChat)));
     }
 
+    /**
+     * Отступ справа под название чата — по фактической ширине видимых иконок.
+     *
+     * Раньше место было зашито как 52dp под одну иконку и 92dp под две. Кнопка
+     * режима призрака стала третьей, шапка продолжала резервировать 92dp, и
+     * название собеседника рисовалось прямо под иконками.
+     */
+    private void updateTitleRightMargin() {
+        if (avatarContainer == null || avatarContainer.getLayoutParams() == null) return;
+        int iconsWidth = 0;
+        try {
+            if (actionBar != null && actionBar.menu != null) {
+                iconsWidth = actionBar.menu.getVisibleItemsMeasuredWidth();
+            }
+        } catch (Throwable ignored) {}
+        if (iconsWidth <= 0) {
+            iconsWidth = AndroidUtilities.dp(46);
+        }
+        final ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) avatarContainer.getLayoutParams();
+        final int rightMargin = iconsWidth + AndroidUtilities.dp(8);
+        if (lp.rightMargin != rightMargin) {
+            lp.rightMargin = rightMargin;
+            avatarContainer.requestLayout();
+        }
+    }
+
     private void toggleGhostChat() {
         final boolean normal = com.radolyn.ayugram.utils.AyuGhostPreferences.isNormalChat(currentAccount, getDialogId());
         String status = getGhostStatusText();
@@ -4364,6 +4390,7 @@ public class ChatActivity extends BaseFragment implements
         if (chatMode == 0) {
             ghostStatusItem = menu.addItem(ghost_chat_status, R.drawable.ghost_solar);
             updateGhostIndicator();
+            updateTitleRightMargin();
         }
 
         if (chatMode == MODE_QUICK_REPLIES && !QuickRepliesController.isSpecial(quickReplyShortcut)) {
@@ -19222,17 +19249,10 @@ public class ChatActivity extends BaseFragment implements
                 }*/ else {
                     showSearchAsIcon = false;
                 }
-                if (showSearchAsIcon || showAudioCallAsIcon || UserObject.isBotForumWithEditableTopics(currentUser)) {
-                    if (avatarContainer != null && avatarContainer.getLayoutParams() != null) {
-                        // a saved chat has no menu button, but may have the sidebar's button next to the search
-                        final boolean oneIcon = chatMode == MODE_SAVED && (topicsPanelItem == null || topicsPanelItem.getVisibility() != View.VISIBLE);
-                        ((ViewGroup.MarginLayoutParams) avatarContainer.getLayoutParams()).rightMargin = AndroidUtilities.dp(oneIcon ? 52 : 92);
-                    }
-                } else {
-                    if (avatarContainer != null && avatarContainer.getLayoutParams() != null) {
-                        ((ViewGroup.MarginLayoutParams) avatarContainer.getLayoutParams()).rightMargin = AndroidUtilities.dp(52);
-                    }
-                }
+                // Место под название считаем по видимым иконкам шапки, а не 52/92dp:
+                // иконок может быть три (призрак + поиск/звонок + меню).
+                updateTitleRightMargin();
+                AndroidUtilities.runOnUIThread(this::updateTitleRightMargin);
                 if (showSearchAsIcon) {
                     if (!actionBar.isSearchFieldVisible() && searchIconItem != null) {
                         searchIconItem.setVisibility(View.VISIBLE);
