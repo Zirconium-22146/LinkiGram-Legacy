@@ -6,32 +6,35 @@ import static org.telegram.messenger.AndroidUtilities.lerp;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Shader;
+import android.os.Build;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewConfiguration;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.dynamicanimation.animation.DynamicAnimation;
 import androidx.dynamicanimation.animation.FloatPropertyCompat;
 import androidx.dynamicanimation.animation.SpringAnimation;
 import androidx.dynamicanimation.animation.SpringForce;
 
-import android.util.Log;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.LiteMode;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedLinearLayout;
-import org.telegram.ui.Components.CubicBezierInterpolator;
+import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.glass.GlassTabView;
 
-import java.util.HashSet;
-import java.util.Set;
 
-import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.ListAnimator;
-import me.vkryl.android.util.ClickHelper;
 
 @SuppressLint("ViewConstructor")
 public class MainTabsLayout extends AnimatedLinearLayout {
@@ -41,10 +44,37 @@ public class MainTabsLayout extends AnimatedLinearLayout {
     public MainTabsLayout(Context context, Theme.ResourcesProvider resourcesProvider) {
         super(context);
         this.resourcesProvider = resourcesProvider;
+        touchSlop = ViewConfiguration.get(context).getScaledTouchSlop();
+        updateSelectorColor();
     }
 
     private static final float[] PASS_TEXT_SIZES_DP = {12f, 12f, 10f};
     private static final int[] PASS_PADDINGS_DP = {16, 8, 4};
+
+    // --- LinkiGram: режим нижней панели (порт из exteraless) ---
+    public static final int BOTTOM_NAVIGATION_MODE_SHOW = app.nimarkogram.messenger.NimarkoConfig.BOTTOM_NAVIGATION_MODE_SHOW;
+    public static final int BOTTOM_NAVIGATION_MODE_HIDE = app.nimarkogram.messenger.NimarkoConfig.BOTTOM_NAVIGATION_MODE_HIDE;
+    public static final int BOTTOM_NAVIGATION_MODE_FLOATING = app.nimarkogram.messenger.NimarkoConfig.BOTTOM_NAVIGATION_MODE_FLOATING;
+
+    public static int getBottomNavigationMode() {
+        return app.nimarkogram.messenger.NimarkoConfig.getBottomNavigationMode();
+    }
+
+    public static void setBottomNavigationMode(int mode) {
+        app.nimarkogram.messenger.NimarkoConfig.setBottomNavigationMode(mode);
+    }
+
+    public static boolean isBottomNavigationHidden() {
+        return app.nimarkogram.messenger.NimarkoConfig.isBottomNavigationHidden();
+    }
+
+    public static boolean isBottomNavigationVisible() {
+        return app.nimarkogram.messenger.NimarkoConfig.isBottomNavigationVisible();
+    }
+
+    public static boolean isBottomNavigationFloating() {
+        return app.nimarkogram.messenger.NimarkoConfig.isBottomNavigationFloating();
+    }
 
     private int maxWidthPx;
 
@@ -89,7 +119,71 @@ public class MainTabsLayout extends AnimatedLinearLayout {
             }
         }
 
-        applyPassTextSize(chosenPass);
+        final boolean youNavigationStyle = app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle();
+        final boolean youDocked = app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
+                && getBottomNavigationMode() == BOTTOM_NAVIGATION_MODE_SHOW;
+        if (youNavigationStyle) {
+            for (int a = 0, N = getChildCount(); a < N; a++) {
+                final View child = getChildAt(a);
+                if (child instanceof Tab) {
+                    ((Tab) child).setTextSizeDp(app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled() || youDocked ? 11f : 14f);
+                }
+            }
+        } else {
+            applyPassTextSize(chosenPass);
+        }
+
+        if (youNavigationStyle) {
+            // Material You uses compact icon slots; ColorOS gets a full-width,
+            // equal-width icon-and-label bar of its own.
+            final boolean colorOs = app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled()
+                    || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled();
+            final int visibleCount = Math.max(1, visibleChildCount);
+            final int gap = colorOs || youDocked ? 0 : dp(2);
+            final int gapsWidth = gap * (visibleCount - 1);
+            final int slotWidth = colorOs || youDocked ? maxTotalWidthForTabs / visibleCount
+                    : Math.min(dp(48), Math.max(0, (maxTotalWidthForTabs - gapsWidth) / visibleCount));
+            final int availableExtraWidth = Math.max(0, maxTotalWidthForTabs - slotWidth * visibleCount - gapsWidth);
+            float requestedExtraWidth = 0;
+            for (int a = 0, N = getChildCount(); a < N; a++) {
+                final View child = getChildAt(a);
+                if (!isViewVisible(child) || !(child instanceof GlassTabView)) {
+                    continue;
+                }
+                final GlassTabView tab = (GlassTabView) child;
+                if (!colorOs && !youDocked && app.nimarkogram.messenger.NimarkoConfig.showMainTabsTitle) requestedExtraWidth += Math.max(0, tab.measureTextWidth(14f) + dp(8)) * tab.getSelectionProgress();
+            }
+            final float extraScale = requestedExtraWidth > availableExtraWidth && requestedExtraWidth > 0
+                    ? availableExtraWidth / requestedExtraWidth : 1f;
+
+            int l = 0;
+            for (int a = 0, N = getChildCount(); a < N; a++) {
+                final View child = getChildAt(a);
+                if (!isViewVisible(child)) {
+                    tabsWidth[a] = 0;
+                    tabsLeftPos[a] = l;
+                    child.measure(MeasureSpec.makeMeasureSpec(0, MeasureSpec.EXACTLY),
+                            MeasureSpec.makeMeasureSpec(tabHeight, MeasureSpec.EXACTLY));
+                    continue;
+                }
+                float extra = 0;
+                if (!colorOs && !youDocked && app.nimarkogram.messenger.NimarkoConfig.showMainTabsTitle && child instanceof GlassTabView) {
+                    final GlassTabView tab = (GlassTabView) child;
+                    extra = Math.max(0, tab.measureTextWidth(14f) + dp(8)) * tab.getSelectionProgress() * extraScale;
+                }
+                tabsWidth[a] = Math.round(slotWidth + extra);
+                tabsLeftPos[a] = l;
+                l += tabsWidth[a] + gap;
+                child.measure(MeasureSpec.makeMeasureSpec(tabsWidth[a], MeasureSpec.EXACTLY),
+                        MeasureSpec.makeMeasureSpec(tabHeight, MeasureSpec.EXACTLY));
+            }
+            if (visibleCount > 0) {
+                l -= gap;
+            }
+            setMeasuredDimension(l + getPaddingLeft() + getPaddingRight(), height);
+            calculateTotalSizesAfterMeasure();
+            return;
+        }
 
         final int tabPadding = dp(PASS_PADDINGS_DP[chosenPass]);
         final int maxTabTextWidthIfEq = (maxTotalWidthForTabs / Math.max(1, visibleChildCount)) - tabPadding * 2;
@@ -158,8 +252,6 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         default float measureTextWidth(float textSizeDp) { return measureTextWidth(); }
         default void setTextSizeDp(float textSizeDp) {}
     }
-
-
 
     // fills tabsTextWidth[] and return visible child count;
 
@@ -232,12 +324,14 @@ public class MainTabsLayout extends AnimatedLinearLayout {
     protected void onLayout(boolean changed, int l, int t, int r, int b) {
         super.onLayout(changed, l, t, r, b);
         checkVisualWidth();
+        moveSelectorTo(findSelectedTab(), selectorInitialized);
     }
 
     @Override
     protected void onItemsChanged() {
         super.onItemsChanged();
         checkVisualWidth();
+        moveSelectorTo(findSelectedTab(), selectorInitialized);
     }
 
     private void checkVisualWidth() {
@@ -248,26 +342,91 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         }
     }
 
-
-
-
-
-
-
+    @Override
+    protected boolean shouldAnimateItemLayout() {
+        // Material tab widths already follow the selection animator each frame.
+        return !app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle();
+    }
 
     public void setTabSelected(View tab, boolean animated) {
         for (int a = 0, N = getChildCount(); a < N; a++) {
             final View child = getChildAt(a);
             if (child instanceof GlassTabView) {
                 ((GlassTabView) child).setSelected(child == tab, animated);
+                ((GlassTabView) child).setSkipDrawSelector(!app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle());
             }
         }
+        moveSelectorTo(tab, animated);
+        if (app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle()) {
+            requestLayout();
+        }
+    }
+
+    public void setSelectorToSelectedTab(boolean animated) {
+        updateSelectorColor();
+        final View selected = findSelectedTab();
+        for (int a = 0, N = getChildCount(); a < N; a++) {
+            final View child = getChildAt(a);
+            if (child instanceof GlassTabView) {
+                ((GlassTabView) child).setSkipDrawSelector(!app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle());
+            }
+        }
+        moveSelectorTo(selected, animated);
+    }
+
+    private void moveSelectorTo(View tab, boolean animated) {
+        if (isDraggingSelector || selectorFollowsPager || tab == null
+                || tab.getVisibility() != View.VISIBLE || tab.getWidth() == 0 || getWidth() == 0) {
+            return;
+        }
+        final float centerX = getCenterX(tab);
+        if (animated && selectorInitialized && Math.abs(selectorTargetX - centerX) < 0.5f) {
+            return;
+        }
+        selectorTargetX = centerX;
+        if (animated && selectorInitialized) {
+            selectedTabPositionOffsetX.animateToFinalPosition(0);
+            selectedTabPositionX.animateToFinalPosition(centerX);
+            // Keep the current position and velocity when a second tap retargets the spring.
+            if (!selectorStretchXAnimation.isRunning()) {
+                selectorStretchXAnimation.setStartVelocity(1.1f);
+                selectorStretchXAnimation.animateToFinalPosition(1f);
+                selectorStretchYAnimation.setStartVelocity(-0.45f);
+                selectorStretchYAnimation.animateToFinalPosition(1f);
+            }
+        } else {
+            selectedTabPositionX.cancel();
+            selectedTabPositionOffsetX.cancel();
+            animatedLongSelectedViewCenterX = centerX;
+            animatedLongSelectedViewOffsetX = 0;
+            selectorInitialized = true;
+            invalidate();
+        }
+    }
+
+    public void setSelectorFollowsPager(boolean followsPager) {
+        selectorFollowsPager = followsPager;
+    }
+
+    public void setSelectorBetween(View from, View to, float progress) {
+        if (isDraggingSelector || from == null || to == null
+                || from.getWidth() == 0 || to.getWidth() == 0) {
+            return;
+        }
+        selectedTabPositionX.cancel();
+        selectedTabPositionOffsetX.cancel();
+        animatedLongSelectedViewCenterX = lerp(getCenterX(from), getCenterX(to),
+                Math.max(0f, Math.min(1f, progress)));
+        animatedLongSelectedViewOffsetX = 0;
+        selectorTargetX = animatedLongSelectedViewCenterX;
+        selectorInitialized = true;
+        invalidate();
     }
 
     private View findSelectedTab() {
         for (int a = 0, N = getChildCount(); a < N; a++) {
             final View child = getChildAt(a);
-            if (child.getVisibility() != View.VISIBLE) {
+            if (child.getVisibility() != View.VISIBLE || !isViewVisible(child)) {
                 continue;
             }
 
@@ -280,44 +439,61 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         return null;
     }
 
-    private final Runnable restoreDrawSelector = () -> setSkipDrawSelector(false);
-
-    private boolean drawCustomSelector;
-    private void setSkipDrawSelector(boolean skipDrawSelector) {
-        drawCustomSelector = skipDrawSelector;
-        if (drawCustomSelector) {
-            selectorPaint.setColor(Theme.multAlpha(Theme.getColor(Theme.key_glass_tabSelected, resourcesProvider), 0.09f));
+    @Override
+    public void draw(@NonNull Canvas canvas) {
+        // LinkiGram moving light: the rim light follows the dragged selector instead of a shader uniform.
+        if (LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)
+                && Build.VERSION.SDK_INT >= 33 && selectorInitialized
+                && getBackground() instanceof BlurredBackgroundDrawable) {
+            final BlurredBackgroundDrawable glass = (BlurredBackgroundDrawable) getBackground();
+            final float width = Math.max(1f, getWidth() - getPaddingLeft() - getPaddingRight());
+            final float x = (animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX - getPaddingLeft()) / width;
+            final float clamped = Math.max(0f, Math.min(1f, x));
+            // 0 degrees is the light from straight above, positive towards the left. The rim geometry is
+            // baked into a nine-patch and cached per angle, so quantise: a continuous angle would re-bake
+            // on every frame of the selector drag.
+            final float angle = Math.round((0.5f - clamped) * 120f / 4f) * 4f;
+            glass.setLightAngle(angle);
+            // the rich Backdrop lens of the bottom bar: its light follows the selector and the press
+            glass.setGlassLightPosition(clamped, selectorPress);
         }
-        for (int a = 0, N = getChildCount(); a < N; a++) {
-            final View child = getChildAt(a);
-            if (child.getVisibility() != View.VISIBLE) {
-                continue;
-            }
-
-            if (child instanceof GlassTabView) {
-                ((GlassTabView) child).setSkipDrawSelector(skipDrawSelector);
-            }
-        }
-        invalidate();
+        super.draw(canvas);
     }
 
-
-
-
-
-
+    private void updateSelectorColor() {
+        final int background = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
+        final boolean dark = androidx.core.graphics.ColorUtils.calculateLuminance(background) < 0.5;
+        selectorPaint.setColor(dark ? 0x24FFFFFF : 0x14000000);
+    }
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
-        if (drawCustomSelector) {
+        if (selectorInitialized && !app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle()) {
             final float x = animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX;
             final float sWidth = getInterpolatedWidthByX(x, this);
             final float sHeight = getHeight() - getPaddingTop() - getPaddingBottom();
-
-            canvas.drawRoundRect(
-                    x - sWidth / 2f, (getHeight() - sHeight) / 2f,
-                    x + sWidth / 2f, (getHeight() + sHeight) / 2f,
-                    sHeight / 2f, sHeight / 2f, selectorPaint);
+            selectorRect.set(x - sWidth / 2f, (getHeight() - sHeight) / 2f,
+                    x + sWidth / 2f, (getHeight() + sHeight) / 2f);
+            final float radius = sHeight / 2f;
+            canvas.save();
+            final float travel = Math.min(0.18f,
+                    Math.abs(selectorTargetX - x) / Math.max(1f, sWidth) * 0.16f);
+            final boolean liquidGlass = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS);
+            if (liquidGlass) {
+                canvas.scale((selectorStretchX + travel) * (1f + selectorPress * 0.08f),
+                        (selectorStretchY - travel * 0.3f) * (1f + selectorPress * 0.20f),
+                        x, getHeight() / 2f);
+            }
+            canvas.drawRoundRect(selectorRect, radius, radius, selectorPaint);
+            if (liquidGlass) {
+                final float lightOffset = Math.max(-sWidth * 0.35f,
+                        Math.min(sWidth * 0.35f, selectorTargetX - x));
+                selectorLightMatrix.setTranslate(x + lightOffset, 0);
+                selectorLightShader.setLocalMatrix(selectorLightMatrix);
+                canvas.drawRoundRect(selectorRect, radius, radius, selectorHighlightPaint);
+                canvas.drawRoundRect(selectorRect, radius, radius, selectorEdgePaint);
+            }
+            canvas.restore();
         }
 
         super.dispatchDraw(canvas);
@@ -325,8 +501,55 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
 
     final Paint selectorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-    final SpringAnimation scaleX = new SpringAnimation(this, DynamicAnimation.SCALE_X, 1f);
-    final SpringAnimation scaleY = new SpringAnimation(this, DynamicAnimation.SCALE_Y, 1f);
+    private final Paint selectorHighlightPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint selectorEdgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF selectorRect = new RectF();
+    private final Matrix selectorLightMatrix = new Matrix();
+    private final LinearGradient selectorLightShader = new LinearGradient(-dp(40), 0, dp(40), 0,
+            new int[]{0x00FFFFFF, 0x10FFFFFF, 0x00FFFFFF}, null, Shader.TileMode.CLAMP);
+    private boolean selectorInitialized;
+    private boolean selectorFollowsPager;
+    private float selectorTargetX;
+    private float selectorStretchX = 1f;
+    private float selectorStretchY = 1f;
+    private float selectorPress;
+    private final SpringAnimation selectorPressAnimation = new SpringAnimation(this,
+            new FloatPropertyCompat<MainTabsLayout>("selectorPress") {
+                @Override
+                public float getValue(MainTabsLayout object) {
+                    return object.selectorPress;
+                }
+
+                @Override
+                public void setValue(MainTabsLayout object, float value) {
+                    object.selectorPress = value;
+                    object.invalidate();
+                }
+            }).setSpring(new SpringForce(0f).setStiffness(500f).setDampingRatio(0.8f));
+    private final SpringAnimation selectorStretchXAnimation = new SpringAnimation(this, new FloatPropertyCompat<MainTabsLayout>("selectorStretchX") {
+        @Override
+        public float getValue(MainTabsLayout object) {
+            return object.selectorStretchX;
+        }
+
+        @Override
+        public void setValue(MainTabsLayout object, float value) {
+            object.selectorStretchX = value;
+            object.invalidate();
+        }
+    });
+    private final SpringAnimation selectorStretchYAnimation = new SpringAnimation(this, new FloatPropertyCompat<MainTabsLayout>("selectorStretchY") {
+        @Override
+        public float getValue(MainTabsLayout object) {
+            return object.selectorStretchY;
+        }
+
+        @Override
+        public void setValue(MainTabsLayout object, float value) {
+            object.selectorStretchY = value;
+            object.invalidate();
+        }
+    });
 
     final SpringAnimation selectedTabPositionOffsetX = new SpringAnimation(this, new FloatPropertyCompat<MainTabsLayout>("selectedTabPositionOffsetX") {
         @Override
@@ -354,261 +577,185 @@ public class MainTabsLayout extends AnimatedLinearLayout {
     });
 
     {
+        selectorHighlightPaint.setColor(Color.WHITE);
+        selectorHighlightPaint.setShader(selectorLightShader);
+        selectorEdgePaint.setStyle(Paint.Style.STROKE);
+        selectorEdgePaint.setStrokeWidth(dp(0.75f));
+        selectorEdgePaint.setColor(0x10FFFFFF);
+        selectorStretchXAnimation.setSpring(new SpringForce(1f).setStiffness(420f).setDampingRatio(0.42f));
+        selectorStretchYAnimation.setSpring(new SpringForce(1f).setStiffness(420f).setDampingRatio(0.42f));
         selectedTabPositionOffsetX.setSpring(new SpringForce(1)
             .setStiffness(SpringForce.STIFFNESS_MEDIUM)
             .setDampingRatio(SpringForce.DAMPING_RATIO_LOW_BOUNCY));
-        scaleX.setSpring(new SpringForce(1f)
-            .setStiffness(250)
-            .setDampingRatio(0.25f));
-        scaleY.setSpring(new SpringForce(1f)
-            .setStiffness(250)
-            .setDampingRatio(0.25f));
-        selectedTabPositionX.setSpring(new SpringForce(1f)
-            .setStiffness(SpringForce.STIFFNESS_MEDIUM)
-            .setDampingRatio(SpringForce.DAMPING_RATIO_LOW_BOUNCY));
+        selectedTabPositionX.setSpring(new SpringForce(0f)
+            .setStiffness(320f)
+            .setDampingRatio(0.78f));
     }
 
     private float animatedLongSelectedViewCenterX;
     private float animatedLongSelectedViewOffsetX;
 
-    private boolean isInLongPress;
-    private float lastLongSelectedViewCenterX;
-    private float lastLongSelectedViewWidth;
-    private View lastLongSelectedView;
+    private final int touchSlop;
+    private int selectorPointerId = -1;
+    private float touchDownX;
+    private float touchDownY;
+    private boolean isDraggingSelector;
+    private View dragOriginalTab;
 
+    private void updateDragSelector(float x) {
+        final float nextX = clampXToChildrenCenters(x, this);
+        final float movement = Math.min(0.12f,
+                Math.abs(nextX - animatedLongSelectedViewCenterX) / Math.max(1f, dp(72)));
+        animatedLongSelectedViewCenterX = nextX;
+        selectorTargetX = nextX;
+        selectorStretchX = 1.04f + movement;
+        selectorStretchY = 0.98f - movement * 0.3f;
+        selectorInitialized = true;
+        final View nearest = findNearestVisibleChildByX(nextX, this);
+        for (int i = 0; i < getChildCount(); i++) {
+            final View child = getChildAt(i);
+            if (child instanceof GlassTabView) {
+                ((GlassTabView) child).setSelected(child == nearest, true);
+            }
+        }
+        invalidate();
+    }
 
+    private void finishSelectorDrag(boolean cancelled, float x) {
+        final View target = cancelled ? dragOriginalTab : findNearestVisibleChildByX(x, this);
+        isDraggingSelector = false;
+        // Restore the committed tab before asking the host to switch pages. Its click
+        // listener can refuse a switch while another navigation gesture is active.
+        if (dragOriginalTab != null) {
+            setTabSelected(dragOriginalTab, true);
+        }
+        if (!cancelled && target != null && target != dragOriginalTab) {
+            target.performClick();
+        }
+        setSelectorToSelectedTab(true);
+        selectorStretchXAnimation.animateToFinalPosition(1f);
+        selectorStretchYAnimation.animateToFinalPosition(1f);
+        dragOriginalTab = null;
+        selectorPointerId = -1;
+        if (getParent() != null) {
+            getParent().requestDisallowInterceptTouchEvent(false);
+        }
+    }
 
-
-    public static View findChildUnder(ViewGroup parent, float x, float y) {
-        for (int i = parent.getChildCount() - 1; i >= 0; i--) {
-            View child = parent.getChildAt(i);
-
-            if (child.getVisibility() != View.VISIBLE) continue;
-
-            if (x >= child.getLeft() && x <= child.getRight()
-                    && y >= child.getTop() && y <= child.getBottom()) {
+    @Nullable
+    private View findTabUnder(float x, float y) {
+        for (int i = getChildCount() - 1; i >= 0; i--) {
+            final View child = getChildAt(i);
+            if (child instanceof GlassTabView && child.getVisibility() == View.VISIBLE
+                    && isViewVisible(child) && x >= child.getX() && x <= child.getX() + child.getWidth()
+                    && y >= child.getY() && y <= child.getY() + child.getHeight()) {
                 return child;
             }
         }
         return null;
     }
 
-    private void checkLongMove(float x_, float y, boolean start, boolean end) {
-        final float x = clampXToChildrenCenters(x_, this);
-        final View found = findNearestVisibleChildByX(x, this);
-        if (start) {
-            View selected = findSelectedTab();
-            if (selected != null) {
-                animatedLongSelectedViewCenterX = selected.getX() + selected.getWidth() / 2f;
-                animatedLongSelectedViewOffsetX = animatedLongSelectedViewCenterX - x;
-                selectedTabPositionOffsetX.animateToFinalPosition(0);
-                if (selected != found && found != null) {
-                    found.performClick();
+    @Override
+    public boolean dispatchTouchEvent(MotionEvent event) {
+        final int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL
+                || action == MotionEvent.ACTION_POINTER_UP) {
+            selectorPressAnimation.animateToFinalPosition(0f);
+        }
+        if (action == MotionEvent.ACTION_DOWN) {
+            selectorPointerId = findTabUnder(event.getX(), event.getY()) != null
+                    ? event.getPointerId(0) : -1;
+            touchDownX = event.getX();
+            touchDownY = event.getY();
+            if (selectorPointerId != -1) {
+                selectorPressAnimation.animateToFinalPosition(1f);
+            }
+            if (selectorPointerId != -1 && getParent() != null) {
+                getParent().requestDisallowInterceptTouchEvent(true);
+            }
+        } else if (selectorPointerId != -1) {
+            final int pointerIndex = event.findPointerIndex(selectorPointerId);
+            final boolean pointerLost = pointerIndex < 0 || (action == MotionEvent.ACTION_POINTER_UP
+                    && event.getPointerId(event.getActionIndex()) == selectorPointerId);
+            final float x = pointerIndex >= 0 ? event.getX(pointerIndex) : touchDownX;
+            final float y = pointerIndex >= 0 ? event.getY(pointerIndex) : touchDownY;
+            if (pointerLost || action == MotionEvent.ACTION_CANCEL) {
+                if (isDraggingSelector) {
+                    finishSelectorDrag(true, x);
+                    return true;
+                }
+                selectorPointerId = -1;
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(false);
+                }
+                if (pointerLost) {
+                    final MotionEvent cancel = MotionEvent.obtain(event);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    super.dispatchTouchEvent(cancel);
+                    cancel.recycle();
+                    return true;
+                }
+            } else if (action == MotionEvent.ACTION_MOVE) {
+                if (!isDraggingSelector && Math.abs(x - touchDownX) > touchSlop
+                        && Math.abs(x - touchDownX) > Math.abs(y - touchDownY)) {
+                    dragOriginalTab = findSelectedTab();
+                    isDraggingSelector = true;
+                    selectorFollowsPager = false;
+                    selectedTabPositionX.cancel();
+                    selectedTabPositionOffsetX.cancel();
+                    animatedLongSelectedViewOffsetX = animatedLongSelectedViewCenterX
+                            - clampXToChildrenCenters(x, this);
+                    selectedTabPositionOffsetX.animateToFinalPosition(0);
+                    selectorStretchXAnimation.cancel();
+                    selectorStretchYAnimation.cancel();
+                    // Cancel the child's click/long press only once dragging is claimed.
+                    final MotionEvent cancel = MotionEvent.obtain(event);
+                    cancel.setAction(MotionEvent.ACTION_CANCEL);
+                    super.dispatchTouchEvent(cancel);
+                    cancel.recycle();
+                }
+                if (isDraggingSelector) {
+                    updateDragSelector(x);
+                    return true;
+                }
+            } else if (action == MotionEvent.ACTION_UP) {
+                if (isDraggingSelector) {
+                    finishSelectorDrag(y < -touchSlop || y > getHeight() + touchSlop, x);
+                    return true;
+                }
+                selectorPointerId = -1;
+                if (getParent() != null) {
+                    getParent().requestDisallowInterceptTouchEvent(false);
                 }
             }
-            selectedTabPositionX.cancel();
         }
-
-        if (!end) {
-            animatedLongSelectedViewCenterX = x;
-            invalidate();
-        }
-
-        if (found != null) {
-            lastLongSelectedView = found;
-            setTabSelected(found, true);
-
-            if (end) {
-                final float vw = found.getWidth();
-                final float cx = found.getX() + vw / 2f;
-                if (lastLongSelectedViewWidth != vw || lastLongSelectedViewCenterX != cx) {
-                    selectedTabPositionX.animateToFinalPosition(cx);
-                }
-            }
-        }
-    }
-
-    private final Set<View> tabsWithIgnoreClick = new HashSet<>();
-    public void addTabToIgnoreClick(View v) {
-        tabsWithIgnoreClick.add(v);
-    }
-
-    private final BoolAnimator animatorIsScaled = new BoolAnimator(0, (a, factor, c, g) -> {
-        setScaleX(lerp(1, 1.019f, factor));
-        setScaleY(lerp(1, 1.019f, factor));
-    }, CubicBezierInterpolator.EASE_OUT_QUINT, 380);
-
-    private final ClickHelper clickHelper = new ClickHelper(new ClickHelper.Delegate() {
-        @Override
-        public boolean needClickAt(View view, float x, float y) {
-            lastLongSelectedView = null;
-            final View found = findChildUnder(MainTabsLayout.this, x, y);
-            return found != null && !tabsWithIgnoreClick.contains(found);
-        }
-
-        @Override
-        public void onClickAt(View view, float x, float y) {
-        }
-
-        @Override
-        public boolean needLongPress(float x, float y) {
-            return true;
-        }
-
-        @Override
-        public boolean needCancelTouchBySlopMove() {
-            return false;
-        }
-
-
-        @Override
-        public boolean onLongPressRequestedAt(View view, float x, float y) {
-            checkPivot(view, x, y);
-            isInLongPress = true;
-            AndroidUtilities.cancelRunOnUIThread(restoreDrawSelector);
-            setSkipDrawSelector(true);
-            checkLongMove(x, y, true, false);
-            invalidate();
-            longTouchStart();
-            return true;
-        }
-
-        @Override
-        public void onLongPressMove(View view, MotionEvent e, float x, float y, float startX, float startY) {
-            checkPivot(view, x, y);
-            checkLongMove(x, y, false, false);
-            invalidate();
-        }
-
-        @Override
-        public long getLongPressDuration() {
-            return ClickHelper.Delegate.super.getLongPressDuration() * 750 / 1000;
-        }
-
-        @Override
-        public void onLongPressFinish(View view, float x, float y) {
-            checkPivot(view, x, y);
-            checkLongMove(x, y, false, true);
-            isInLongPress = false;
-            AndroidUtilities.runOnUIThread(restoreDrawSelector, 450);
-            if (lastLongSelectedView != null) {
-                lastLongSelectedView.performClick();
-            }
-            lastLongSelectedView = null;
-            invalidate();
-            longTouchEnd();
-        }
-
-        @Override
-        public void onLongPressCancelled(View view, float x, float y) {
-            checkPivot(view, x, y);
-            checkLongMove(x, y, false, true);
-            isInLongPress = false;
-            AndroidUtilities.runOnUIThread(restoreDrawSelector, 450);
-            lastLongSelectedView = null;
-            invalidate();
-            longTouchEnd();
-        }
-
-        private void longTouchStart() {
-            animatorIsScaled.setValue(true, true);
-
-            /*
-            if (!scaleX.isRunning()) {
-                scaleX.setStartVelocity(-0.45f);
-                scaleY.setStartVelocity(-0.45f);
-            }
-            scaleX.animateToFinalPosition(1.012f);
-            scaleY.animateToFinalPosition(1.012f);
-            */
-        }
-
-        private void longTouchEnd() {
-            animatorIsScaled.setValue(false, true);
-
-            /*
-            if (!scaleX.isRunning()) {
-                scaleX.setStartVelocity(0.25f);
-                scaleY.setStartVelocity(0.25f);
-            }
-            scaleX.animateToFinalPosition(1f);
-            scaleY.animateToFinalPosition(1f);
-            */
-        }
-    });
-
-    @Override
-    public void setScaleY(float scaleY) {
-        super.setScaleY(scaleY);
-        checkLayerType();
+        return super.dispatchTouchEvent(event);
     }
 
     @Override
-    public void setScaleX(float scaleX) {
-        super.setScaleX(scaleX);
-        checkLayerType();
-    }
-
-    private void checkLayerType() {
-        final int layerType = Math.abs(getScaleX() - 1f) < 0.0001f && Math.abs(getScaleY() - 1f) < 0.0001f ?
-            View.LAYER_TYPE_NONE : View.LAYER_TYPE_HARDWARE;
-
-        if (getLayerType() != layerType) {
-            setLayerType(layerType, null);
-            invalidate();
+    protected void onDetachedFromWindow() {
+        if (isDraggingSelector) {
+            isDraggingSelector = false;
+            if (dragOriginalTab != null) {
+                setTabSelected(dragOriginalTab, false);
+            }
         }
-    }
-
-
-    private void checkPivot(View view, float x, float y) {
-        float w = view.getWidth();
-        float h = view.getHeight();
-
-        if (w <= 0f || h <= 0f) {
-            return;
+        selectorPointerId = -1;
+        dragOriginalTab = null;
+        selectedTabPositionX.cancel();
+        selectedTabPositionOffsetX.cancel();
+        selectorStretchXAnimation.cancel();
+        selectorStretchYAnimation.cancel();
+        selectorPressAnimation.cancel();
+        selectorPress = 0f;
+        selectorStretchX = selectorStretchY = 1f;
+        selectorInitialized = false;
+        selectorFollowsPager = false;
+        if (getParent() != null) {
+            getParent().requestDisallowInterceptTouchEvent(false);
         }
-
-        float cx = w * 0.5f;
-        float cy = h * 0.5f;
-
-        float dx = x - cx;
-        float dy = y - cy;
-
-        float halfW = w * 0.5f;
-        float halfH = h * 0.5f;
-
-        float nx = dx / halfW;
-        float ny = dy / halfH;
-
-        float r = (float) Math.sqrt(nx * nx + ny * ny);
-
-        float pivotX;
-        float pivotY;
-
-        if (r > 1e-4f) {
-            float mappedR = 1.5f * r / (r + 0.5f);
-
-            float scale = mappedR / r;
-            pivotX = cx + dx * scale;
-            pivotY = cy + dy * scale;
-        } else {
-            pivotX = cx;
-            pivotY = cy;
-        }
-
-        pivotX = lerp(cx, pivotX, 1f);
-        pivotY = lerp(cy, pivotY, 3f);
-
-        view.setPivotX(pivotX);
-        view.setPivotY(pivotY);
+        super.onDetachedFromWindow();
     }
-
-    @Override
-    public boolean dispatchTouchEvent(MotionEvent ev) {
-        clickHelper.onTouchEvent(this, ev);
-        return super.dispatchTouchEvent(ev);
-    }
-
 
     private static float clampXToChildrenCenters(float x, ViewGroup parent) {
         if (parent == null || parent.getChildCount() == 0) {
@@ -621,7 +768,8 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
         for (int i = 0; i < parent.getChildCount(); i++) {
             View view = parent.getChildAt(i);
-            if (view == null || view.getVisibility() != View.VISIBLE) {
+            if (view == null || view.getVisibility() != View.VISIBLE
+                    || (parent instanceof MainTabsLayout && !((MainTabsLayout) parent).isViewVisible(view))) {
                 continue;
             }
 
@@ -653,7 +801,8 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
         for (int i = 0; i < parent.getChildCount(); i++) {
             View view = parent.getChildAt(i);
-            if (view == null || view.getVisibility() != View.VISIBLE) {
+            if (view == null || view.getVisibility() != View.VISIBLE
+                    || (parent instanceof MainTabsLayout && !((MainTabsLayout) parent).isViewVisible(view))) {
                 continue;
             }
 
@@ -679,7 +828,8 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
         for (int i = 0; i < parent.getChildCount(); i++) {
             View view = parent.getChildAt(i);
-            if (view == null || view.getVisibility() != View.VISIBLE) {
+            if (view == null || view.getVisibility() != View.VISIBLE
+                    || (parent instanceof MainTabsLayout && !((MainTabsLayout) parent).isViewVisible(view))) {
                 continue;
             }
 

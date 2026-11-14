@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="LF_Menu">Side menu settings</string>
+    <string name="LF_MenuHelp">Tap to show or hide an item. Hold a visible item to move it. Selected folders appear below the menu.</string>
+    <string name="LF_MoveUp">Move up</string>
+    <string name="LF_MoveDown">Move down</string>
+    <string name="LF_DrawerStyle">Side menu appearance</string>
+    <string name="LF_Compact">Compact spacing</string>
+    <string name="LF_Labels">Show labels and details</string>
+    <string name="LF_Accent">Accent color</string>
+</resources>

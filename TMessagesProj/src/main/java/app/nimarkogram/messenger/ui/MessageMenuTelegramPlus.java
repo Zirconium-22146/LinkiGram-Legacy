@@ -49,9 +49,8 @@ public final class MessageMenuTelegramPlus {
     }
 
     public static boolean isEnabled(boolean ordinaryTap) {
-        // Linki Ass включает стеклянное меню сообщений сам, без отдельного тумблера
         return ordinaryTap && (NimarkoConfig.telegramPlusMessageMenu
-                || (NimarkoConfig.linkiAss && android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S));
+                || org.telegram.messenger.LiteMode.isEnabled(org.telegram.messenger.LiteMode.FLAG_LIQUID_GLASS));
     }
 
     public static void apply(
@@ -85,7 +84,8 @@ public final class MessageMenuTelegramPlus {
                 }
                 boolean destructiveAction = isDestructive(option);
 
-                row.setItemHeight(48);
+                row.setItemHeight(app.nimarkogram.messenger.appearance.ClientTheme.isEnabled()
+                        ? app.nimarkogram.messenger.appearance.ClientTheme.menuHeight() : 48);
                 row.setMinimumWidth(minWidth);
                 row.setSelectorColor(Theme.multAlpha(
                         destructiveAction ? destructive : accent,
@@ -116,7 +116,8 @@ public final class MessageMenuTelegramPlus {
             insertSemanticDividers(attached, resourcesProvider);
             updateRoundedSelectors(attached);
             styleSwipeBackPages(popupLayout, minWidth, accent, selectorAlpha);
-            popupLayout.setPopupOverlayDrawable(new LiquidGlassForeground(resourcesProvider));
+            popupLayout.setPopupOverlayDrawable(app.nimarkogram.messenger.appearance.ClientTheme.isEnabled()
+                    ? null : new LiquidGlassForeground(resourcesProvider));
             popupLayout.requestLayout();
         } catch (Throwable ignored) {
             

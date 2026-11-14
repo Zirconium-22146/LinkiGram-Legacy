@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="LF_Menu">Настройка бокового меню</string>
+    <string name="LF_MenuHelp">Нажмите, чтобы показать или скрыть пункт. Удерживайте видимый пункт для перемещения. Выбранные папки появятся под меню.</string>
+    <string name="LF_MoveUp">Выше</string>
+    <string name="LF_MoveDown">Ниже</string>
+    <string name="LF_DrawerStyle">Оформление бокового меню</string>
+    <string name="LF_Compact">Компактные отступы</string>
+    <string name="LF_Labels">Подписи и подробности</string>
+    <string name="LF_Accent">Акцентный цвет</string>
+</resources>

@@ -66,6 +66,7 @@ import org.telegram.messenger.Utilities;
 import org.telegram.tgnet.ConnectionsManager;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ActionBar.ThemeBind;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Stories.recorder.HintView2;
 
@@ -186,6 +187,7 @@ public class FilterTabsView extends FrameLayout {
         private float tabCounterVisible;
         private int currentPosition;
         private final RectF rect = new RectF();
+        private final Paint materialYouChipPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private CharSequence currentText;
         private boolean currentNoanimate;
         private AnimatedEmojiSpan.EmojiGroupedSpans textLayoutEmojis;
@@ -338,6 +340,21 @@ public class FilterTabsView extends FrameLayout {
                 animateToOtherKey = aUnactiveTextColorKey;
                 unreadKey = Theme.key_chats_tabUnreadUnactiveBackground;
                 unreadOtherKey = Theme.key_chats_tabUnreadActiveBackground;
+            }
+            if (app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {
+                final int container = app.nimarkogram.messenger.appearance.ClientTheme.color(
+                        app.nimarkogram.messenger.appearance.ClientTheme.CONTAINER);
+                final int surface = app.nimarkogram.messenger.appearance.ClientTheme.color(
+                        app.nimarkogram.messenger.appearance.ClientTheme.SURFACE_HIGH);
+                int chipColor = currentTab.id == selectedTabId ? container : surface;
+                if ((animatingIndicator || manualScrollingToId != -1) && (currentTab.id == id1 || currentTab.id == id2)) {
+                    chipColor = currentTab.id == id1
+                            ? ColorUtils.blendARGB(surface, container, animatingIndicatorProgress)
+                            : ColorUtils.blendARGB(container, surface, animatingIndicatorProgress);
+                }
+                materialYouChipPaint.setColor(chipColor);
+                rect.set(dp(3), dp(3), getMeasuredWidth() - dp(3), getMeasuredHeight() - dp(3));
+                canvas.drawRoundRect(rect, dp(16), dp(16), materialYouChipPaint);
             }
             if (animateToKey < 0) {
                 if ((animatingIndicator || manualScrollingToId != -1) && (currentTab.id == id1 || currentTab.id == id2)) {
@@ -1056,7 +1073,7 @@ public class FilterTabsView extends FrameLayout {
         listView.setItemAnimator(itemAnimator);
         listView.setSelectorType(9);
         listView.setSelectorRadius(6);
-        listView.setSelectorDrawableColor(Theme.getColor(selectorColorKey, resourcesProvider));
+        ThemeBind.listSelectorColor(listView, selectorColorKey, resourcesProvider);
         listView.setLayoutManager(layoutManager = new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false) {
 
             @Override
@@ -1159,7 +1176,10 @@ public class FilterTabsView extends FrameLayout {
     BlurredBackgroundDrawable blurredBackgroundDrawable;
 
     public void setBlurredBackground(BlurredBackgroundDrawable drawable) {
-        setBackground(blurredBackgroundDrawable = drawable);
+        blurredBackgroundDrawable = drawable;
+        final boolean you = app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled();
+        // LinkiGlass on the You layer: the filter tabs keep their blur instead of the solid You chip row.
+        setBackground(you && !app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled() ? null : drawable);
     }
 
     public void scrollToTab(Tab tab, int position) {
@@ -1319,7 +1339,7 @@ public class FilterTabsView extends FrameLayout {
         activeTextColorKey = active;
         unactiveTextColorKey = unactive;
         selectorDrawable.setColor(Theme.getColor(tabLineColorKey, resourcesProvider));
-        listView.setSelectorDrawableColor(Theme.getColor(selector, resourcesProvider));
+        ThemeBind.listSelectorColor(listView, selector, resourcesProvider);
 
         listView.invalidateViews();
         listView.invalidate();
@@ -1335,7 +1355,7 @@ public class FilterTabsView extends FrameLayout {
         aUnactiveTextColorKey = unactive;
         aBackgroundColorKey = background;
         selectorColorKey = selector;
-        listView.setSelectorDrawableColor(Theme.getColor(selectorColorKey, resourcesProvider));
+        ThemeBind.listSelectorColor(listView, selectorColorKey, resourcesProvider);
 
         colorChangeAnimator = new AnimatorSet();
         colorChangeAnimator.playTogether(ObjectAnimator.ofFloat(this, COLORS, 0.0f, 1.0f));
@@ -1389,7 +1409,7 @@ public class FilterTabsView extends FrameLayout {
     @Override
     protected boolean drawChild(@NonNull Canvas canvas, View child, long drawingTime) {
         boolean result = super.drawChild(canvas, child, drawingTime);
-        if (child == listView) {
+        if (child == listView && !app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {
             drawSelector(canvas);
         }
         long newTime = SystemClock.elapsedRealtime();
@@ -1526,6 +1546,10 @@ public class FilterTabsView extends FrameLayout {
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
+        if (app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {
+            super.dispatchDraw(canvas);
+            return;
+        }
         canvas.save();
         canvas.clipPath(clipPath);
         super.dispatchDraw(canvas);
@@ -1946,7 +1970,7 @@ public class FilterTabsView extends FrameLayout {
             if (actionState != ItemTouchHelper.ACTION_STATE_IDLE) {
                 listView.cancelClickRunnables(false);
                 viewHolder.itemView.setPressed(true);
-                viewHolder.itemView.setBackgroundColor(Theme.getColor(backgroundColorKey, resourcesProvider));
+                ThemeBind.backgroundColor(viewHolder.itemView, backgroundColorKey, resourcesProvider);
             } else {
                 AndroidUtilities.cancelRunOnUIThread(resetDefaultPosition);
                 AndroidUtilities.runOnUIThread(resetDefaultPosition, 320);

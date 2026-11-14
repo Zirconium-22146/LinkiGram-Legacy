@@ -2,6 +2,7 @@ package app.nimarkogram.messenger.plugins.ui.components;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Path;
@@ -11,6 +12,7 @@ import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Looper;
 import android.text.Layout;
+import android.text.TextUtils;
 import android.text.SpannableStringBuilder;
 import android.text.style.StrikethroughSpan;
 import android.view.Gravity;
@@ -51,6 +53,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import app.nimarkogram.messenger.plugins.Plugin;
+import app.nimarkogram.messenger.plugins.PluginPermissions;
+import app.nimarkogram.messenger.plugins.PluginSourceScanner;
 import app.nimarkogram.messenger.plugins.PluginsController;
 import app.nimarkogram.messenger.plugins.ui.PluginUiDiskExecutor;
 import app.nimarkogram.messenger.plugins.ui.PluginUiRegistry;
@@ -79,6 +83,12 @@ public class InstallPluginBottomSheet extends BottomSheet {
     private boolean enableAfterInstallation = false;
     private FrameLayout container;
     private ButtonWithCounterView installBtn;
+    // exteraGram install-sheet surface used by plugins which extend the sheet.
+    public View button;
+    public LinearLayout bottomContainer;
+    public boolean isUpdate;
+    public PluginInstallParams params;
+    private PluginsController.PluginValidationResult compatResult;
     private volatile boolean installing = false;
     private final BaseFragment hostFragment;
     private final View hostFragmentView;
@@ -102,17 +112,21 @@ public class InstallPluginBottomSheet extends BottomSheet {
         hostFragment = baseFragment;
         hostFragmentView = baseFragment.getFragmentView();
         pickerImportSourcePath = params != null ? params.filePath : null;
+        this.params = params;
+        this.compatResult = result;
         
         Activity context = baseFragment.getParentActivity();
         fixNavigationBar();
         
         boolean isUpdate = PluginsController.getInstance().plugins.containsKey(result.plugin.getId());
+        this.isUpdate = isUpdate;
         
         container = new FrameLayout(context);
         container.setClipChildren(false);
         container.setClipToPadding(false);
 
         LinearLayout linearLayout = new LinearLayout(context);
+        bottomContainer = linearLayout;
         linearLayout.setOrientation(LinearLayout.VERTICAL);
         linearLayout.setClipChildren(false);
         linearLayout.setClipToPadding(false);
@@ -259,10 +273,13 @@ public class InstallPluginBottomSheet extends BottomSheet {
         descView.setText(LocaleUtils.fullyFormatText(result.plugin.getDescription(), baseFragment, this::dismiss));
         linearLayout.addView(descView, LayoutHelper.createLinear(-1, -2, 0, 21, 28, 21, 0));
 
+        addSourceReviewCard(linearLayout, context, PluginSourceScanner.scan(params != null ? params.filePath : null));
+
         installBtn = new ButtonWithCounterView(context, true, this.resourcesProvider);
+        button = installBtn;
         installBtn.setText(LocaleController.getString((int) (isUpdate ? R.string.UpdatePlugin : R.string.InstallPlugin)), false);
         installBtn.setSubText(null, false);
-        installBtn.setOnClickListener(v -> installPlugin(params, result, baseFragment, isUpdate));
+        installBtn.setOnClickListener(v -> onInstallClick());
         
         linearLayout.addView(installBtn, LayoutHelper.createLinear(-1, 48, 0, 16, 28, 16, 16));
 
@@ -327,6 +344,47 @@ public class InstallPluginBottomSheet extends BottomSheet {
         scrollView.setClipToPadding(false);
         scrollView.addView(container);
         setCustomView(scrollView);
+    }
+
+    private void addSourceReviewCard(LinearLayout parent, Context context, PluginSourceScanner.Result result) {
+        LinearLayout card = new LinearLayout(context);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(AndroidUtilities.dp(14), AndroidUtilities.dp(12), AndroidUtilities.dp(14), AndroidUtilities.dp(12));
+        card.setBackground(Theme.createRoundRectDrawable(AndroidUtilities.dp(16), getThemedColor(Theme.key_windowBackgroundGray)));
+        card.setElevation(AndroidUtilities.dp(1));
+
+        TextView title = new TextView(context);
+        title.setText(LocaleController.getString(R.string.PluginReviewTitle));
+        title.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
+        title.setTextSize(1, 14);
+        title.setTypeface(AndroidUtilities.bold());
+        card.addView(title, LayoutHelper.createLinear(-1, -2));
+
+        TextView findings = new TextView(context);
+        findings.setTextSize(1, 13);
+        findings.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
+        findings.setPadding(0, AndroidUtilities.dp(6), 0, 0);
+        if (result == null || !result.readable) {
+            findings.setText(LocaleController.getString(R.string.PluginReviewUnavailable));
+        } else if (result.getFindings().isEmpty()) {
+            findings.setText(LocaleController.getString(R.string.PluginReviewNoFindings));
+        } else {
+            StringBuilder summary = new StringBuilder();
+            for (Integer finding : result.getFindings()) {
+                if (summary.length() > 0) summary.append('\n');
+                summary.append("• ").append(LocaleController.getString(finding));
+            }
+            findings.setText(summary);
+        }
+        card.addView(findings, LayoutHelper.createLinear(-1, -2));
+
+        TextView disclaimer = new TextView(context);
+        disclaimer.setText(LocaleController.getString(R.string.PluginReviewDisclaimer));
+        disclaimer.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteGrayText));
+        disclaimer.setTextSize(1, 12);
+        disclaimer.setPadding(0, AndroidUtilities.dp(8), 0, 0);
+        card.addView(disclaimer, LayoutHelper.createLinear(-1, -2));
+        parent.addView(card, LayoutHelper.createLinear(-1, -2, 16, 0, 16, 12));
     }
 
     public final synchronized boolean bindHostInstallAuthority(
@@ -405,6 +463,14 @@ public class InstallPluginBottomSheet extends BottomSheet {
             hint.setDuration(5500L);
             hint.show();
         });
+    }
+
+    public void applyButtonState(boolean animated) {
+        // The host controls the button state during its installation transaction.
+    }
+
+    public void onInstallClick() {
+        installPlugin(params, compatResult, hostFragment, isUpdate);
     }
 
     private void installPlugin(PluginInstallParams params, PluginsController.PluginValidationResult result, BaseFragment fragment, boolean update) {
@@ -529,7 +595,9 @@ public class InstallPluginBottomSheet extends BottomSheet {
                         }
                 ).show();
             } else if (shouldEnableAfterInstallation) {
-                PluginsController.getInstance().setPluginEnabled(result.plugin.getId(), true, err -> {
+                PluginPermissions.showEnablePrompt(
+                        fragment.getParentActivity(), result.plugin.getId(),
+                        () -> PluginsController.getInstance().setPluginEnabled(result.plugin.getId(), true, err -> {
                     AndroidUtilities.runOnUIThread(() -> {
                         if (err == null) {
                             showSuccessBulletin(
@@ -556,7 +624,13 @@ public class InstallPluginBottomSheet extends BottomSheet {
                                 }
                         ).show();
                     });
-                });
+                }),
+                        () -> AndroidUtilities.runOnUIThread(() -> {
+                            if (finishInstallOperation(operationEpoch)) {
+                                showSuccessBulletin(fragment, result.plugin, update,
+                                        callbackLifecycleEpoch, operationEpoch);
+                            }
+                        }));
             } else {
                 showSuccessBulletin(
                         fragment,
@@ -905,11 +979,17 @@ public class InstallPluginBottomSheet extends BottomSheet {
     public static class PluginInstallParams {
         public String filePath;
         public boolean incompatible;
+        private boolean trusted;
 
         public PluginInstallParams(String path, boolean incompatible) {
             this.filePath = path;
             this.incompatible = incompatible;
         }
+
+        public String getFilePath() { return filePath; }
+        public File toFile() { return TextUtils.isEmpty(filePath) ? null : new File(filePath); }
+        public boolean getTrusted() { return trusted; }
+        public void setTrusted(boolean value) { trusted = value; }
 
         public static PluginInstallParams of(MessageObject message) {
             String path = ChatUtils.getInstance().getPathToMessage(message);

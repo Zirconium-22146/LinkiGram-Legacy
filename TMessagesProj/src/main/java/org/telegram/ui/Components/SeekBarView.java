@@ -44,13 +44,32 @@ import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.Utilities;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ActionBar.ThemeBind;
 import org.telegram.ui.Adapters.FiltersView;
 import org.telegram.ui.DialogsActivity;
 
 import java.util.ArrayList;
 import java.util.Collections;
 
-public class SeekBarView extends FrameLayout {
+public class SeekBarView extends FrameLayout implements Theme.Colorable {
+
+    private int themedOuterColor;
+
+    @Override
+    public void updateColors() {
+        try {
+            if (outerPaint1 != null && outerPaint1.getColor() == themedOuterColor) {
+                final int color = getThemedColor(Theme.key_player_progress);
+                if (color != themedOuterColor) {
+                    themedOuterColor = color;
+                    setOuterColor(color);
+                    invalidate();
+                }
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
 
     private final SeekBarAccessibilityDelegate seekBarAccessibilityDelegate;
 
@@ -110,7 +129,7 @@ public class SeekBarView extends FrameLayout {
         innerPaint1 = new Paint(Paint.ANTI_ALIAS_FLAG);
 
         outerPaint1 = new Paint(Paint.ANTI_ALIAS_FLAG);
-        outerPaint1.setColor(getThemedColor(Theme.key_player_progress));
+        outerPaint1.setColor(themedOuterColor = getThemedColor(Theme.key_player_progress));
 
         selectorWidth = AndroidUtilities.dp(32);
         thumbSize = AndroidUtilities.dp(24);
@@ -126,7 +145,7 @@ public class SeekBarView extends FrameLayout {
             @Override
             protected TextView createTextView() {
                 final TextView textView = new MarqueeTextView(context);
-                textView.setTextColor(getThemedColor(Theme.key_player_time));
+                ThemeBind.textColor(textView, Theme.key_player_time, SeekBarView.this.resourcesProvider);
                 textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 12);
                 textView.setEllipsize(TextUtils.TruncateAt.END);
                 textView.setSingleLine(true);
@@ -342,6 +361,15 @@ public class SeekBarView extends FrameLayout {
         lineWidthDp = dp;
     }
 
+    /** LinkiGram: MD3-слайдер (порт exteraless, NM_Style_Sliders). */
+    private static boolean isMd3Slider() {
+        return app.nimarkogram.messenger.appearance.AppearanceConfig.enabled("md3Slider");
+    }
+
+    private int effectiveLineWidthDp() {
+        return isMd3Slider() ? 8 : lineWidthDp;
+    }
+
     int lastValue;
     private void setSeekBarDrag(boolean stop, float progress) {
         if (delegate != null) {
@@ -434,6 +462,25 @@ public class SeekBarView extends FrameLayout {
         return pressed;
     }
 
+    private void drawColorOsSlider(Canvas canvas, float left, float right, float cy, int position) {
+        float halfHeight = AndroidUtilities.dp(pressed ? 7 : 6);
+        float x = Math.max(left, Math.min(right, left + position));
+        innerPaint1.setColor(app.nimarkogram.messenger.appearance.ColorOs17Theme.controlTrackColor());
+        rect.set(left, cy - halfHeight, right, cy + halfHeight);
+        canvas.drawRoundRect(rect, halfHeight, halfHeight, innerPaint1);
+        if (bufferedProgress > 0) {
+            innerPaint1.setColor(Theme.multAlpha(app.nimarkogram.messenger.appearance.ColorOs17Theme.accentColor(), 0.18f));
+            rect.right = left + Math.max(0, Math.min(1, bufferedProgress)) * (right - left);
+            canvas.drawRoundRect(rect, halfHeight, halfHeight, innerPaint1);
+        }
+        innerPaint1.setColor(app.nimarkogram.messenger.appearance.ColorOs17Theme.accentColor());
+        rect.set(left, cy - halfHeight, x, cy + halfHeight);
+        if (minProgress > 0) rect.left = Math.min(x, left + minProgress * (right - left));
+        canvas.drawRoundRect(rect, halfHeight, halfHeight, innerPaint1);
+        innerPaint1.setColor(Theme.isCurrentThemeDark() ? 0xFFB8D9FF : 0xFFFFFFFF);
+        canvas.drawCircle(x, cy, AndroidUtilities.dp(pressed ? 11 : 10), innerPaint1);
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         int thumbX = this.thumbX;
@@ -449,7 +496,18 @@ public class SeekBarView extends FrameLayout {
 
         float centerY = getMeasuredHeight() / 2f;
         float left = selectorWidth / 2f, right = getMeasuredWidth() - selectorWidth / 2;
-        float top = centerY - AndroidUtilities.dp(lineWidthDp) / 2f, bottom = centerY + AndroidUtilities.dp(lineWidthDp) / 2f;
+        float top = centerY - AndroidUtilities.dp(effectiveLineWidthDp()) / 2f, bottom = centerY + AndroidUtilities.dp(effectiveLineWidthDp()) / 2f;
+
+        if ((app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) && !twoSided) {
+            drawColorOsSlider(canvas, left, right, centerY, thumbX);
+            drawTimestampLabel(canvas);
+            return;
+        }
+        if (isMd3Slider() && !twoSided) {
+            drawMaterialSlider(canvas, left, right, centerY, thumbX);
+            drawTimestampLabel(canvas);
+            return;
+        }
 
         rect.set(left, top, right, bottom);
         drawProgressBar(canvas, rect, innerPaint1);
@@ -487,7 +545,7 @@ public class SeekBarView extends FrameLayout {
             hoverDrawable.draw(canvas);
         }
         boolean needInvalidate = false;
-        int newRad = AndroidUtilities.dp(pressed ? 8 : 6);
+        int newRad = AndroidUtilities.dp(pressed ? (isMd3Slider() ? 10 : 8) : (isMd3Slider() ? 8 : 6));
         long newUpdateTime = SystemClock.elapsedRealtime();
         long dt = newUpdateTime - lastUpdateTime;
         if (dt > 18) {
@@ -532,6 +590,41 @@ public class SeekBarView extends FrameLayout {
         if (needInvalidate) {
             postInvalidateOnAnimation();
         }
+    }
+
+    private final Path materialTrackPath = new Path();
+    private final float[] materialTrackCorners = new float[8];
+
+    private void materialTrack(Canvas canvas, float from, float to, float cy, Paint paint, boolean active) {
+        if (to <= from) return;
+        float outer = AndroidUtilities.dp(4), inner = AndroidUtilities.dp(2);
+        for (int i = 0; i < 8; i++) materialTrackCorners[i] = (i < 2 || i >= 6) == active ? outer : inner;
+        rect.set(from, cy - outer, to, cy + outer);
+        materialTrackPath.rewind();
+        materialTrackPath.addRoundRect(rect, materialTrackCorners, Path.Direction.CW);
+        canvas.drawPath(materialTrackPath, paint);
+    }
+
+    private void drawMaterialSlider(Canvas canvas, float left, float right, float cy, int position) {
+        float cx = left + position;
+        if (transitionProgress < 1f) {
+            transitionProgress = Math.min(1f, transitionProgress + 16f / 225f);
+            cx = left + transitionThumbX + (position - transitionThumbX) * CubicBezierInterpolator.EASE_OUT_QUINT.getInterpolation(transitionProgress);
+            postInvalidateOnAnimation();
+        }
+        float gap = AndroidUtilities.dp(6);
+        materialTrack(canvas, left, cx - gap, cy, outerPaint1, true);
+        materialTrack(canvas, cx + gap, right, cy, innerPaint1, false);
+        canvas.drawCircle(right - AndroidUtilities.dp(4), cy, AndroidUtilities.dp(2), outerPaint1);
+        if (separatorsCount > 1) {
+            for (int i = 1; i < separatorsCount - 1; i++) {
+                float x = left + (right - left) * i / (separatorsCount - 1f);
+                if (Math.abs(x - cx) > gap) canvas.drawCircle(x, cy, AndroidUtilities.dp(1), x < cx ? innerPaint1 : outerPaint1);
+            }
+        }
+        rect.set(cx - AndroidUtilities.dpf2(1.5f), cy - AndroidUtilities.dp(12),
+                cx + AndroidUtilities.dpf2(1.5f), cy + AndroidUtilities.dp(12));
+        canvas.drawRoundRect(rect, AndroidUtilities.dp(2), AndroidUtilities.dp(2), outerPaint1);
     }
 
     private ArrayList<Pair<Float, CharSequence>> timestamps;

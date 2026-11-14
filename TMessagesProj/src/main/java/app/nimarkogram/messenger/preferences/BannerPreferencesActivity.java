@@ -53,6 +53,7 @@ public class BannerPreferencesActivity extends BasePreferencesActivity {
 
     @Override
     public boolean onFragmentCreate() {
+        ctrl.ensureStarted();
         installSettingsReloader();
         return super.onFragmentCreate();
     }
@@ -61,6 +62,7 @@ public class BannerPreferencesActivity extends BasePreferencesActivity {
     public void onResume() {
         super.onResume();
         installSettingsReloader();
+        ctrl.refreshStatus(false);
     }
 
     @Override
@@ -98,6 +100,7 @@ public class BannerPreferencesActivity extends BasePreferencesActivity {
         String st = ctrl.statusString();
 
         items.add(UItem.asHeader(LocaleController.getString(R.string.NM_BAN_GlobalHeader)));
+        items.add(UItem.asShadow(LocaleController.getString(R.string.LinkiBannerModerationHint)));
         items.add(UItem.asButton(ID_STATUS, R.drawable.msg_info,
                 LocaleController.getString(R.string.NM_BAN_StatusLabel), statusText(st)));
         switch (st) {
@@ -239,12 +242,25 @@ public class BannerPreferencesActivity extends BasePreferencesActivity {
         try {
             Activity act = getParentActivity();
             if (act == null) return;
-            Intent intent = new Intent(Intent.ACTION_GET_CONTENT).setType("*/*");
-            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/jpeg", "image/png", "video/mp4"});
-            act.startActivityForResult(
-                    Intent.createChooser(intent, LocaleController.getString(R.string.NM_BAN_PickFile)),
-                    FILE_PICK_CODE);
+            Intent intent;
+            if (android.os.Build.VERSION.SDK_INT >= 33) {
+                intent = new Intent(android.provider.MediaStore.ACTION_PICK_IMAGES).setType("image/*");
+            } else {
+                intent = new Intent(Intent.ACTION_PICK, android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI)
+                        .setType("image/*");
+            }
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                act.startActivityForResult(intent, FILE_PICK_CODE);
+            } catch (android.content.ActivityNotFoundException noGallery) {
+                Intent fallback = new Intent(Intent.ACTION_GET_CONTENT).setType("image/*");
+                fallback.addCategory(Intent.CATEGORY_OPENABLE);
+                fallback.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                act.startActivityForResult(Intent.createChooser(fallback,
+                        LocaleController.getString(R.string.NM_BAN_PickFile)), FILE_PICK_CODE);
+            }
         } catch (Throwable t) {
+            android.util.Log.e("LinkiBannerUpload", "Could not open image gallery", t);
             err(R.string.NM_BAN_NoAccess);
         }
     }
@@ -254,18 +270,31 @@ public class BannerPreferencesActivity extends BasePreferencesActivity {
         if (requestCode != FILE_PICK_CODE) return;
         if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) return;
         final Uri uri = data.getData();
+        if ((data.getFlags() & Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) != 0) {
+            try {
+                ApplicationLoader.applicationContext.getContentResolver().takePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (SecurityException ignored) {
+                // Providers without persistent grants still allow the immediate copy below.
+            }
+        }
         final boolean global = pickingGlobal;
-        
-        Utilities.globalQueue.postRunnable(() -> processPickedFile(uri, global));
+        final int account = currentAccount;
+        final long uid = org.telegram.messenger.UserConfig.getInstance(account).getClientUserId();
+        Utilities.globalQueue.postRunnable(() -> processPickedFile(uri, global, account, uid));
     }
 
-    private void processPickedFile(Uri uri, boolean global) {
-        File tmp = new File(ctrl.storageDir(), "temp_upload");
+    private void processPickedFile(Uri uri, boolean global, int account, long uid) {
+        File tmp = null;
         InputStream in = null;
         FileOutputStream out = null;
         try {
+            ctrl.ensureStarted();
+            File folder = new File(ctrl.storageDir());
+            if (!folder.isDirectory() && !folder.mkdirs()) throw new java.io.IOException("Banner directory is unavailable");
+            tmp = File.createTempFile("temp_upload_", ".tmp", folder);
             in = ApplicationLoader.applicationContext.getContentResolver().openInputStream(uri);
-            if (in == null) { err(R.string.NM_BAN_NoAccess); return; }
+            if (in == null) throw new java.io.IOException("Document provider returned no stream");
             out = new FileOutputStream(tmp);
             byte[] buf = new byte[8192];
             long total = 0;
@@ -283,7 +312,8 @@ public class BannerPreferencesActivity extends BasePreferencesActivity {
             }
             out.flush(); out.close(); out = null;
 
-            String ext = NimarkoBannerController.detectBannerExtension(tmp);
+            // Global submissions are validated by the server so Android need not decode every source format.
+            String ext = global ? ".upload" : NimarkoBannerController.detectBannerExtension(tmp);
             if (ext == null) {
                 //noinspection ResultOfMethodCallIgnored
                 tmp.delete();
@@ -292,18 +322,60 @@ public class BannerPreferencesActivity extends BasePreferencesActivity {
             }
 
             if (global) {
-                ctrl.submitModeration(tmp, ext, total);
+                File selected = tmp;
+                android.graphics.Bitmap preview = org.telegram.messenger.ImageLoader.loadBitmap(
+                        selected.getAbsolutePath(), null, 2048, 2048, true);
+                AndroidUtilities.runOnUIThread(() -> {
+                    if (isFinished || getParentActivity() == null) {
+                        selected.delete();
+                        if (preview != null) preview.recycle();
+                        return;
+                    }
+                    if (preview == null) {
+                        // Keep server-supported formats which Android cannot preview (e.g. TIFF).
+                        org.telegram.ui.ActionBar.AlertDialog dialog = new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
+                                .setTitle(LocaleController.getString(R.string.NM_BAN_CropTitle))
+                                .setMessage(LocaleController.getString(R.string.NM_BAN_CropUnsupported))
+                                .setPositiveButton(LocaleController.getString(R.string.NM_BAN_SubmitOriginal), (d, which) -> {
+                                    if (isBannerAccountCurrent(account, uid)) {
+                                        ctrl.submitModeration(selected, ".upload", selected.length());
+                                    } else selected.delete();
+                                })
+                                .setNegativeButton(LocaleController.getString(R.string.Cancel), (d, which) -> selected.delete())
+                                .create();
+                        dialog.setOnCancelListener(d -> selected.delete());
+                        showDialog(dialog);
+                        return;
+                    }
+                    app.nimarkogram.messenger.banners.BannerCropActivity crop =
+                            new app.nimarkogram.messenger.banners.BannerCropActivity(preview, selected, file -> {
+                                if (isBannerAccountCurrent(account, uid)) {
+                                    ctrl.submitModeration(file, ".png", file.length());
+                                } else file.delete();
+                            });
+                    if (!presentFragment(crop)) crop.release();
+                });
             } else {
                 ctrl.setLocalBanner(tmp, ext);
             }
         } catch (Throwable t) {
+            android.util.Log.e("LinkiBannerUpload", "Could not copy selected banner", t);
             //noinspection ResultOfMethodCallIgnored
-            tmp.delete();
+            if (tmp != null) tmp.delete();
             err(R.string.NM_BAN_NoAccess);
         } finally {
             try { if (in != null) in.close(); } catch (Throwable ignored) {}
             try { if (out != null) out.close(); } catch (Throwable ignored) {}
+            try {
+                ApplicationLoader.applicationContext.getContentResolver().releasePersistableUriPermission(
+                        uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            } catch (Throwable ignored) {}
         }
+    }
+
+    private boolean isBannerAccountCurrent(int account, long uid) {
+        return uid > 0 && org.telegram.messenger.UserConfig.selectedAccount == account
+                && org.telegram.messenger.UserConfig.getInstance(account).getClientUserId() == uid;
     }
 
     private void err(int res) {

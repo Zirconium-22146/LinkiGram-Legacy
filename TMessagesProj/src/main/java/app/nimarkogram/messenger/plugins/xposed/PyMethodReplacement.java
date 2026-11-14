@@ -2,6 +2,7 @@ package app.nimarkogram.messenger.plugins.xposed;
 
 import com.chaquo.python.PyException;
 import com.chaquo.python.PyObject;
+import com.chaquo.python.Python;
 
 import org.telegram.messenger.FileLog;
 
@@ -87,16 +88,14 @@ public class PyMethodReplacement extends XC_MethodReplacement {
 
     @Override 
     protected Object replaceHookedMethod(XC_MethodHook.MethodHookParam methodHookParam) throws Throwable {
-        PluginsController controller = PluginsController.getInstance();
+        PluginsController controller = PluginHookGuard.controller();
         boolean entered =
-                controller.getPluginRuntimeTaskDecision(this.runtimeToken)
-                        == PluginsController.RUNTIME_TASK_RUN
-                        && controller.enterPluginRuntime(this.runtimeToken);
+                PluginHookGuard.enterRuntime(controller, this.runtimeToken);
         if (!entered) {
             return invokeOriginal(methodHookParam);
         }
 
-        if (controller.getPluginRuntimeTaskDecision(this.runtimeToken)
+        if (PluginHookGuard.decision(controller, this.runtimeToken)
                 != PluginsController.RUNTIME_TASK_RUN) {
             Throwable closeFailure =
                     closeExecutionScope(controller, false, null);
@@ -117,13 +116,15 @@ public class PyMethodReplacement extends XC_MethodReplacement {
                         "Python replacement callback is unavailable");
             }
 
-            controller.getWatchdog().onPluginExecutionStarted(this.pluginId);
+            PluginHookGuard.started(controller, this.pluginId);
             watchdogStarted = true;
+            PyObject compatParam = Python.getInstance().getModule("base_plugin")
+                    .callAttr("_wrap_hook_param", methodHookParam);
             PyObject pyObjectCallAttr;
             if (this.boundReplace != null) {
-                pyObjectCallAttr = this.boundReplace.call(methodHookParam);
+                pyObjectCallAttr = this.boundReplace.call(compatParam);
             } else {
-                pyObjectCallAttr = pyObject.callAttr(PluginsConstants.Xposed.REPLACE_HOOKED_METHOD, methodHookParam);
+                pyObjectCallAttr = pyObject.callAttr(PluginsConstants.Xposed.REPLACE_HOOKED_METHOD, compatParam);
             }
             if (pyObjectCallAttr == null) {
                 replacementResult = null;
@@ -162,8 +163,7 @@ public class PyMethodReplacement extends XC_MethodReplacement {
             PluginsController controller, Throwable failure) {
         Throwable primary = failure;
         try {
-            controller.getWatchdog().onPluginExecutionFailed(
-                    this.pluginId, failure);
+            PluginHookGuard.failed(controller, this.pluginId, failure);
         } catch (Throwable reportFailure) {
             primary = mergeFailures(primary, reportFailure);
         }
@@ -181,14 +181,13 @@ public class PyMethodReplacement extends XC_MethodReplacement {
             Throwable primary) {
         if (watchdogStarted) {
             try {
-                controller.getWatchdog().onPluginExecutionFinished(
-                        this.pluginId);
+                PluginHookGuard.finished(controller, this.pluginId);
             } catch (Throwable finishFailure) {
                 primary = mergeFailures(primary, finishFailure);
             }
         }
         try {
-            controller.exitPluginRuntime(this.runtimeToken);
+            PluginHookGuard.exitRuntime(controller, this.runtimeToken);
         } catch (Throwable exitFailure) {
             primary = mergeFailures(primary, exitFailure);
         }
@@ -268,10 +267,15 @@ public class PyMethodReplacement extends XC_MethodReplacement {
     }
 
     private void handleHookError(Throwable th) {
-        if ((th instanceof PyException) && th.getMessage() != null && th.getMessage().contains("closed")) {
-            FileLog.e("Attempted to call a closed PyObject callback in " + this.pluginId);
-            return;
+        PluginHookGuard.begin();
+        try {
+            if ((th instanceof PyException) && th.getMessage() != null && th.getMessage().contains("closed")) {
+                FileLog.e("Attempted to call a closed PyObject callback in " + this.pluginId);
+                return;
+            }
+            FileLog.e("Plugin '" + this.pluginId + "' crashed in replaceHookedMethod: " + th.getMessage(), th);
+        } finally {
+            PluginHookGuard.end();
         }
-        FileLog.e("Plugin '" + this.pluginId + "' crashed in replaceHookedMethod: " + th.getMessage(), th);
     }
 }

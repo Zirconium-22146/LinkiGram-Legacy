@@ -17,13 +17,14 @@ import android.widget.FrameLayout;
 
 import androidx.annotation.NonNull;
 
+import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.LayoutHelper;
 import org.telegram.ui.Components.blur3.BlurredBackgroundWithFadeDrawable;
 import org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable;
 import org.telegram.ui.Components.inset.InAppKeyboardInsetView;
 import org.telegram.ui.Components.inset.WindowInsetsProvider;
 
-public class ChatInputViewsContainer extends FrameLayout {
+public class ChatInputViewsContainer extends FrameLayout implements Theme.Colorable {
     public static final int INPUT_BUBBLE_RADIUS = 22;
     public static final int INPUT_KEYBOARD_RADIUS = 29;
 
@@ -90,9 +91,15 @@ public class ChatInputViewsContainer extends FrameLayout {
         underKeyboardBackgroundDrawable.setIntensity(0.4f);
     }
 
+    /** also called on every theme update (Theme.Colorable) */
+    @Override
     public void updateColors() {
-        blurredBackgroundDrawable.updateColors();
-        underKeyboardBackgroundDrawable.updateColors();
+        if (blurredBackgroundDrawable != null) {
+            blurredBackgroundDrawable.updateColors();
+        }
+        if (underKeyboardBackgroundDrawable != null) {
+            underKeyboardBackgroundDrawable.updateColors();
+        }
         invalidate();
     }
 
@@ -247,6 +254,7 @@ public class ChatInputViewsContainer extends FrameLayout {
 
     private final Rect tmpRect = new Rect();
     private final RectF tmpRectF = new RectF();
+    private final android.graphics.Paint youComposerPaint = new android.graphics.Paint();
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
@@ -269,8 +277,17 @@ public class ChatInputViewsContainer extends FrameLayout {
         tmpRect.offset(0, blurTop + (int) bubbleInputTranlationY);
 
         blurredBackgroundDrawable.setBounds(tmpRect);
-        if (drawInputBackground)
-            blurredBackgroundDrawable.draw(canvas);
+        if (drawInputBackground) {
+            if (app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
+                    && !app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled()) {
+                youComposerPaint.setColor(app.nimarkogram.messenger.appearance.ClientTheme.color(
+                    app.nimarkogram.messenger.appearance.ClientTheme.BACKGROUND));
+                youComposerPaint.setAlpha(blurredBackgroundDrawable.getAlpha());
+                canvas.drawRect(0, tmpRect.top, getWidth(), getHeight(), youComposerPaint);
+            } else {
+                blurredBackgroundDrawable.draw(canvas);
+            }
+        }
 
         if (needDrawInAppKeyboard) {
             underKeyboardBackgroundDrawable.draw(canvas);

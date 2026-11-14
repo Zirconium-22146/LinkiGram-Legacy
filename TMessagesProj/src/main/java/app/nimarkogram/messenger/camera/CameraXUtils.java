@@ -14,6 +14,7 @@ import androidx.annotation.Nullable;
 import androidx.camera.camera2.interop.Camera2CameraInfo;
 import androidx.camera.camera2.interop.Camera2Interop;
 import androidx.camera.core.AspectRatio;
+import androidx.camera.core.Camera;
 import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.SessionConfig;
@@ -409,6 +410,20 @@ public final class CameraXUtils {
             return supportsSubOneZoom(provider.getCameraInfo(selector));
         } catch (Throwable ignored) {
             return false;
+        }
+    }
+
+    /** The focal lengths of every physical module behind the given camera. */
+    @SuppressLint("UnsafeOptInUsageError")
+    public static float[] getFocalLengths(@Nullable Camera camera) {
+        if (camera == null) return new float[0];
+        try {
+            CameraInfo info = camera.getCameraInfo();
+            float[] focals = Camera2CameraInfo.from(info).getCameraCharacteristic(
+                    CameraCharacteristics.LENS_INFO_AVAILABLE_FOCAL_LENGTHS);
+            return focals == null ? new float[0] : focals;
+        } catch (Throwable ignored) {
+            return new float[0];
         }
     }
 

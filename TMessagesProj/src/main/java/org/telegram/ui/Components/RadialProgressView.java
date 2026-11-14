@@ -20,9 +20,12 @@ import android.view.animation.DecelerateInterpolator;
 import androidx.annotation.Keep;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.FileLog;
 import org.telegram.ui.ActionBar.Theme;
 
-public class RadialProgressView extends View {
+import java.util.HashSet;
+
+public class RadialProgressView extends View implements Theme.Colorable {
 
     private long lastUpdateTime;
     private float radOffset;
@@ -70,6 +73,45 @@ public class RadialProgressView extends View {
         progressPaint.setStrokeCap(Paint.Cap.ROUND);
         progressPaint.setStrokeWidth(AndroidUtilities.dp(3));
         progressPaint.setColor(progressColor);
+        themedProgressColor = progressColor;
+    }
+
+    // the key progressColor came from (Theme.key_progressCircle by default, see setProgressColorKey), and the color it gave
+    private int progressColorKey = Theme.key_progressCircle;
+    private int themedProgressColor;
+
+    /** same as setProgressColor(getThemedColor(key)), but follows theme changes */
+    public void setProgressColorKey(int key) {
+        progressColorKey = key;
+        setProgressColor(getThemedColor(key));
+        themedProgressColor = progressColor;
+    }
+
+    @Override
+    public void updateColors() {
+        try {
+            if (progressPaint == null || progressColor != themedProgressColor) {
+                return; // custom color set by the caller
+            }
+            final int color = getThemedColor(progressColorKey);
+            themedProgressColor = color;
+            if (color != progressColor) {
+                final int alpha = progressPaint.getAlpha();
+                setProgressColor(color);
+                themedProgressColor = color;
+                if (useSelfAlpha) {
+                    progressPaint.setAlpha(alpha);
+                }
+                invalidate();
+            }
+        } catch (Exception e) {
+            FileLog.e(e);
+        }
+    }
+
+    @Override
+    public void addColorKeys(HashSet<Integer> colors) {
+        colors.add(progressColorKey);
     }
 
     public void setUseSelfAlpha(boolean value) {
@@ -228,14 +270,59 @@ public class RadialProgressView extends View {
         int x = (getMeasuredWidth() - size) / 2;
         int y = (getMeasuredHeight() - size) / 2;
         cicleRect.set(x, y, x + size, y + size);
-        canvas.drawArc(cicleRect, radOffset, drawingCircleLenght = currentCircleLength, false, progressPaint);
+        drawingCircleLenght = currentCircleLength;
+        drawProgressArc(canvas);
         updateAnimation();
     }
 
     public void draw(Canvas canvas, float cx, float cy) {
         cicleRect.set(cx - size / 2f, cy - size / 2f, cx + size / 2f, cy +  size / 2f);
-        canvas.drawArc(cicleRect, radOffset, drawingCircleLenght = currentCircleLength, false, progressPaint);
+        drawingCircleLenght = currentCircleLength;
+        drawProgressArc(canvas);
         updateAnimation();
+    }
+
+    private final app.nimarkogram.messenger.appearance.MaterialProgress materialProgress = new app.nimarkogram.messenger.appearance.MaterialProgress();
+    private com.google.android.material.loadingindicator.LoadingIndicator materialIndicator;
+    private Drawable materialDrawable;
+
+    private void drawProgressArc(Canvas canvas) {
+        if (!app.nimarkogram.messenger.appearance.AppearanceConfig.newLoadingStyle()) {
+            if (materialDrawable != null) materialDrawable.setVisible(false, false);
+            canvas.drawArc(cicleRect, radOffset, currentCircleLength, false, progressPaint);
+            return;
+        }
+        if (noProgress) {
+            if (materialIndicator == null) {
+                android.view.ContextThemeWrapper themed = new android.view.ContextThemeWrapper(getContext(), com.google.android.material.R.style.Theme_Material3_DayNight);
+                materialIndicator = new com.google.android.material.loadingindicator.LoadingIndicator(themed);
+                materialDrawable = materialIndicator.getDrawable();
+                materialDrawable.setCallback(this);
+            }
+            materialIndicator.setIndicatorSize(size);
+            materialIndicator.setIndicatorColor(progressPaint.getColor());
+            materialDrawable.setBounds((int) cicleRect.left, (int) cicleRect.top, (int) cicleRect.right, (int) cicleRect.bottom);
+            materialDrawable.setVisible(true, false);
+            if (materialDrawable instanceof android.graphics.drawable.Animatable) {
+                android.graphics.drawable.Animatable animation = (android.graphics.drawable.Animatable) materialDrawable;
+                if (!animation.isRunning()) animation.start();
+            }
+            materialDrawable.draw(canvas);
+        } else {
+            if (materialDrawable != null) materialDrawable.setVisible(false, false);
+            materialProgress.draw(canvas, cicleRect, radOffset, currentCircleLength, progressPaint, true);
+        }
+    }
+
+    @Override
+    protected boolean verifyDrawable(Drawable drawable) {
+        return drawable == materialDrawable || super.verifyDrawable(drawable);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        if (materialDrawable != null) materialDrawable.setVisible(false, false);
+        super.onDetachedFromWindow();
     }
 
     public boolean isCircle() {

@@ -34,6 +34,14 @@ jobs:
           # The runner already has platform-tools; install required packages explicitly below.
           packages: ''
 
+      - name: Cache NDK and CMake
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.ANDROID_SDK_ROOT }}/ndk
+            ${{ env.ANDROID_SDK_ROOT }}/cmake
+          key: android-toolchain-ndk27.2.12479018-cmake3.22.1
+
       - name: Install Android SDK, NDK and CMake
         run: |
           sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
@@ -77,10 +85,23 @@ jobs:
         run: chmod +x gradlew
 
       - name: Compile Java/Kotlin smoke test
-        run: ./gradlew :TMessagesProj:compileStandaloneJavaWithJavac :TMessagesProj:compileStandaloneKotlin -PngArm64Only --no-daemon
+        run: ./gradlew :TMessagesProj:compileStandaloneJavaWithJavac :TMessagesProj:compileStandaloneKotlin -PngArm64Only
 
       - name: Build ARM64 Standalone APK
-        run: ./gradlew :TMessagesProj_AppStandalone:assembleAfatStandalone -PngArm64Only --no-daemon
+        run: ./gradlew :TMessagesProj_AppStandalone:assembleAfatStandalone -PngArm64Only
+
+      - name: Verify plugin hook runtime is packaged
+        run: |
+          python - <<'PY'
+          from zipfile import ZipFile
+          path = 'TMessagesProj_AppStandalone/build/outputs/apk/afat/standalone/app.apk'
+          with ZipFile(path) as apk:
+              name = 'lib/arm64-v8a/libpine.so'
+              data = apk.read(name)
+              if not data.startswith(b'\x7fELF'):
+                  raise SystemExit(f'{name} is not an ELF library')
+              print(f'Plugin hook runtime present: {name} ({len(data)} bytes)')
+          PY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

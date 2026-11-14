@@ -154,6 +154,56 @@ public final class NimarkoConfig {
         return APP_NAME + " v" + VERSION_NAME + " (1.3)";
     }
 
+    // Ported from exteraless/exteraless: whether profile music shows as a card
+    // (Last.fm now-playing) instead of the official track under the avatar.
+    public static boolean profileMusicCard() {
+        return getPreferences().getBoolean("OEAppearanceProfileMusicCard", true);
+    }
+
+    public static void setProfileMusicCard(boolean value) {
+        getEditor().putBoolean("OEAppearanceProfileMusicCard", value).commit();
+    }
+
+    // The Last.fm nickname written into the user's own profile music track.
+    public static String lastfmNick() {
+        return getPreferences().getString("OEGeneralLastFmNick", "");
+    }
+
+    public static void setLastfmNick(String value) {
+        getEditor().putString("OEGeneralLastFmNick", value == null ? "" : value).commit();
+    }
+
+    // Ported from exteraless: the MD3 music player (PlayerSheet) and the MD3 mini
+    // player / context bar, replacing the stock AudioPlayerAlert. Both default on.
+    public static boolean md3Player() {
+        return app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
+                || app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled()
+                || getPreferences().getBoolean("OEAppearanceMd3Player", true);
+    }
+
+    public static void setMd3Player(boolean value) {
+        getEditor().putBoolean("OEAppearanceMd3Player", value).apply();
+    }
+
+    public static boolean md3MiniPlayer() {
+        return app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
+                || app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled()
+                || getPreferences().getBoolean("OEAppearanceMd3MiniPlayer", true);
+    }
+
+    public static void setMd3MiniPlayer(boolean value) {
+        getEditor().putBoolean("OEAppearanceMd3MiniPlayer", value).apply();
+    }
+
+    // Online lyrics providers (LRCLIB/lrcmux) opt-in; the track name leaves the device.
+    public static boolean lrclibAllowed() {
+        return getPreferences().getBoolean("OEPlayerLrclibAllowed", false);
+    }
+
+    public static void setLrclibAllowed(boolean value) {
+        getEditor().putBoolean("OEPlayerLrclibAllowed", value).commit();
+    }
+
     public static boolean pluginsEngine = getPreferences().getBoolean("pluginsEngine", true);
     public static void togglePluginsEngine() {
         pluginsEngine = !pluginsEngine;
@@ -206,6 +256,18 @@ public final class NimarkoConfig {
         getEditor().putBoolean("pluginsPySdkBetaVersions", v).apply();
     }
 
+    public static boolean allowProtectedScreenshots = getPreferences().getBoolean("allowProtectedScreenshots", false);
+    public static void toggleAllowProtectedScreenshots() {
+        allowProtectedScreenshots = !allowProtectedScreenshots;
+        getEditor().putBoolean("allowProtectedScreenshots", allowProtectedScreenshots).apply();
+    }
+
+    public static boolean keepOpenedOnceMedia = getPreferences().getBoolean("keepOpenedOnceMedia", false);
+    public static void toggleKeepOpenedOnceMedia() {
+        keepOpenedOnceMedia = !keepOpenedOnceMedia;
+        getEditor().putBoolean("keepOpenedOnceMedia", keepOpenedOnceMedia).apply();
+    }
+
     public static boolean hideProxySponsor = getPreferences().getBoolean("hideProxySponsor", true);
     public static void toggleHideProxySponsor() {
         hideProxySponsor = !hideProxySponsor;
@@ -221,13 +283,24 @@ public final class NimarkoConfig {
     public static volatile boolean ghostTyping = getPreferences().getBoolean("ghostTyping", false);
     public static void toggleGhostTyping() {
         ghostTyping = !ghostTyping;
-        getEditor().putBoolean("ghostTyping", ghostTyping).apply();
+        // Persist the migrated recording choice before typing changes its fallback.
+        getEditor().putBoolean("ghostTyping", ghostTyping)
+                .putBoolean("ghostRecording", ghostRecording).apply();
+    }
+
+    public static volatile boolean ghostRecording = getPreferences().getBoolean("ghostRecording", ghostTyping);
+    public static void toggleGhostRecording() {
+        ghostRecording = !ghostRecording;
+        getEditor().putBoolean("ghostRecording", ghostRecording).apply();
     }
 
     public static volatile boolean ghostOnline = getPreferences().getBoolean("ghostOnline", false);
     public static void toggleGhostOnline() {
         ghostOnline = !ghostOnline;
         getEditor().putBoolean("ghostOnline", ghostOnline).apply();
+        if (ghostOnline) {
+            com.radolyn.ayugram.utils.AyuGhostUtils.setOfflineForAllAccounts();
+        }
     }
 
     public static volatile boolean ghostReadReceipts = getPreferences().getBoolean("ghostReadReceipts", false);
@@ -253,6 +326,47 @@ public final class NimarkoConfig {
     public static void toggleGhostOfflineAfterSend() {
         ghostOfflineAfterSend = !ghostOfflineAfterSend;
         getEditor().putBoolean("ghostOfflineAfterSend", ghostOfflineAfterSend).apply();
+    }
+
+    // --- LinkiGram: пресеты приватности (одним тапом) ---
+    public static final int PRESET_NORMAL = 0;
+    public static final int PRESET_GHOST = 1;
+    public static final int PRESET_PARANOIA = 2;
+
+    public static volatile int privacyPreset = getPreferences().getInt("privacyPreset", PRESET_NORMAL);
+
+    /**
+     * Ставит все призрачные тумблеры разом. Обычный — всё выключено,
+     * Невидимка — все скрывающие опции, Паранойя — ещё и мгновенный уход
+     * в офлайн после отправки без отметки прочтения.
+     */
+    public static void applyPrivacyPreset(int preset) {
+        privacyPreset = preset;
+        final boolean hiding = preset != PRESET_NORMAL;
+        ghostTyping = hiding;
+        ghostRecording = hiding;
+        ghostOnline = hiding;
+        ghostReadReceipts = hiding;
+        ghostStories = hiding;
+        ghostReadAfterSend = !hiding || preset != PRESET_PARANOIA;
+        ghostOfflineAfterSend = preset == PRESET_PARANOIA;
+        getEditor()
+            .putInt("privacyPreset", preset)
+            .putBoolean("ghostTyping", ghostTyping)
+            .putBoolean("ghostRecording", ghostRecording)
+            .putBoolean("ghostOnline", ghostOnline)
+            .putBoolean("ghostReadReceipts", ghostReadReceipts)
+            .putBoolean("ghostStories", ghostStories)
+            .putBoolean("ghostReadAfterSend", ghostReadAfterSend)
+            .putBoolean("ghostOfflineAfterSend", ghostOfflineAfterSend)
+            .apply();
+        if (hiding) {
+            try {
+                com.radolyn.ayugram.utils.AyuGhostUtils.setOfflineForAllAccounts();
+            } catch (Throwable t) {
+                org.telegram.messenger.FileLog.e("nimarko: ghost status request failed", t);
+            }
+        }
     }
 
     // --- Ayu moments (deleted/edited message saving; AyuGram/exteraless port) ---
@@ -326,16 +440,18 @@ public final class NimarkoConfig {
     // flips all hiding toggles at once. Behavior options (read-after-send,
     // offline-after-send) are never touched by the master toggle.
     public static boolean isGhostModeActive() {
-        return ghostTyping && ghostOnline && ghostReadReceipts && ghostStories;
+        return ghostTyping && ghostRecording && ghostOnline && ghostReadReceipts && ghostStories;
     }
 
     public static void setGhostMode(boolean enabled) {
         ghostTyping = enabled;
+        ghostRecording = enabled;
         ghostOnline = enabled;
         ghostReadReceipts = enabled;
         ghostStories = enabled;
         SharedPreferences.Editor editor = getEditor();
         editor.putBoolean("ghostTyping", enabled);
+        editor.putBoolean("ghostRecording", enabled);
         editor.putBoolean("ghostOnline", enabled);
         editor.putBoolean("ghostReadReceipts", enabled);
         editor.putBoolean("ghostStories", enabled);
@@ -344,7 +460,7 @@ public final class NimarkoConfig {
             // Port of NekoConfig.toggleGhostMode: announce the new status to
             // the server right away so the offline state takes effect.
             try {
-                com.radolyn.ayugram.utils.AyuGhostUtils.performStatusRequest(true);
+                com.radolyn.ayugram.utils.AyuGhostUtils.setOfflineForAllAccounts();
             } catch (Throwable t) {
                 org.telegram.messenger.FileLog.e("nimarko: ghost status request failed", t);
             }
@@ -628,6 +744,13 @@ public final class NimarkoConfig {
         sortByUnread = !sortByUnread;
         getEditor().putBoolean("sortByUnread", sortByUnread).apply();
     }
+
+    /** Hide the "Read all" toolbar button and move the action into the three-dot menu. */
+    public static boolean readAllInMenu = getPreferences().getBoolean("readAllInMenu", false);
+    public static void toggleReadAllInMenu() {
+        readAllInMenu = !readAllInMenu;
+        getEditor().putBoolean("readAllInMenu", readAllInMenu).apply();
+    }
     public static void setSortByUnread(boolean v) {
         sortByUnread = v;
         getEditor().putBoolean("sortByUnread", v).apply();
@@ -816,6 +939,12 @@ public final class NimarkoConfig {
     public static boolean materialCards = getPreferences().getBoolean("materialCards", false);
     public static void toggleMaterialCards() { materialCards = !materialCards; getEditor().putBoolean("materialCards", materialCards).apply(); }
 
+    /** Material 3: элементы списков карточками (порт exteraless, NM_Style_ListItems). */
+    public static boolean m3ListItems() {
+        return app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
+                || getPreferences().getBoolean("m3ListItems", false);
+    }
+
     /** Радиус карточек секций, dp. 0 — секции плоские, без скругления. */
     public static final int SECTION_RADIUS_MAX = 28;
     public static int sectionRadius = getPreferences().getInt("sectionRadius", 20);
@@ -832,8 +961,8 @@ public final class NimarkoConfig {
     public static final int ICON_REPLACE_MD3 = 2;           
     public static final int ICON_REPLACE_LIQUID_GLASS = 3;  
     public static final int ICON_REPLACE_PLUMPY = 4;        
-    // Linkigram Legacy: по умолчанию стандартные иконки Telegram, наборы замены
-    // больше не включаются автоматически.
+    public static final int ICON_REPLACE_CUSTOM_SVG = 5;
+    // Linkigram Legacy: по умолчанию стандартные иконки Telegram.
     public static volatile int iconReplacement = ICON_REPLACE_NONE;
     public static void setIconReplacement(int v) { iconReplacement = v; getEditor().putInt("iconReplacement", v).apply(); }
 
@@ -946,13 +1075,45 @@ public final class NimarkoConfig {
     public static boolean showMainTabs = false;
     public static void toggleShowMainTabs() { showMainTabs = false; getEditor().putBoolean("showMainTabs", false).apply(); }
 
+    // --- LinkiGram: режим нижней панели + боковое меню (порт из exteraless) ---
+    public static final int BOTTOM_NAVIGATION_MODE_SHOW = 0;
+    public static final int BOTTOM_NAVIGATION_MODE_HIDE = 1;
+    public static final int BOTTOM_NAVIGATION_MODE_FLOATING = 2;
+
+    public static boolean bottomNavigationFloating = getPreferences().getBoolean("bottomNavigationFloating", true);
+
+    public static int getBottomNavigationMode() {
+        if (!showMainTabs) return BOTTOM_NAVIGATION_MODE_HIDE;
+        return bottomNavigationFloating ? BOTTOM_NAVIGATION_MODE_FLOATING : BOTTOM_NAVIGATION_MODE_SHOW;
+    }
+
+    public static void setBottomNavigationMode(int mode) {
+        showMainTabs = mode != BOTTOM_NAVIGATION_MODE_HIDE;
+        bottomNavigationFloating = mode == BOTTOM_NAVIGATION_MODE_FLOATING;
+        getEditor().putBoolean("showMainTabs", showMainTabs).putBoolean("bottomNavigationFloating", bottomNavigationFloating).apply();
+    }
+
+    public static boolean isBottomNavigationHidden() { return !showMainTabs; }
+    public static boolean isBottomNavigationVisible() { return showMainTabs; }
+    public static boolean isBottomNavigationFloating() { return showMainTabs && bottomNavigationFloating; }
+
+    /** Боковое меню (шторка) вместо пунктов в шапке списка чатов. */
+    public static boolean navigationDrawer = getPreferences().getBoolean("navigationDrawer", false);
+    public static void setNavigationDrawer(boolean v) { navigationDrawer = v; getEditor().putBoolean("navigationDrawer", v).apply(); }
+    public static void toggleNavigationDrawer() { setNavigationDrawer(!navigationDrawer); }
+
+    public static boolean immersiveDrawerAnimation = getPreferences().getBoolean("immersiveDrawerAnimation", false);
+    public static void setImmersiveDrawerAnimation(boolean v) { immersiveDrawerAnimation = v; getEditor().putBoolean("immersiveDrawerAnimation", immersiveDrawerAnimation).apply(); }
+    public static void toggleImmersiveDrawerAnimation() { setImmersiveDrawerAnimation(!immersiveDrawerAnimation); }
+
+    public static String mainMenuLayout = getPreferences().getString("mainMenuLayout", "");
+    public static void setMainMenuLayout(String v) { mainMenuLayout = v == null ? "" : v; getEditor().putString("mainMenuLayout", mainMenuLayout).apply(); }
+
     /**
      * LinkiGram: показывать ли нижнюю панель вкладок на самом деле.
-     * В классическом интерфейсе панель скрывается полностью, как в старом Telegram:
-     * навигация идёт через меню «три полоски» в шапке списка чатов.
+     * Управляется режимом панели (отключить / плавающая / показывать).
      */
     public static boolean mainTabsVisible() {
-        // Классический интерфейс: нижняя панель не показывается никогда.
         return false;
     }
 
@@ -1367,7 +1528,7 @@ public final class NimarkoConfig {
     public static final int BOOST_AVERAGE = DL_BOOST_AVERAGE;
     public static final int BOOST_EXTREME = DL_BOOST_EXTREME;
     public static int downloadSpeedBoost =
-            DownloadSpeedPolicy.normalizeBoost(getIntSafe("downloadSpeedBoost", DL_BOOST_NONE));
+            DownloadSpeedPolicy.normalizeBoost(getIntSafe("downloadSpeedBoost", DL_BOOST_EXTREME));
     public static void setDownloadSpeedBoost(int v) {
         downloadSpeedBoost = DownloadSpeedPolicy.normalizeBoost(v);
         getEditor().putInt("downloadSpeedBoost", downloadSpeedBoost).apply();
@@ -1419,6 +1580,22 @@ public final class NimarkoConfig {
         doubleTapAction = v;
         doubletapaction = v;
         getEditor().putInt("doubleTapAction", v).apply();
+    }
+
+    public static int doubleTapOutgoingAction = getPreferences().getInt("doubleTapOutgoingAction", doubleTapAction);
+    public static int getDoubleTapAction(boolean outgoing) {
+        return outgoing ? doubleTapOutgoingAction : doubleTapAction;
+    }
+    public static void setDoubleTapOutgoingAction(int value) {
+        doubleTapOutgoingAction = value;
+        getEditor().putInt("doubleTapOutgoingAction", value).apply();
+    }
+    public static int stickerTimeMode = getPreferences().getInt("stickerTimeMode", hideStickerTimeValue() ? 2 : 0);
+    private static boolean hideStickerTimeValue() { return getPreferences().getBoolean("hideStickerTime", false); }
+    public static void setStickerTimeMode(int value) {
+        stickerTimeMode = Math.max(0, Math.min(2, value));
+        hideStickerTime = stickerTimeMode == 2;
+        getEditor().putInt("stickerTimeMode", stickerTimeMode).putBoolean("hideStickerTime", hideStickerTime).apply();
     }
 
     public static final int SLIDE_REPLY = 0;
@@ -1569,6 +1746,65 @@ public final class NimarkoConfig {
 
     public static void resetMessageMenuOrder() { setMessageMenuOrder(null); }
 
+    // --- LinkiGram: configurable three-dot menu on the chat list ---
+
+    /** Slots of the chat-list three-dot menu that can be reordered. */
+    public static final int DIALOGS_MENU_THEME = 1;
+    public static final int DIALOGS_MENU_READ_ALL = 2;
+    public static final int DIALOGS_MENU_NEW_GROUP = 3;
+    public static final int DIALOGS_MENU_SAVED = 4;
+
+    public static final List<Integer> DIALOGS_MENU_DEFAULT_ORDER = Collections.unmodifiableList(
+            new ArrayList<>(java.util.Arrays.asList(
+                    DIALOGS_MENU_THEME, DIALOGS_MENU_READ_ALL,
+                    DIALOGS_MENU_NEW_GROUP, DIALOGS_MENU_SAVED)));
+
+    public static boolean dialogsMenuShowSmartCenter = getPreferences().getBoolean("dialogsMenuShowSmartCenter", true);
+    public static void toggleDialogsMenuShowSmartCenter() { dialogsMenuShowSmartCenter = !dialogsMenuShowSmartCenter; getEditor().putBoolean("dialogsMenuShowSmartCenter", dialogsMenuShowSmartCenter).apply(); }
+
+    public static boolean dialogsMenuShowTheme = getPreferences().getBoolean("dialogsMenuShowTheme", true);
+    public static void toggleDialogsMenuShowTheme() { dialogsMenuShowTheme = !dialogsMenuShowTheme; getEditor().putBoolean("dialogsMenuShowTheme", dialogsMenuShowTheme).apply(); }
+
+    public static boolean dialogsMenuShowReadAll = getPreferences().getBoolean("dialogsMenuShowReadAll", true);
+    public static void toggleDialogsMenuShowReadAll() { dialogsMenuShowReadAll = !dialogsMenuShowReadAll; getEditor().putBoolean("dialogsMenuShowReadAll", dialogsMenuShowReadAll).apply(); }
+
+    public static boolean dialogsMenuShowNewGroup = getPreferences().getBoolean("dialogsMenuShowNewGroup", true);
+    public static void toggleDialogsMenuShowNewGroup() { dialogsMenuShowNewGroup = !dialogsMenuShowNewGroup; getEditor().putBoolean("dialogsMenuShowNewGroup", dialogsMenuShowNewGroup).apply(); }
+
+    public static boolean dialogsMenuShowSaved = getPreferences().getBoolean("dialogsMenuShowSaved", true);
+    public static void toggleDialogsMenuShowSaved() { dialogsMenuShowSaved = !dialogsMenuShowSaved; getEditor().putBoolean("dialogsMenuShowSaved", dialogsMenuShowSaved).apply(); }
+
+    public static boolean dialogsMenuShowSettings = getPreferences().getBoolean("dialogsMenuShowSettings", true);
+    public static void toggleDialogsMenuShowSettings() { dialogsMenuShowSettings = !dialogsMenuShowSettings; getEditor().putBoolean("dialogsMenuShowSettings", dialogsMenuShowSettings).apply(); }
+
+    public static volatile List<Integer> dialogsMenuOrder = loadDialogsMenuOrder();
+
+    private static List<Integer> loadDialogsMenuOrder() {
+        String raw = getPreferences().getString("dialogsMenuOrder", null);
+        if (raw == null || raw.isEmpty()) return null;
+        try {
+            List<Integer> list = GSON.fromJson(raw, new TypeToken<List<Integer>>() {}.getType());
+            return list != null && !list.isEmpty()
+                    ? Collections.unmodifiableList(new ArrayList<>(list))
+                    : null;
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    public static synchronized void setDialogsMenuOrder(List<Integer> order) {
+        if (order == null || order.isEmpty()) {
+            dialogsMenuOrder = null;
+            getEditor().remove("dialogsMenuOrder").apply();
+        } else {
+            List<Integer> snapshot = Collections.unmodifiableList(new ArrayList<>(order));
+            dialogsMenuOrder = snapshot;
+            getEditor().putString("dialogsMenuOrder", GSON.toJson(snapshot)).apply();
+        }
+    }
+
+    public static void resetDialogsMenuOrder() { setDialogsMenuOrder(null); }
+
     public static boolean messageMenuHaptic = getPreferences().getBoolean("messageMenuHaptic", true);
     public static void toggleMessageMenuHaptic() {
         messageMenuHaptic = !messageMenuHaptic;
@@ -1686,6 +1922,11 @@ public final class NimarkoConfig {
 
     public static boolean showSaveForNotifications = getPreferences().getBoolean("showSaveForNotifications", true);
     public static void toggleShowSaveForNotifications() { showSaveForNotifications = !showSaveForNotifications; getEditor().putBoolean("showSaveForNotifications", showSaveForNotifications).apply(); }
+
+    public static boolean showCopyMessage = getPreferences().getBoolean("showCopyMessage", true);
+    public static void toggleShowCopyMessage() { showCopyMessage = !showCopyMessage; getEditor().putBoolean("showCopyMessage", showCopyMessage).apply(); }
+    public static boolean showRepeatMessage = getPreferences().getBoolean("showRepeatMessage", false);
+    public static void toggleShowRepeatMessage() { showRepeatMessage = !showRepeatMessage; getEditor().putBoolean("showRepeatMessage", showRepeatMessage).apply(); }
 
     public static boolean showReply = getPreferences().getBoolean("showReply", true);
     public static void toggleShowReply() { showReply = !showReply; getEditor().putBoolean("showReply", showReply).apply(); }
@@ -1920,9 +2161,15 @@ public final class NimarkoConfig {
     public static int mainTabsTintColor = getPreferences().getInt("mainTabsTintColor", 0);
     public static void setMainTabsTintColor(int color) { mainTabsTintColor = color; getEditor().putInt("mainTabsTintColor", color).apply(); }
 
-    /** Linki Ass — принудительно включает жидкое стекло (шапка чата, панель ввода, кнопки, нижние табы). */
+    /** Legacy plugin API. The actual glass state is now stored exclusively in LiteMode. */
+    @Deprecated
     public static boolean linkiAss = getPreferences().getBoolean("linkiAss", true);
-    public static void toggleLinkiAss() { linkiAss = !linkiAss; getEditor().putBoolean("linkiAss", linkiAss).apply(); }
+    @Deprecated
+    public static void toggleLinkiAss() {
+        org.telegram.messenger.LiteMode.toggleFlag(org.telegram.messenger.LiteMode.FLAG_LIQUID_GLASS);
+        linkiAss = org.telegram.messenger.LiteMode.isEnabledSetting(org.telegram.messenger.LiteMode.FLAG_LIQUID_GLASS);
+        getEditor().putBoolean("linkiAss", linkiAss).apply();
+    }
 
     /** 0 = как в оригинале, 1..5 = всё более прозрачное стекло в чате (шапка + панель ввода). */
     public static int chatGlassLevel = getPreferences().getInt("chatGlassLevel", 0);
@@ -1932,9 +2179,10 @@ public final class NimarkoConfig {
     public static int chatGlassPercent() { return Math.round((1f - chatGlassAlphaMult()) * 100f); }
 
     /**
-     * Классический интерфейс: выключает острова нового Telegram —
-     * нижнюю панель вкладок, стеклянную шапку и разделённое поле ввода,
-     * возвращая старую раскладку со меню «три полоски» в шапке списка чатов.
+     * Классический интерфейс: старый Telegram — навигация через боковое меню
+     * («три полоски» очень похоже на шторку) и разделённое поле ввода off.
+     * Нижняя панель этим флагом больше не управляется: у неё свой режим
+     * (отключить / плавающая / показывать).
      */
     // Linkigram Legacy: классический интерфейс включён жёстко — нижней панели
     // вкладок нет, навигация идёт через меню «три полоски» в шапке списка чатов.
@@ -1943,6 +2191,8 @@ public final class NimarkoConfig {
     /** Оставлено для совместимости: переключателя больше нет, значение всегда true. */
     public static void setClassicUi(boolean value) {
         org.telegram.messenger.SharedConfig.invalidateLegacyUiCache();
+        setNavigationDrawer(true);
+        iosStyleComposer = false;
     }
 
 

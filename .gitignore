@@ -34,3 +34,15 @@ TMessagesProj_AppHuawei/afat/
 TMessagesProj/jni/ffmpeg/build_android
 
 relay/.wrangler/
+.release-bot.env
+.release-bot.offset
+
+# Agent instructions/notes stay local and are not published.
+/AGENTS.md
+/AGENTS.local.md
+
+# Local Telegram-base upgrade reference trees, previews and backups (large, temporary).
+/ci-apk-*/
+
+# Desktop client: the Telegram Desktop base is cloned here by CI/developers, not vendored.
+/desktop/tdesktop/

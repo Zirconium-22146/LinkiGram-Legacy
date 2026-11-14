@@ -14,6 +14,7 @@ import android.util.Base64;
 
 import androidx.annotation.Keep;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
@@ -86,6 +87,10 @@ public class ConnectionsManager extends BaseController {
     public final static int ConnectionTypeUpload = 4;
     public final static int ConnectionTypePush = 8;
     public final static int ConnectionTypeDownload2 = ConnectionTypeDownload | (1 << 16);
+    // Keep in sync with DOWNLOAD_CONNECTIONS_COUNT in tgnet/Defines.h.
+    public final static int DownloadConnectionsCount = 8;
+    // Keep in sync with UPLOAD_CONNECTIONS_COUNT in tgnet/Defines.h.
+    public final static int UploadConnectionsCountPremium = 8;
 
     public static final int ERROR_RESPONSE_DESERIALIZATION_FAILED = -1001;
     public static final String RESPONSE_DESERIALIZATION_FAILED = "RESPONSE_DESERIALIZATION_FAILED";
@@ -106,6 +111,8 @@ public class ConnectionsManager extends BaseController {
     public final static int RequestFlagDoNotWaitFloodWait = 1024;
     public final static int RequestFlagListenAfterCancel = 2048;
     public final static int RequestFlagFailOnServerErrorsExceptFloodWait = 65536;
+    public final static int RequestFlagSmallDownload = 131072;
+    public final static int RequestFlagDownloadByteBudget = 262144;
 
     public final static int ConnectionStateConnecting = 1;
     public final static int ConnectionStateWaitingForNetwork = 2;
@@ -336,6 +343,27 @@ public class ConnectionsManager extends BaseController {
         }, null, null, null, requestFlags, dcId, ConnectionTypeGeneric, true);
     }
 
+    public static class RequestException extends RuntimeException {
+        public final int code;
+        public final String text;
+
+        public RequestException(TLRPC.TL_error error) {
+            super(error != null && error.text != null ? error.text : null);
+            if (error != null) {
+                this.code = error.code;
+                this.text = error.text;
+            } else {
+                this.code = 0;
+                this.text = "NULL";
+            }
+        }
+
+        @Nullable
+        @Override
+        public String getMessage() {
+            return text;
+        }
+    }
 
 
     public int sendRequestTypedAndProcessUpdates(TLMethod<TLRPC.Updates> method, Executor executor, Utilities.Callback2<TLRPC.Updates, TLRPC.TL_error> completionBlock) {
@@ -395,19 +423,6 @@ public class ConnectionsManager extends BaseController {
     }
 
     private void sendRequestInternal(TLObject objectIn, RequestDelegate onCompleteIn, RequestDelegateTimestamp onCompleteTimestamp, QuickAckDelegate onQuickAck, WriteToSocketDelegate onWriteToSocket, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken) {
-        // --- Ghost Mode (AyuGram/exteraless port): runs before plugin hooks ---
-        try {
-            com.radolyn.ayugram.utils.AyuGhostUtils.InterceptResult ghostResult =
-                    com.radolyn.ayugram.utils.AyuGhostUtils.interceptRequest(objectIn, onCompleteIn);
-            if (ghostResult.blockRequest()) {
-                android.util.Log.i("NimarkoGhost", "request " + (objectIn != null ? objectIn.getClass().getSimpleName() : "null") + " blocked by ghost mode");
-                return;
-            }
-            onCompleteIn = ghostResult.effectiveOnComplete();
-        } catch (Throwable t) {
-            FileLog.e("nimarko: ghost intercept threw", t);
-        }
-
         TLObject hookedObject = objectIn;
         String requestName = "";
         try {
@@ -425,6 +440,24 @@ public class ConnectionsManager extends BaseController {
             hookedObject = pre;
         } catch (Throwable t) {
             FileLog.e("nimarko: pre-request hook threw", t);
+        }
+
+        // Apply privacy to the actual request, including replacements made by plugins.
+        try {
+            com.radolyn.ayugram.utils.AyuGhostUtils.InterceptResult ghostResult =
+                    com.radolyn.ayugram.utils.AyuGhostUtils.interceptRequest(currentAccount, hookedObject, onCompleteIn);
+            if (ghostResult.blockRequest()) {
+                android.util.Log.i("NimarkoGhost", "request " + hookedObject.getClass().getSimpleName() + " blocked by ghost mode");
+                return;
+            }
+            onCompleteIn = ghostResult.effectiveOnComplete();
+        } catch (Throwable t) {
+            android.util.Log.e("NimarkoGhost", "privacy interception failed", t);
+            if (hookedObject instanceof TLRPC.TL_messages_setTyping
+                    || hookedObject instanceof TLRPC.TL_messages_setEncryptedTyping
+                    || hookedObject instanceof org.telegram.tgnet.tl.TL_account.updateStatus) {
+                return;
+            }
         }
 
         final RequestDelegate userOnComplete = onCompleteIn;
@@ -546,7 +579,18 @@ public class ConnectionsManager extends BaseController {
                     FileLog.e(e);
                 }
             }, onQuickAck, onWriteToSocket);
-            native_sendRequest(currentAccount, buffer.address, flags, datacenterId, connectionType, immediate, requestToken);
+            int downloadSize = 0;
+            // Only FileLoadOperation opts in. Live call segments retain their existing scheduling.
+            if ((flags & RequestFlagDownloadByteBudget) != 0 && (connectionType & 0xffff) == ConnectionTypeDownload) {
+                if (object instanceof TLRPC.TL_upload_getFile) {
+                    downloadSize = ((TLRPC.TL_upload_getFile) object).limit;
+                } else if (object instanceof TLRPC.TL_upload_getWebFile) {
+                    downloadSize = ((TLRPC.TL_upload_getWebFile) object).limit;
+                } else if (object instanceof TLRPC.TL_upload_getCdnFile) {
+                    downloadSize = ((TLRPC.TL_upload_getCdnFile) object).limit;
+                }
+            }
+            native_sendRequest(currentAccount, buffer.address, flags, datacenterId, connectionType, immediate, requestToken, downloadSize);
         } catch (Exception e) {
             FileLog.e(e);
         }
@@ -872,15 +916,16 @@ public class ConnectionsManager extends BaseController {
         }
     }
 
+    @Keep
     public static void onUnparsedMessageReceived(long address, final int currentAccount, long messageId) {
         try {
             NativeByteBuffer buff = NativeByteBuffer.wrap(address);
             buff.setDataSourceType(TLDataSourceType.NETWORK);
             buff.reused = true;
             int constructor = buff.readInt32(true);
-            final TLObject message = TLClassStore.Instance().TLdeserialize(buff, constructor, true);
+            final TLRPC.Updates message = TLRPC.Updates.TLdeserialize(buff, constructor, true);
             FileLog.dumpUnparsedMessage(message, messageId, currentAccount);
-            if (message instanceof TLRPC.Updates) {
+            if (message != null) {
                 if (BuildVars.LOGS_ENABLED) {
                     FileLog.d("java received " + message);
                 }
@@ -1080,10 +1125,16 @@ public class ConnectionsManager extends BaseController {
     public static native long native_getCurrentTimeMillis(int currentAccount);
     public static native int native_getCurrentTime(int currentAccount);
     public static native int native_getCurrentPingTime(int currentAccount);
+    @Keep
+    public interface SessionCallback {
+        @Keep void onResult(byte[] result);
+    }
+    public static native void native_importSession(int account, int dcId, byte[] key, SessionCallback callback);
+    public static native void native_exportSession(int account, SessionCallback callback);
     public static native int native_getCurrentDatacenterId(int currentAccount);
     public static native long native_getCurrentAuthKeyId(int currentAccount);
     public static native int native_getTimeDifference(int currentAccount);
-    public static native void native_sendRequest(int currentAccount, long object, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken);
+    public static native void native_sendRequest(int currentAccount, long object, int flags, int datacenterId, int connectionType, boolean immediate, int requestToken, int downloadSize);
     public static native void native_cancelRequest(int currentAccount, int token, boolean notifyServer);
     public static native void native_cleanUp(int currentAccount, boolean resetKeys);
     public static native void native_cancelRequestsForGuid(int currentAccount, int guid);
@@ -1104,7 +1155,7 @@ public class ConnectionsManager extends BaseController {
     public static native void native_discardConnection(int currentAccount, int datacenterId, int connectionType);
     public static native void native_failNotRunningRequest(int currentAccount, int token);
     public static native void native_receivedIntegrityCheckClassic(int currentAccount, int requestToken, String nonce, String token);
-    public static native void native_receivedCaptchaResult(int currentAccount, int[] requestTokens, String token);
+    public static native void native_receivedCaptchaResult(int currentAccount, int requestToken, int generation, String token);
     public static native boolean native_isGoodPrime(byte[] prime, int g);
 
 
@@ -1629,8 +1680,8 @@ public class ConnectionsManager extends BaseController {
     }
 
     @Keep
-    public static void onCaptchaCheck(final int currentAccount, final int requestToken, final String action, final String key_id) {
-        CaptchaController.request(currentAccount, requestToken, action, key_id);
+    public static void onCaptchaCheck(final int currentAccount, final int requestToken, final int generation, final String action, final String key_id) {
+        AndroidUtilities.runOnUIThread(() -> CaptchaController.request(currentAccount, requestToken, generation, action, key_id));
     }
 
     public static native byte[] nativeTestGenerateClientHello(String domain);

@@ -13,10 +13,12 @@ from org.telegram.ui import LaunchActivity
 from android_utils import R as Runnable
 from android_utils import log, run_on_ui_thread
 from plugin_runtime import capture_callback_owner, make_interface_proxy
+from account_client import AccountClient, get_client, get_hook_account, hook_scope
 from app.nimarkogram.messenger.plugins.utils import (
     PythonNotificationDelegate,
     PythonRequestDelegate,
 )
+from app.nimarkogram.messenger.plugins import PluginPermissions
 from java import jarray, jbyte, jint
 
 try:
@@ -62,7 +64,7 @@ def RequestCallback(fn: callable):
     return PythonRequestDelegate(fn, token)
 
 def send_request(request: Any, fn: callable, account: Optional[int]=None) -> int:
-    
+    PluginPermissions.require(PluginPermissions.TELEGRAM)
     return get_connections_manager(account).sendRequest(
         request, RequestCallback(fn))
 
@@ -82,10 +84,22 @@ def observe_notifications(notification_center, fn: callable, *notification_ids):
 def get_last_fragment():
     return LaunchActivity.getSafeLastFragment()
 
+def get_selected_account() -> int:
+    return int(UserConfig.selectedAccount)
+
+def show_error_bulletin(message, fragment=None):
+    from ui.bulletin import BulletinHelper
+    return BulletinHelper.show_error(message, fragment)
+
+def show_info_bulletin(message, fragment=None):
+    from ui.bulletin import BulletinHelper
+    return BulletinHelper.show_info(message, fragment)
+
 def _resolve_account(account: Optional[int]=None) -> int:
     return UserConfig.selectedAccount if account is None else int(account)
 
 def get_account_instance(account: Optional[int]=None):
+    PluginPermissions.require(PluginPermissions.TELEGRAM)
     return AccountInstance.getInstance(_resolve_account(account))
 
 def get_messages_controller(account: Optional[int]=None):
@@ -98,6 +112,7 @@ def get_media_data_controller(account: Optional[int]=None):
     return get_account_instance(account).getMediaDataController()
 
 def get_connections_manager(account: Optional[int]=None):
+    PluginPermissions.require(PluginPermissions.TELEGRAM)
     return get_account_instance(account).getConnectionsManager()
 
 def get_current_datacenter_id(account: Optional[int]=None) -> int:
@@ -136,8 +151,19 @@ def get_media_controller():
 def get_user_config(account: Optional[int]=None):
     return get_account_instance(account).getUserConfig()
 
-def send_message(params: dict, account: Optional[int]=None):
+def send_message(params: dict, account: Optional[int]=None, parse_mode=None):
+    PluginPermissions.require(PluginPermissions.TELEGRAM)
     params = dict(params or {})
+    embedded_parse_mode = params.pop('parse_mode', None)
+    parse_mode = parse_mode or embedded_parse_mode
+    if parse_mode:
+        from extera_utils.text_formatting import parse_text
+        for field in ('message', 'caption'):
+            if params.get(field) is not None:
+                parsed = parse_text(params[field], parse_mode, is_caption=(field == 'caption'))
+                params[field] = parsed[field]
+                if parsed['entities']:
+                    params['entities'] = parsed['entities']
     if account is None:
         account = params.pop('account', None)
     else:
@@ -168,6 +194,7 @@ def send_message(params: dict, account: Optional[int]=None):
 
 def _generate_photo_sizes(file_path: str, high_quality: bool=False,
                           account: Optional[int]=None) -> Optional[TLRPC.TL_photo]:
+    PluginPermissions.require(PluginPermissions.FILES)
     try: 
         photo_size_limit = AndroidUtilities.getPhotoSize(high_quality)
         bitmap = ImageLoader.loadBitmap(file_path, None, photo_size_limit, photo_size_limit, True)
@@ -206,6 +233,7 @@ def _generate_photo_sizes(file_path: str, high_quality: bool=False,
 
 def _prepare_document(file_path: str, mime_type_str: Optional[str]=None,
                       account: Optional[int]=None) -> Optional[TLRPC.TL_document]:
+    PluginPermissions.require(PluginPermissions.FILES)
     try:
         file = File(file_path)
         if not file.exists():
@@ -240,6 +268,7 @@ def _prepare_document(file_path: str, mime_type_str: Optional[str]=None,
         return None
 
 def _add_video_attributes(document: TLRPC.TL_document, file_path: str):
+    PluginPermissions.require(PluginPermissions.FILES)
     try:
         retriever = MediaMetadataRetriever()
         retriever.setDataSource(file_path)
@@ -260,6 +289,7 @@ def _add_video_attributes(document: TLRPC.TL_document, file_path: str):
         log(f'Could not get video metadata for \'{file_path}\': {e}')
 
 def _add_audio_attributes(document: TLRPC.TL_document, file_path: str):
+    PluginPermissions.require(PluginPermissions.FILES)
     try:
         retriever = MediaMetadataRetriever()
         retriever.setDataSource(file_path)
@@ -331,6 +361,7 @@ def send_audio(peer: int, file_path: str, caption: str='',
 
 def edit_message(message_obj: Any, text: Optional[str]=None, file_path: Optional[str]=None,
                  with_spoiler: bool=False, account: Optional[int]=None, **kwargs):
+    PluginPermissions.require(PluginPermissions.TELEGRAM)
     if not isinstance(message_obj, MessageObject):
         log('\'message_obj\' must be a valid MessageObject instance.')
         return None
@@ -350,8 +381,18 @@ def edit_message(message_obj: Any, text: Optional[str]=None, file_path: Optional
                         pass
                 send_helper = get_send_messages_helper(account)
                 if text is not None:
-                    message_obj.editingMessage = text
-                    message_obj.editingMessageEntities = None
+                    parse_mode = kwargs.pop('parse_mode', None)
+                    if parse_mode:
+                        from extera_utils.text_formatting import parse_text
+                        parsed = parse_text(text, parse_mode)
+                        message_obj.editingMessage = parsed['message']
+                        entities = ArrayList()
+                        for entity in parsed['entities']:
+                            entities.add(entity)
+                        message_obj.editingMessageEntities = entities
+                    else:
+                        message_obj.editingMessage = text
+                        message_obj.editingMessageEntities = None
                 photo = None
                 document = None
                 video_info = None

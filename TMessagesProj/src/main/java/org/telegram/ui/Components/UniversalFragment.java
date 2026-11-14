@@ -20,6 +20,7 @@ import org.telegram.ui.ActionBar.BackDrawable;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.INavigationLayout;
 import org.telegram.ui.ActionBar.Theme;
+import org.telegram.ui.ActionBar.ThemeBind;
 import org.telegram.ui.Business.QuickRepliesController;
 import org.telegram.ui.ChatActivity;
 import org.telegram.ui.DialogsActivity;
@@ -30,22 +31,30 @@ import java.util.ArrayList;
 public abstract class UniversalFragment extends BaseFragment {
 
     public UniversalRecyclerView listView;
+    protected FrameLayout contentView;
 
     @Override
     public View createView(Context context) {
-        actionBar.setBackButtonDrawable(new BackDrawable(false));
-        actionBar.setAllowOverlayTitle(true);
-        actionBar.setTitle(getTitle());
-        actionBar.setActionBarMenuOnItemClick(new ActionBar.ActionBarMenuOnItemClick() {
+        final ActionBar.ActionBarMenuOnItemClick onItemClick = new ActionBar.ActionBarMenuOnItemClick() {
             @Override
             public void onItemClick(int id) {
                 if (id == -1) {
                     finishFragment();
                 }
             }
-        });
+        };
+        if (simpleActionBar != null) {
+            simpleActionBar.setBackButtonDrawable(new BackDrawable(false));
+            simpleActionBar.setTitle(getTitle());
+            simpleActionBar.setActionBarMenuOnItemClick(onItemClick);
+        } else {
+            actionBar.setBackButtonDrawable(new BackDrawable(false));
+            actionBar.setAllowOverlayTitle(true);
+            actionBar.setTitle(getTitle());
+            actionBar.setActionBarMenuOnItemClick(onItemClick);
+        }
 
-        FrameLayout contentView = new SizeNotifierFrameLayout(context) {
+        contentView = new SizeNotifierFrameLayout(context) {
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 super.onMeasure(
@@ -54,7 +63,13 @@ public abstract class UniversalFragment extends BaseFragment {
                 );
             }
         };
-        contentView.setBackgroundColor(Theme.getColor(Theme.key_windowBackgroundGray));
+        if (!useSimpleActionBar() || app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) {
+            // simple screens: the sectioned list draws the screen background itself
+            ThemeBind.backgroundColor(contentView, Theme.key_windowBackgroundGray);
+        }
+        if ((app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) && actionBar != null) {
+            actionBar.setDrawBlurBackground((SizeNotifierFrameLayout) contentView);
+        }
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick) {
             @Override
@@ -73,11 +88,18 @@ public abstract class UniversalFragment extends BaseFragment {
 
         // Material 3: секции-карточки. Радиус и сам факт карточек берутся из NimarkoConfig,
         // отрисовку тени см. UniversalRecyclerView#drawBackgroundRect.
-        if (NimarkoConfig.materialCards) {
+        if (NimarkoConfig.materialCards || app.nimarkogram.messenger.appearance.MaterialStyle.segments()) {
             listView.setSections(true);
         }
 
         return fragmentView = contentView;
+    }
+
+    @Override
+    protected RecyclerListView getListViewForSimpleGlass() {
+        // LinkiGlass on the LinkiGram You layer: the You screens take the glass header of the base
+        // instead of the solid one, blurring the list that scrolls under it.
+        return app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled() ? listView : null;
     }
 
     protected abstract CharSequence getTitle();

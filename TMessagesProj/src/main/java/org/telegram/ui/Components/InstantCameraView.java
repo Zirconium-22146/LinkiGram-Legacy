@@ -201,6 +201,9 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
     private int nmCamera2SwitchGeneration;
     private volatile boolean nmCamera2SwitchPending;
     private boolean needDrawFlickerStub;
+    private volatile long legacyCameraSwitchStartedNs;
+    private volatile int legacyCameraSwitchSequence;
+    private volatile String legacyCameraSwitchPath;
 
     private boolean isCameraSessionInitiated() {
         if (useCameraX) {
@@ -890,7 +893,7 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
-        NotificationCenter.getInstance(currentAccount).addObserver(this, NotificationCenter.fileUploaded);
+        NotificationCenter.getInstance(currentAccount).addWeakObserver(this, NotificationCenter.fileUploaded);
     }
 
     @Override
@@ -2486,7 +2489,6 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             if (BuildVars.LOGS_ENABLED) {
                 FileLog.d("InstantCamera create camera session " + index);
             }
-
             if (app.nimarkogram.messenger.NimarkoCameraLog.DEBUG) app.nimarkogram.messenger.NimarkoCameraLog.log(
                     "InstantRound create index=" + index + " useCX=" + useCameraX
                             + " useCamera2=" + useCamera2 + " dual=" + bothCameras
@@ -3535,7 +3537,6 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
                     && nmShouldHoldCameraXInitialWideFrame()) {
                 return;
             }
-
             boolean captureFirstFrameThumb = false;
             if (!recording) {
                 if (videoEncoder == null) {
@@ -3634,7 +3635,6 @@ public class InstantCameraView extends InstantCameraViewBase implements Notifica
             GLES20.glUseProgram(0);
 
             egl10.eglSwapBuffers(eglDisplay, eglSurface);
-
             if (useCameraX && !cameraReady && !cameraXSingleSwitchAwaitingBind) {
                 cameraReady = true;
                 if (app.nimarkogram.messenger.NimarkoCameraLog.DEBUG) app.nimarkogram.messenger.NimarkoCameraLog.log(

@@ -8,25 +8,85 @@ import android.graphics.RuntimeShader;
 import androidx.annotation.RequiresApi;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.FileLog;
 import org.telegram.messenger.R;
+
+import java.util.Arrays;
 
 @RequiresApi(api = 33)
 public class LiquidGlassEffect {
 
     private final RenderNode node;
-    private final RuntimeShader shader;
+    // the arrow costs the shader a lot: a shape without it keeps the plain one
+    private final RuntimeShader plainShader;
+    private RuntimeShader arrowShader;
+    private RuntimeShader shader;
     private RenderEffect effect;
 
+    /** The effects by the phase of the node on the grid of the downsample, they keep the uniforms they were made with. */
+    private RenderEffect[] effectPool;
+    private float[] effectPoolCenterX;
+    private float[] effectPoolCenterY;
+
     public LiquidGlassEffect(RenderNode node) {
+        this(node, R.raw.liquid_glass_shader);
+    }
+
+    /**
+     * @param shaderResource the lens: {@link R.raw#liquid_glass_shader}, or the richer
+     * {@link R.raw#main_tabs_glass_shader} of the bottom navigation (chromatic dispersion, an ambient edge
+     * highlight and a moving touch light; adapted from Backdrop by Kyant, Apache-2.0).
+     */
+    public LiquidGlassEffect(RenderNode node, int shaderResource) {
         this.node = node;
-        final String code = AndroidUtilities.readRes(R.raw.liquid_glass_shader);
-        shader = new RuntimeShader(code);
+        RuntimeShader compiled = null;
+        if (shaderResource != R.raw.liquid_glass_shader) {
+            try {
+                compiled = new RuntimeShader(AndroidUtilities.readRes(shaderResource));
+            } catch (IllegalArgumentException e) {
+                FileLog.e(e);
+            }
+        }
+        if (compiled == null) {
+            // the plain lens, when the rich one is missing or does not compile
+            shaderResource = R.raw.liquid_glass_shader;
+            compiled = new RuntimeShader(AndroidUtilities.readRes(shaderResource));
+        }
+        shader = plainShader = compiled;
+        hasSurfaceLight = shaderResource == R.raw.main_tabs_glass_shader;
+        if (hasSurfaceLight) {
+            plainShader.setFloatUniform("light_position", surfaceLight);
+            plainShader.setFloatUniform("press_progress", pressProgress);
+        }
         node.setRenderEffect(effect = RenderEffect.createRuntimeShaderEffect(shader, "img"));
     }
 
-    private float resolutionX, resolutionY;
-    private float centerX, centerY;
-    private float sizeX, sizeY;
+    private final boolean hasSurfaceLight;
+    private float surfaceLight = 0.5f;
+    private float pressProgress;
+    private boolean lightChanged;
+
+    /**
+     * The moving light of the surface (the Backdrop lens): where it comes from along x (0..1) and how pressed
+     * the surface is (0..1). Only the rich lens draws it; returns whether anything changed.
+     */
+    public boolean setSurfaceLight(float position, float pressProgress) {
+        position = Math.max(0f, Math.min(1f, position));
+        pressProgress = Math.max(0f, Math.min(1f, pressProgress));
+        if (!hasSurfaceLight || (Math.abs(surfaceLight - position) < 0.001f
+                && Math.abs(this.pressProgress - pressProgress) < 0.001f)) {
+            return false;
+        }
+        surfaceLight = position;
+        this.pressProgress = pressProgress;
+        plainShader.setFloatUniform("light_position", position);
+        plainShader.setFloatUniform("press_progress", pressProgress);
+        lightChanged = true;
+        return true;
+    }
+
+    private int downsample;
+    private float width, height;
     private float radiusLeftTop;
     private float radiusRightTop;
     private float radiusRightBottom;
@@ -36,23 +96,52 @@ public class LiquidGlassEffect {
     private float index;
     private int foregroundColor;
 
+    private float arrowHeight, arrowTipRadius, arrowFilletRadius, arrowStripe;
+    private float arrowAxisX, arrowAxisY, arrowDirX, arrowDirY;
+    private boolean arrowChanged;
+
+    /**
+     * An arrow on a side of the shape (a hint), see {@link org.telegram.ui.Components.blur3.drawable.BlurredBackgroundDrawable#setArrow}.
+     * In the pixels of the screen: the point of the edge on the arrow's axis from the shape's center, the direction out of
+     * it, the half width of the stripe of the edge the arrow changes.
+     */
+    public void setArrow(float axisX, float axisY, float dirX, float dirY, float height, float tipRadius, float filletRadius, float stripe) {
+        if (arrowAxisX != axisX || arrowAxisY != axisY || arrowDirX != dirX || arrowDirY != dirY
+                || arrowHeight != height || arrowTipRadius != tipRadius || arrowFilletRadius != filletRadius || arrowStripe != stripe) {
+            arrowAxisX = axisX;
+            arrowAxisY = axisY;
+            arrowDirX = dirX;
+            arrowDirY = dirY;
+            arrowHeight = height;
+            arrowTipRadius = tipRadius;
+            arrowFilletRadius = filletRadius;
+            arrowStripe = stripe;
+            arrowChanged = true;
+        }
+    }
+
+    public void clearArrow() {
+        setArrow(0, 0, 0, 0, 0, 0, 0, 0);
+    }
+
+    /**
+     * Sizes are of the shape on the screen, its rect {@code bodyX, bodyY} from the shape's origin (the arrow is out of it).
+     * The node may be downsampled: {@code downsample} pixels of the screen in a pixel of it, its origin {@code nodeOffset}
+     * away from the shape's. The shader works in the pixels of the node.
+     */
     public void update(
-        float left, float top, float right, float bottom,
+        float width, float height,
+        float bodyX, float bodyY,
         float radiusLeftTop, float radiusRightTop, float radiusRightBottom, float radiusLeftBottom,
 
         float thickness,
         float intensity,
         float index,
-        int foregroundColor
-    ) {
-        float resolutionX = node.getWidth();
-        float resolutionY = node.getHeight();
-        float centerX = (left + right) / 2;
-        float centerY = (top + bottom) / 2;
-        float width = right - left, height = bottom - top;
-        float sizeX = width / 2;
-        float sizeY = height / 2;
+        int foregroundColor,
 
+        float nodeOffsetX, float nodeOffsetY,
+        int downsample
+    ) {
         if (radiusLeftTop + radiusLeftBottom > height) {
             float a = radiusLeftTop / (radiusLeftTop + radiusLeftBottom);
             radiusLeftTop = height * a;
@@ -65,12 +154,9 @@ public class LiquidGlassEffect {
         }
 
         if (
-            Math.abs(this.resolutionX - resolutionX) > 0.1f ||
-            Math.abs(this.resolutionY - resolutionY) > 0.1f ||
-            Math.abs(this.centerX - centerX) > 0.1f ||
-            Math.abs(this.centerY - centerY) > 0.1f ||
-            Math.abs(this.sizeX - sizeX) > 0.1f ||
-            Math.abs(this.sizeY - sizeY) > 0.1f ||
+            this.downsample != downsample ||
+            Math.abs(this.width - width) > 0.1f ||
+            Math.abs(this.height - height) > 0.1f ||
             Math.abs(this.radiusLeftTop - radiusLeftTop) > 0.1f ||
             Math.abs(this.radiusRightTop - radiusRightTop) > 0.1f ||
             Math.abs(this.radiusRightBottom - radiusRightBottom) > 0.1f ||
@@ -78,24 +164,79 @@ public class LiquidGlassEffect {
             Math.abs(this.thickness - thickness) > 0.1f ||
             Math.abs(this.intensity - intensity) > 0.1f ||
             Math.abs(this.index - index) > 0.1f ||
-            this.foregroundColor != foregroundColor
+            this.foregroundColor != foregroundColor ||
+            arrowChanged ||
+            lightChanged
         ) {
+            lightChanged = false;
+            arrowChanged = false;
+            if (arrowHeight > 0 && !hasSurfaceLight) {
+                if (arrowShader == null) {
+                    arrowShader = new RuntimeShader(AndroidUtilities.readRes(R.raw.liquid_glass_arrow_shader));
+                }
+                shader = arrowShader;
+            } else {
+                shader = plainShader;
+            }
             this.foregroundColor = foregroundColor;
 
             final float a = Color.alpha(foregroundColor) / 255f;
             final float r = Color.red(foregroundColor) / 255f * a;
             final float g = Color.green(foregroundColor) / 255f * a;
             final float b = Color.blue(foregroundColor) / 255f * a;
+            final float scale = 1f / downsample;
 
-            shader.setFloatUniform("resolution", this.resolutionX = resolutionX, this.resolutionY = resolutionY);
-            shader.setFloatUniform("center", this.centerX = centerX, this.centerY = centerY);
-            shader.setFloatUniform("size", this.sizeX = sizeX, this.sizeY = sizeY);
-            shader.setFloatUniform("radius", this.radiusRightBottom = radiusRightBottom, this.radiusRightTop = radiusRightTop, this.radiusLeftBottom = radiusLeftBottom, this.radiusLeftTop = radiusLeftTop);
-            shader.setFloatUniform("thickness", this.thickness = thickness);
+            this.downsample = downsample;
+            this.width = width;
+            this.height = height;
+            this.radiusRightBottom = radiusRightBottom;
+            this.radiusRightTop = radiusRightTop;
+            this.radiusLeftBottom = radiusLeftBottom;
+            this.radiusLeftTop = radiusLeftTop;
+            this.thickness = thickness;
+
+            shader.setFloatUniform("size", width / 2 * scale, height / 2 * scale);
+            shader.setFloatUniform("radius", radiusRightBottom * scale, radiusRightTop * scale, radiusLeftBottom * scale, radiusLeftTop * scale);
+            shader.setFloatUniform("thickness", thickness * scale);
             shader.setFloatUniform("refract_intensity", this.intensity = intensity);
             shader.setFloatUniform("refract_index", this.index = index);
             shader.setFloatUniform("foreground_color_premultiplied", r, g, b, a);
-            node.setRenderEffect(effect = RenderEffect.createRuntimeShaderEffect(shader, "img"));
+            if (shader == arrowShader) {
+                shader.setFloatUniform("arrow", arrowHeight * scale, arrowTipRadius * scale, arrowFilletRadius * scale, arrowStripe * scale);
+                shader.setFloatUniform("arrow_axis", arrowAxisX * scale, arrowAxisY * scale, arrowDirX, arrowDirY);
+            }
+            if (hasSurfaceLight) {
+                // the Backdrop lens samples the captured page in the pixels of the node
+                plainShader.setFloatUniform("resolution", node.getWidth(), node.getHeight());
+            }
+
+            // and the last one for a node off the grid of the screen, e.g. a view on its way
+            final int poolSize = downsample * downsample + 1;
+            if (effectPool == null || effectPool.length != poolSize) {
+                effectPool = new RenderEffect[poolSize];
+                effectPoolCenterX = new float[poolSize];
+                effectPoolCenterY = new float[poolSize];
+            } else {
+                Arrays.fill(effectPool, null);
+            }
+        }
+
+        final float centerX = (bodyX + width / 2 - nodeOffsetX) / downsample;
+        final float centerY = (bodyY + height / 2 - nodeOffsetY) / downsample;
+        final boolean onGrid = nodeOffsetX == (int) nodeOffsetX && nodeOffsetY == (int) nodeOffsetY;
+        final int effectIndex = onGrid
+            ? Math.floorMod((int) -nodeOffsetY, downsample) * downsample + Math.floorMod((int) -nodeOffsetX, downsample)
+            : effectPool.length - 1;
+        RenderEffect phaseEffect = effectPool[effectIndex];
+        if (phaseEffect == null || effectPoolCenterX[effectIndex] != centerX || effectPoolCenterY[effectIndex] != centerY) {
+            shader.setFloatUniform("center", centerX, centerY);
+            phaseEffect = RenderEffect.createRuntimeShaderEffect(shader, "img");
+            effectPool[effectIndex] = phaseEffect;
+            effectPoolCenterX[effectIndex] = centerX;
+            effectPoolCenterY[effectIndex] = centerY;
+        }
+        if (effect != phaseEffect) {
+            node.setRenderEffect(effect = phaseEffect);
         }
     }
 

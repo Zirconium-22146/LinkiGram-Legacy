@@ -1082,6 +1082,19 @@ public class PluginsController implements PluginsHooks {
         T run() throws Exception;
     }
 
+    private static volatile PluginsController diagnosticInstance;
+
+    /**
+     * The runtime of the already-initialised plugin controller, without forcing
+     * the singleton to be created. The hook guard reads this from the Pine bridge
+     * so that attributing a hook must never itself instantiate the controller.
+     * Ported from Ettacent/NimarkoGram.
+     */
+    public static PluginRuntimeToken captureInitializedPluginRuntime() {
+        PluginsController controller = diagnosticInstance;
+        return controller == null ? null : controller.captureCurrentPluginRuntime();
+    }
+
     public static PluginsController getInstance() {
         return SingletonHolder.INSTANCE;
     }
@@ -1131,8 +1144,13 @@ public class PluginsController implements PluginsHooks {
     }
 
     public static boolean isPlugin(MessageObject messageObject) {
+        // The null check has to come first: this used to read the message before
+        // testing it, which threw on any caller passing null.
+        if (messageObject == null || messageObject.getDocumentName() == null) {
+            return false;
+        }
         String pathToMessage = ChatUtils.getInstance().getPathToMessage(messageObject);
-        return (messageObject == null || messageObject.getDocumentName() == null || TextUtils.isEmpty(pathToMessage) || !isPlugin(new File(pathToMessage)) || !isPluginEngineSupported()) ? false : true;
+        return !TextUtils.isEmpty(pathToMessage) && isPluginEngineSupported() && isPlugin(new File(pathToMessage));
     }
 
     public static boolean isPlugin(File file) {
@@ -1350,7 +1368,15 @@ public class PluginsController implements PluginsHooks {
             this.preferences = ApplicationLoader.applicationContext.getSharedPreferences("plugin_settings", 0);
         }
         
-        PythonPluginsEngine.recoverInterruptedPluginUpdates(this);
+        try {
+            PythonPluginsEngine.recoverInterruptedPluginUpdates(this);
+        } catch (Throwable recoveryFailure) {
+            // A damaged update journal must not abort initialization before the
+            // installed plugins can be listed. Do not run potentially incomplete code.
+            FileLog.e("Plugin update recovery failed; listing plugins in safe mode",
+                    recoveryFailure);
+            NimarkoConfig.setPluginsSafeMode(true);
+        }
 
         try {
             if (!this.preferences.getBoolean("plugin_falsequarantine_recovered_1", false)) {
@@ -1406,6 +1432,10 @@ public class PluginsController implements PluginsHooks {
                                     this.preferences.getBoolean(PREF_PLUGIN_ENABLED_KEY_PREFIX + attributedId, false))
                             .putBoolean(PREF_PLUGIN_ENABLED_KEY_PREFIX + attributedId, false)
                             .putBoolean("plugin_crashed_" + attributedId, true)
+                            // Timestamp of this crash, so a later successful load can be
+                            // recognised and an outdated marker ignored.
+                            .putLong("plugin_crashed_at_" + attributedId,
+                                    System.currentTimeMillis())
                             .putInt("unattributed_native_crashes", 0)
                             .apply();
                     AndroidUtilities.runOnUIThread(() -> {
@@ -3091,6 +3121,28 @@ public class PluginsController implements PluginsHooks {
         return arrayList;
     }
 
+    public void dispatchMenuItem(MenuItemRecord item, Map<String, Object> context) {
+        if (item == null || item.runtimeToken == null
+                || getPluginRuntimeTaskDecision(item.runtimeToken) != RUNTIME_TASK_RUN
+                || !enterPluginRuntime(item.runtimeToken)) {
+            return;
+        }
+        getWatchdog().onPluginExecutionStarted(item.pluginId);
+        try {
+            PyObject callback = item.onClickCallback;
+            if (callback != null) callback.call(context);
+        } catch (Exception failure) {
+            getWatchdog().onPluginExecutionFailed(item.pluginId, failure);
+            FileLog.e(failure);
+        } catch (Error failure) {
+            getWatchdog().onPluginExecutionFailed(item.pluginId, failure);
+            throw failure;
+        } finally {
+            getWatchdog().onPluginExecutionFinished(item.pluginId);
+            exitPluginRuntime(item.runtimeToken);
+        }
+    }
+
     void notifyPluginsChanged() {
         PluginDebugLog.log("CTRL notifyPluginsChanged pending="
                 + pendingToggleState.size()
@@ -3432,6 +3484,9 @@ public class PluginsController implements PluginsHooks {
 
     private static class SingletonHolder {
         private static final PluginsController INSTANCE = new PluginsController();
+        static {
+            diagnosticInstance = INSTANCE;
+        }
     }
 
     public static class HookResult<T> {

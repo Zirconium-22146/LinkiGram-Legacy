@@ -1,10 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="AppName">Linkigram Legacy</string>
+    <string name="AppName">LinkiGram</string>
+    <string name="ExecutableFileWarningTitle">Потенциально опасный файл</string>
+    <string name="ExecutableFileWarning">Вы собираетесь открыть %1$s\nТип: %2$s\nРазмер: %3$s\n\nИсполняемые файлы могут навредить устройству. Проверка VirusTotal ищет файл по хешу и не загружает его.</string>
+    <string name="CheckVirusTotal">Проверить в VirusTotal</string>
+    <string name="VirusTotalHashFailed">Не удалось вычислить хеш файла для проверки в VirusTotal.</string>
+    <string name="OpenAnyway">Всё равно открыть</string>
     <string name="NM_CP_Header_ChatView">Вид чата</string>
     <string name="NM_CP_Header_Interaction">Взаимодействие</string>
     <string name="NM_CP_Header_Media">Медиа</string>
     <string name="NM_CP_CenterTitleInChat">Центрировать заголовок в чате</string>
+    <string name="NM_CP_ReadAllInMenu">«Прочитать все» в меню</string>
+    <string name="NM_CP_ReadAllInMenu_Desc">Убрать кнопку с панели и показывать «Прочитать все» в меню из трёх точек.</string>
+    <string name="NM_DM_Title">Меню из трёх точек</string>
+    <string name="NM_DM_Theme">Переключение темы день/ночь</string>
+    <string name="NM_DM_Reorder">Порядок пунктов меню</string>
+    <string name="NM_LS_Title">Linki-Share</string>
+    <string name="NM_LS_ServiceDesc">Передача профиля LinkiGram по NFC</string>
+    <string name="NM_LS_Hint">Приложите телефоны друг к другу</string>
+    <string name="NM_LS_HintDetail">Откройте Linki-Share на обоих телефонах и приложите их спинка к спинке. Каждый телефон откроет профиль другого.</string>
+    <string name="NM_LS_NfcOff">NFC выключен</string>
+    <string name="NM_LS_EnableNfc">Включить NFC</string>
+    <string name="NM_LS_NoNfc">На этом устройстве нет NFC</string>
+    <string name="NM_LS_Received">Профиль получен</string>
+    <string name="NM_LS_Unavailable">Профиль недоступен: у второго аккаунта нет публичного имени пользователя</string>
     <string name="NM_CP_SnowflakesInChat">Снежинки в чате</string>
     <string name="NM_CP_WeekdayNearDate">День недели у даты</string>
     <string name="NM_CP_WeekdayNearDate_Desc">Показывает день недели рядом с датой в чате.</string>
@@ -349,6 +369,28 @@
     <string name="NM_Cat_Messages">Сообщения</string>
     <string name="NM_Cat_MessageMenu">Меню сообщения</string>
 
+    <!-- Описания карточек хаба LinkiGram -->
+    <string name="NM_HUB_Card_General">Язык, уведомления, прокрутка</string>
+    <string name="NM_HUB_Card_Appearance">Иконки, список чатов, папки, навигация</string>
+    <string name="NM_HUB_Card_Chats">Обои, ночной режим, анимации</string>
+    <string name="NM_HUB_Card_Messages">Меню, пузыри, жесты, ввод, медиа</string>
+    <string name="NM_HUB_Card_Camera">Видеокружки, качество, эффекты</string>
+    <string name="NM_HUB_Card_Privacy">Телефон, ID, режим стримера, сессии</string>
+    <string name="NM_HUB_Card_PrivacyModes">Мгновенные профили скрытности</string>
+    <string name="NM_HUB_Card_AyuMoments">Призрачные режимы, база моментов</string>
+    <string name="NM_HUB_Card_LinkiShare">Обмен профилями по NFC</string>
+    <string name="NM_HUB_Card_Plugins">Движок, установка, отчёты</string>
+    <string name="NM_HUB_Card_Media">Скачивание медиа из чатов</string>
+    <string name="NM_HUB_Card_Banners">Модерация и управление баннерами</string>
+    <string name="NM_HUB_Card_Bypass">tg-ws-proxy, туннели, диагностика</string>
+    <string name="NM_HUB_Card_TextAnim">Эффекты появления текста</string>
+    <string name="NM_HUB_Card_Cards">Инфо-карточки над списком чатов</string>
+    <string name="NM_HUB_Card_Debug">Тонкая настройка и эксперименты</string>
+    <string name="NM_HUB_Card_Diagnostics">Логи, ошибки, состояние соединения</string>
+    <string name="NM_HUB_Card_SourceCode">Репозиторий на GitHub</string>
+    <string name="NM_HUB_Card_Restart">Перезапустить приложение</string>
+    <string name="NM_HUB_Card_Updates">Автообновление, резервные копии</string>
+
     <!-- Внешний вид -->
     <string name="NM_AP_Header">Заголовок</string>
     <string name="NM_AP_CenterTitle">Центрирование заголовка</string>
@@ -539,6 +581,12 @@
     <string name="NM_HUB_ForkedFromCherrygram">Портировано из Cherrygram</string>
     <string name="NM_HUB_ForkedFromCherrygramSub">НЕ НАЖИМАТЬ</string>
     <string name="NM_HUB_Debug">Отладка</string>
+    <string name="NM_Diagnostics">Диагностика соединения</string>
+    <string name="NM_QuickPrivacyModes">Быстрые режимы приватности</string>
+    <string name="NM_QuickPrivacyModesInfo">Переключайте параметры Ghost одним нажатием. Режимы не меняют оформление и настройки уведомлений.</string>
+    <string name="NM_QuickPrivacyModesApplied">Режим приватности включён</string>
+    <string name="NM_LinkiGramYou">LinkiGram You</string>
+    <string name="NM_LinkiGramYou_Desc">Интерфейс Material You с цветами из обоев на Android 12 и новее.</string>
     <string name="NM_HUB_Experimental">Экспериментальные</string>
 
     <string name="NM_RestartRequired">Требуется перезапуск для применения изменений</string>
@@ -579,6 +627,7 @@
     <string name="NM_EXP_DiscussInsteadOfMute">Обсуждение вместо отключения по свайпу</string>
     <string name="NM_EXP_Footer">Эти параметры экспериментальные — возможны ошибки.</string>
     <string name="NM_GEN_MiscHeader">Разное</string>
+    <string name="NM_GEN_OtherHeader">Прочее</string>
     <string name="NM_GEN_DeletedGifts">Удалённые подарки в каталоге</string>
     <string name="NM_GEN_DeletedGifts_Desc">Возвращает скрытые подарки в каталог, чтобы их можно было отправить.</string>
     <string name="NM_GEN_LocalPremiumEmoji">Локальные премиум-эмодзи</string>
@@ -623,6 +672,11 @@
     <string name="NM_BT_AppearanceHeader">Внешний вид</string>
     <string name="NM_BT_ActionsHeader">Действия</string>
     <string name="NM_BT_ShowTabs">Показывать вкладки</string>
+    <string name="NM_BT_Mode">Режим нижней панели</string>
+    <string name="NM_BT_Mode_Desc">Как показывать нижнюю панель навигации: закреплённой, плавающей над списком или полностью скрытой.</string>
+    <string name="NM_BT_Mode_Show">Показывать</string>
+    <string name="NM_BT_Mode_Hide">Отключить</string>
+    <string name="NM_BT_Mode_Floating">Плавающая</string>
     <string name="NM_BT_ClassicUiHint">Нижняя панель вкладок скрыта, пока включён классический интерфейс (Оформление → Стиль интерфейса).</string>
     <string name="NM_BT_DoubleTapDesc">Двойной тап по чатам открывает «Избранное». Двойной тап по профилю (или по настройкам, если профиль скрыт) — переключение аккаунтов.</string>
     <string name="NM_BT_ShowTabsTitle">Показывать названия вкладок</string>
@@ -648,7 +702,11 @@
     <string name="NM_BG_Cards">Читаемость карточек</string>
     <string name="NM_ClassicUi_Header">Стиль интерфейса</string>
     <string name="NM_ClassicUi">Классический интерфейс</string>
-    <string name="NM_ClassicUi_Desc">Отключает новые iOS-элементы: нижнюю панель вкладок (Чаты / Профиль / Настройки) и разделённое поле ввода с отдельными кнопками. Возвращает привычную раскладку Telegram с меню «три полоски» в списке чатов. Желателен перезапуск.</string>
+    <string name="NM_ClassicUi_Desc">Отключает новые iOS-элементы: разделённое поле ввода с отдельными кнопками. Навигация идёт через боковое меню (шторку). Возвращает привычную раскладку Telegram с меню «три полоски» в списке чатов. Желателен перезапуск.</string>
+    <string name="NM_Drawer_NavigationDrawer">Боковое меню (шторка)</string>
+    <string name="NM_Drawer_NavigationDrawer_Desc">Открывать главное меню как боковую шторку свайпом от левого края и кнопкой «три полоски».</string>
+    <string name="NM_Drawer_Immersive">Иммерсивная анимация шторки</string>
+    <string name="NM_Drawer_Immersive_Desc">Сдвигать весь список чатов вместе со шторкой, а не просто затемнять экран.</string>
     <string name="NM_BG_Remove">Удалить изображение</string>
     <string name="NM_BG_Error">Не удалось загрузить изображение</string>
     <string name="NM_GLASS_Header">Стеклянный интерфейс</string>
@@ -782,6 +840,14 @@
     <string name="NM_ForumAvatarsLikeChats_Desc">Аватарки форумов скругляются так же, как у обычных чатов.</string>
     
 <string name="NM_SwitchStyle">Стиль переключателей</string>
+    <string name="NM_Style_Material">Material Design</string>
+    <string name="NM_Style_IOS">iOS Design</string>
+    <string name="NM_Style_Loaders">Загрузчики MD3</string>
+    <string name="NM_Style_Sliders">Слайдеры MD3</string>
+    <string name="NM_Style_Switches">Переключатели MD3</string>
+    <string name="NM_Style_ChatHeader">Шапка чата</string>
+    <string name="NM_Style_Navigation">Панель навигации</string>
+    <string name="NM_Style_ListItems">Элементы списков</string>
     <string name="NM_Chat_Section">Чаты</string>
     <string name="NM_Stickers_Header">Стикеры</string>
     <string name="NM_StickerSize">Размер стикеров</string>
@@ -790,6 +856,8 @@
     <string name="NM_StickerSizePreviewReply">на Марс 🚀</string>
     <string name="NM_StickerSizePreviewText">ахаха 😂</string>
     <string name="NM_ForceBlur">Усиленный блюр</string>
+    <string name="NM_LiquidGlass">Linki Glass</string>
+    <string name="NM_LiquidGlass_Desc">Стеклянные панели и элементы управления по всему приложению</string>
     <string name="NM_HideActionBarStatus">Скрыть статус в шапке чата</string>
     <string name="NM_DisableSendHints">Отключить подсказки отправки</string>
     <string name="NM_DisableSendHints_Desc">Не показывать подсказку «Удерживайте кнопку, чтобы отправить позже или без звука» над кнопкой отправки.</string>
@@ -859,11 +927,17 @@
     <string name="NM_IconPack_DefaultSubtitle">Стандартные иконки Telegram</string>
     <string name="NM_IconPack_SolarTitle">Solar</string>
     <string name="NM_IconPack_SolarSubtitle">Встроенный набор Solar</string>
-    <string name="NM_IconPack_LiquidTitle">Liquid Glass</string>
-    <string name="NM_IconPack_LiquidSubtitle">Набор Liquid Glass</string>
+    <string name="NM_IconPack_LiquidTitle">Linki Glass</string>
+    <string name="NM_IconPack_LiquidSubtitle">Набор Linki Glass</string>
     <string name="NM_IconPack_PlumpyTitle">Plumpy</string>
     <string name="NM_IconPack_PlumpySubtitle">Набор Plumpy</string>
-    <string name="NM_BAN_PickFile">Выберите файл</string>
+    <string name="NM_IconPack_CustomTitle">Свой SVG</string>
+    <string name="NM_IconPack_CustomSubtitle">Импортированный набор SVG-иконок</string>
+    <string name="NM_IconPack_ImportSvg">Импортировать набор SVG (.zip)</string>
+    <string name="NM_IconPack_ImportSvgHint">В ZIP нужен manifest.json с картой иконок, например: {"icons":{"msg_settings":"icons/settings.svg"}}. Поддерживаются только безопасные локальные SVG.</string>
+    <string name="NM_IconPack_Imported">Набор SVG-иконок импортирован</string>
+    <string name="NM_IconPack_ImportError">Не удалось импортировать SVG-набор</string>
+    <string name="NM_BAN_PickFile">Выбрать из галереи</string>
     <string name="NM_BAN_IdError">Не удалось получить ID</string>
     <string name="NM_BAN_LocalNa">Локальный баннер недоступен при глобальном</string>
     <string name="NM_BAN_HideAvatar">Скрыть аватар</string>
@@ -1066,6 +1140,11 @@
     <string name="NM_GhostMode">Призрачный режим</string>
     <string name="NM_GhostMaster">Включить призрачный режим</string>
     <string name="NM_GhostMaster_Desc">Включить или выключить все призрачные опции разом</string>
+    <string name="NM_PrivacyPreset">Пресет приватности</string>
+    <string name="NM_PrivacyPreset_Desc">Разом выставить все опции призрачного режима</string>
+    <string name="NM_PresetNormal">Обычный</string>
+    <string name="NM_PresetGhost">Невидимка</string>
+    <string name="NM_PresetParanoia">Паранойя</string>
     <string name="NM_GhostStories">Скрыть просмотры сторис</string>
     <string name="NM_GhostStories_Desc">Не отмечать сторис как просмотренные</string>
     <string name="NM_GhostReadAfterSend">Отмечать прочитанным после отправки</string>
@@ -1098,6 +1177,8 @@
     <string name="NM_SendOriginalPhoto_Desc">Отправлять фото в оригинальном качестве по умолчанию</string>
     <string name="NM_GhostChat">Призрачный режим для этого чата</string>
     <string name="NM_GhostChat_Desc">Скрывать «печатает», прочтение и просмотры историй в этом чате</string>
+    <string name="NM_GhostChat_Enabled">Призрачный режим включён для этого чата</string>
+    <string name="NM_GhostChat_Disabled">Призрачный режим выключен для этого чата</string>
     <string name="NM_EditHistory">История изменений</string>
     <string name="NM_EditHistory_Current">Текущая</string>
     <string name="NM_EditHistory_Version">Версия %1$d</string>
@@ -1143,7 +1224,7 @@
     <!-- MessageMenu -->
     <string name="CP_MessageMenuItems">Элементы меню сообщения</string>
     <string name="NM_Menu_TelegramPlus">Современное меню сообщений</string>
-    <string name="NM_Menu_TelegramPlus_Desc">Компактное меню в стиле Liquid Glass с группировкой действий, пружинными анимациями и живым откликом. Компактная компоновка остаётся доступной.</string>
+    <string name="NM_Menu_TelegramPlus_Desc">Компактное меню в стиле Linki Glass с группировкой действий, пружинными анимациями и живым откликом. Компактная компоновка остаётся доступной.</string>
     <string name="CP_MessageMenuCompactLayout">Компактная компоновка меню</string>
     <string name="CP_MessageMenuCompactLayout_Desc">Переносит до четырёх основных действий в отдельную панель с крупными значками и подписями. Остальные пункты сохраняют обычный размер.</string>
     <string name="CP_MessageMenuCompactLayout_Dot">Зоны нажатия остаются удобными; точка рядом с действием означает, что доступно и долгое нажатие.</string>
@@ -1394,6 +1475,7 @@
 <string name="NM_WSB_RouteHeader">Режим маршрута</string>
 <string name="NM_WSB_RouteRelay">Через релей</string>
 <string name="NM_WSB_RouteTgws">tg-ws-linki</string>
+<string name="NM_WSB_RouteXcfg">X-CFG (встроенный VPN)</string>
 <string name="NM_WSB_RouteDesc">Релей ведёт трафик через сервер автора. tg-ws-linki — встроенный движок: прямое соединение с Telegram и пул WebSocket, работает там, где релей душат.</string>
     <string name="NM_WSB_AuthorHeader">Автор</string>
     <string name="NM_WSB_AuthorChannel">Канал автора</string>
@@ -1450,4 +1532,260 @@
     <!-- LinkiGram: custom launcher icon colour picker -->
     <string name="AppIconCustomColor">Свой цвет</string>
     <string name="AppIconCustomColorHint">Введите HEX-код цвета (например #1E88E5). Android не умеет перекрашивать иконку на лету, поэтому применится ближайший из 16 встроенных цветов.</string>
+
+
+    <string name="NM_PluginReportMissing">Отчёт по этому плагину не сохранён.</string>
+    <string name="NM_PluginReportTitle">Отчёт о плагине</string>
+    <string name="NM_PluginSafetyEngineFailure">Движок плагинов не смог запуститься. Плагины приостановлены; конкретный плагин как причина не определён.</string>
+    <string name="NM_PluginSafetyEngineTimeout">Движок плагинов слишком долго запускался. Плагины приостановлены на всякий случай; конкретный плагин как причина не определён.</string>
+    <string name="NM_PluginSafetyManual">Вы включили безопасный режим. Плагины приостановлены — это не значит, что какой-то плагин упал.</string>
+    <string name="NM_PluginSafetyRecoveryFailed">Загрузка плагинов остановлена: не удалось сохранить состояние восстановления. Конкретный плагин не определён. Перезапустите приложение и проверьте память.</string>
+    <string name="NM_PluginSafetyUnknown">Плагины приостановлены в безопасном режиме. Причина недоступна. Сам по себе безопасный режим не указывает на конкретный плагин.</string>
+    <string name="NM_PluginAgentTitle">AI-агент плагинов</string>
+    <string name="NM_PluginAgentHint">Опишите нужный плагин — агент напишет файл. Если плагин не запускается или в нём баг, отправьте агенту отчёт: он разберёт сбой и пришлёт исправленный код.</string>
+    <string name="NM_PluginAgentInputHint">Опишите плагин…</string>
+    <string name="NM_PluginAgentSend">Отправить</string>
+    <string name="NM_PluginAgentInstall">Установить плагин</string>
+    <string name="NM_PluginAgentReport">Сообщить о проблеме с плагином</string>
+    <string name="NM_PluginAgentNoPlugins">Установленных плагинов нет.</string>
+    <string name="NM_PluginAgentBadId">В ответе нет корректной константы __id__.</string>
+    <string name="NM_PluginAgentReportPrompt">Плагин «%1$s» не работает или в нём баг. Найди причину и пришли исправленный файл целиком.</string>
+    <string name="NM_PluginAgentConfigure">Настройте AI-провайдера, чтобы пользоваться агентом.</string>
+    <string name="NM_PluginAgentAttach">Прикрепить файл или фото</string>
+    <string name="NM_PluginAgentAttachPhoto">Фото</string>
+    <string name="NM_PluginAgentAttachFile">Файл</string>
+    <string name="NM_PluginAgentAttachRemove">Убрать вложение</string>
+    <string name="NM_PluginAgentAttachment">Вложение: %1$s</string>
+    <string name="NM_PluginAgentAttachTooBig">Файл слишком большой. Лимит — 256 КБ.</string>
+    <string name="NM_PluginAgentAttachBinary">Можно прикреплять только текстовые файлы и изображения.</string>
+    <string name="NM_PluginAgentAttachFailed">Не удалось прочитать файл.</string>
+    <string name="NM_PluginAgentPhotoPrompt">Посмотри на приложенное фото.</string>
+    <string name="NM_PluginAgentFilePrompt">Приложенный файл «%1$s»:</string>
+    <string name="RecentChats">Недавние чаты</string>
+    <string name="EnableGhostMode">Включить режим призрака</string>
+    <string name="DisableGhostMode">Выключить режим призрака</string>
+    <string name="GhostModeEnabled">Режим призрака включён</string>
+    <string name="GhostModeDisabled">Режим призрака выключен</string>
+    <string name="PluginReviewTitle">Проверка исходного кода плагина</string>
+    <string name="PluginReviewUnavailable">Не удалось проверить исходный код.</string>
+    <string name="PluginReviewNoFindings">Распространённых рискованных шаблонов не найдено.</string>
+    <string name="PluginReviewDisclaimer">Эта эвристическая проверка не является песочницей. Изучите исходный код и разрешения.</string>
+    <string name="PluginReviewNetwork">Найдены признаки сетевого доступа</string>
+    <string name="PluginReviewFiles">Найдены признаки доступа к файлам</string>
+    <string name="PluginReviewDynamicCode">Найдены признаки динамической загрузки кода</string>
+    <string name="PluginReviewEncodedPayload">Найдены признаки закодированных или сжатых данных</string>
+    <string name="PluginReviewDexPayload">Найдены признаки загрузки DEX</string>
+    <string name="PluginPermissionsTitle">Разрешения плагина</string>
+    <string name="PluginPermissionTelegram">Доступ к аккаунту и Telegram API, включая сообщения и запросы</string>
+    <string name="PluginPermissionFiles">Чтение файлов, выбранных плагином</string>
+    <string name="LUS_Beta">Beta-обновления</string>
+    <string name="LUS_BetaInfo">Учитывать предварительные версии. Предлагать самую новую версию; более свежий стабильный релиз имеет приоритет.</string>
+    <string name="NM_GhostRecording">Скрывать запись голоса и видео</string>
+    <string name="NM_GhostRecording_Desc">Скрывать запись голоса, видео и кружков независимо от набора текста</string>
+    <string name="NM_GhostNormalChat">Обычный режим в этом чате</string>
+    <string name="NM_GhostFollowGlobal">Использовать общие настройки призрака</string>
+    <string name="NM_GhostSettings">Настройки призрака</string>
+    <string name="NM_GhostNothingHidden">Скрытые действия не включены</string>
+    <string name="NM_GhostChatScope">Исключение разрешает отметки прочтения, набор текста, запись и просмотры историй. Онлайн скрывается для всего аккаунта. Сеанс скрытого просмотра историй остаётся скрытым.</string>
+<string name="OEAiTitle">ИИ-ассистент</string>
+
+<string name="OEAiServiceHeader">Сервис</string>
+
+<string name="OEAiProvider">Провайдер</string>
+
+<string name="OEAiProviderCustom">Свой</string>
+
+<string name="OEAiUrl">Адрес</string>
+
+<string name="OEAiModel">Модель</string>
+
+<string name="OEAiKey">Ключ API</string>
+
+<string name="OEAiKeyNotSet">не задан</string>
+
+<string name="OEAiReasoning">Рассуждение</string>
+
+<string name="OEAiServiceInfo">Подойдёт любой OpenAI-совместимый адрес. Ключ хранится только на этом устройстве и уходит на тот адрес, который вы указали.</string>
+
+<string name="OEAiGetKey">Получить ключ</string>
+
+<string name="OEAiTest">Проверить соединение</string>
+
+<string name="OEAiTestOk">работает</string>
+
+<string name="OEAiTemperatureExact">Точнее</string>
+
+<string name="OEAiTemperatureVaried">Разнообразнее</string>
+
+<string name="OEAiModelsEmpty">Провайдер не отдал список моделей</string>
+
+<string name="OEAiModelSearchOrEnter">Поиск или имя модели</string>
+
+<string name="OEAiModelUseCustom">Использовать эту модель</string>
+<string name="OEAiModelFree">Бесплатно</string>
+
+<string name="OEAiReasoningOff">Выключено</string>
+
+<string name="OEAiReasoningLow">Слабое</string>
+
+<string name="OEAiReasoningMedium">Среднее</string>
+
+<string name="OEAiReasoningHigh">Сильное</string>
+
+<string name="OEAiGenerationHeader">Генерация</string>
+
+<string name="OEAiRole">Роль</string>
+
+<string name="OEAiTemperature">Температура</string>
+
+<string name="OEAiStreaming">Показывать ответ по мере генерации</string>
+
+<string name="OEAiSaveHistory">Хранить историю переписки</string>
+
+<string name="OEAiClearHistory">Очистить историю</string>
+
+<string name="OEAiHistoryCleared">История очищена</string>
+
+<string name="OEAiGenerationInfo">Чем ниже температура, тем ровнее ответы; чем выше — тем разнообразнее.</string>
+
+<string name="OEAiThinking">Думает…</string>
+
+<string name="OEAiNotConfigured">Сначала укажите адрес, модель и ключ API</string>
+
+<string name="OEAiStop">Остановить</string>
+
+<string name="OEAiInsert">Вставить</string>
+
+<string name="OEAiFailed">Запрос не прошёл</string>
+
+<string name="OEAiPresets">Эндпоинт и модель</string>
+
+<string name="OEAiPresetSave">Сохранить текущую пару</string>
+
+<string name="OEAiPresetName">Название пары</string>
+
+<string name="OEAiRoleAdd">Добавить свою</string>
+
+<string name="OEAiRoleName">Название</string>
+
+<string name="OEAiRolePrompt">Указание для модели</string>
+
+<string name="OEAiThoughtTime">Думал %1$d с</string>
+
+<string name="OEAiDetails">Подробности</string>
+
+<string name="OEAiDisableTools">Отключить инструменты</string>
+
+<string name="OEAiDisableToolsInfo">Проверка плагина уходит одним запросом, как раньше: только первые 48 КБ кода, встроенные данные не расшифровываются</string>
+
+<string name="LinkiRelativeLastSeen">Относительное время в сети</string>
+<string name="LinkiHidePhone">Скрывать свой номер на этом устройстве</string>
+    <string name="OEAiAsk">Спросить ИИ</string>
+    <string name="LinkiSettingsIconColors">Цвет значков в настройках</string>
+    <string name="LinkiIconsNeutral">Нейтральные</string>
+    <string name="LinkiIconsAccent">Акцент темы</string>
+    <string name="LinkiIconsOriginal">Исходные цвета</string>
+    <string name="LinkiIconsCustom">Свой цвет</string>
+    <string name="LinkiIconsInvalidColor">Введите цвет в формате #RRGGBB</string>
+    <string name="LinkiHistoryMedia">Медиафайл</string>
+    <string name="LinkiHistoryEmpty">Предыдущие версии не сохранены. Включите сохранение истории правок в LinkiGram → AyuMoments. Сохраняются только изменения, полученные после включения.</string>
+    <string name="LinkiHistoryCurrent">Текущая версия</string>
+    <string name="LinkiEditHistory">История изменений</string>
+    <string name="LinkiMinutes">мин</string>
+    <string name="LinkiRepeatSaved">Повторяющееся текстовое сообщение сохранено на этом устройстве</string>
+    <string name="LinkiAutomationError">Не удалось выполнить автоматизацию. Проверьте настройки.</string>
+    <string name="LinkiRepeatTextOnly">Локальные повторы работают для новых текстовых сообщений в обычных чатах. Медиа, пересылка, платные сообщения и правка серверных отложенных сообщений не поддерживаются.</string>
+    <string name="LinkiRepeatingMessages">Повторяющиеся сообщения</string>
+    <string name="LinkiRepeatEmpty">В этом чате нет локальных повторов. Чтобы добавить: зажмите «Отправить» → «Отправить позже» → «Повторять» → минуты или часы.</string>
+    <string name="LinkiRepeatCancel">Отменить повторяющееся сообщение?</string>
+    <string name="LinkiRepeatMinutes">Каждые %1$d мин</string>
+    <string name="LinkiRepeatHours">Каждые %1$d ч</string>
+    <string name="LinkiRepeatInMinutes">Локальный повтор · минуты</string>
+    <string name="LinkiRepeatInHours">Локальный повтор · часы</string>
+    <string name="LinkiRepeatInfo">Для новых текстовых сообщений. Первая отправка — в выбранные дату и время, затем с заданным интервалом. Телефон должен быть включён и подключён к интернету; энергосбережение Android может задерживать отправку. Управление: меню чата → «Повторяющиеся сообщения». Пропущенные отправки не догоняются.</string>
+    <string name="LinkiRepeatInvalid">Введите положительный интервал не больше 31 дня</string>
+    <string name="LinkiChatAssistant">ИИ-ассистент чата</string>
+    <string name="LinkiChatAssistantEnabled">Включить ассистента в этом чате</string>
+    <string name="LinkiChatAssistantInfo">Автоматически отвечает от вашего аккаунта на новые входящие текстовые сообщения этого чата через выбранного ИИ-провайдера. Текст сообщений передаётся провайдеру. В группах по умолчанию отвечает только на упоминания. Боты и старые сообщения игнорируются; не чаще одного ответа в 30 секунд. Приложение должно получать обновления на этом устройстве.</string>
+    <string name="LinkiChatAssistantMentions">В группах отвечать только на упоминания</string>
+    <string name="LinkiChatAssistantPrompt">Инструкции для этого чата</string>
+    <string name="LinkiRepeatAllowExact">Разрешить точные будильники</string>
+    <string name="LinkiBannerModerationHint">Выберите изображение до 8 МБ. После одобрения модератором оно станет статичным баннером WebP. Из GIF и многостраничных изображений используется первый кадр/страница. Неподдерживаемые файлы отклоняются сервером.</string>
+    <string name="NM_BAN_CropTitle">Обрезка баннера</string>
+    <string name="NM_BAN_CropHint">Двигайте картинку · Масштабируйте двумя пальцами</string>
+    <string name="NM_BAN_CropFailed">Не удалось обрезать изображение. Попробуйте ещё раз.</string>
+    <string name="NM_BAN_CropUnsupported">Этот формат нельзя показать на устройстве. Отправить оригинал с автоматической обрезкой по центру?</string>
+    <string name="NM_BAN_SubmitOriginal">Отправить оригинал</string>
+    <string name="LinkiDoubleTapIncoming">Двойной тап по чужим сообщениям</string>
+    <string name="LinkiDoubleTapOutgoing">Двойной тап по своим сообщениям</string>
+    <string name="LinkiStickerTime">Время на стикерах</string>
+    <string name="LinkiStickerTimeDefault">На стикере</string>
+    <string name="LinkiStickerTimeSide">Сбоку от стикера</string>
+    <string name="LinkiChooseRoundCameraHint">Выберите камеру, затем снова удерживайте кнопку записи.</string>
+    <string name="LinkiKeepOnce">Сохранять открытые одноразовые медиа</string>
+    <string name="LinkiKeepOnceInfo">Сохранять локальную копию новых открытых одноразовых медиа, если файл успел загрузиться. После просмотра копия остаётся доступной в чате на этом устройстве.</string>
+    <string name="LinkiOnceArchive">Сохранённые одноразовые медиа</string>
+    <string name="LinkiOnceArchiveInfo">Копии только на этом устройстве, отдельно для каждого аккаунта и без автоматического резервного копирования. Отключение сохранения не удаляет копии. Нажмите на запись, чтобы открыть или удалить её.</string>
+    <string name="LinkiOnceArchiveEmpty">Копий пока нет. Включите сохранение и откройте новое одноразовое медиа. Уже исчезнувшие медиа восстановить нельзя.</string>
+    <string name="LinkiOnceArchiveClear">Удалить все копии</string>
+    <string name="LinkiOnceArchiveClearConfirm">Удалить все локальные копии одноразовых медиа этого аккаунта?</string>
+    <string name="LinkiOnceArchiveOpenError">Не удалось открыть копию.</string>
+    <string name="LinkiOncePhoto">Фото</string>
+    <string name="LinkiOnceVideo">Видео</string>
+    <string name="LinkiOnceAudio">Голосовое сообщение</string>
+    <string name="LinkiAllowProtectedScreenshots">Разрешить скриншоты в защищённых чатах</string>
+    <string name="LinkiAllowProtectedScreenshotsInfo">Скриншоты в защищённых чатах и при просмотре одноразовых медиа.</string>
+    <string name="LinkiChatStatsTitle">Статистика чата</string>
+    <string name="LinkiChatStatsWeek">За 7 дней</string>
+    <string name="LinkiChatStatsMonth">За 30 дней</string>
+    <string name="LinkiChatStatsThreeMonths">За 90 дней</string>
+    <string name="LinkiChatStatsMessages">Сообщений: %1$d</string>
+    <string name="LinkiChatStatsMedia">Сообщений с медиа: %1$d</string>
+    <string name="LinkiChatStatsAuthors">Активных отправителей: %1$d</string>
+    <string name="LinkiChatStatsTop">Самые активные отправители</string>
+    <string name="LinkiChatStatsUnknown">Неизвестный отправитель</string>
+    <string name="LinkiChatStatsLimit">Неполный результат: проверены только последние 3000 доступных сообщений.</string>
+    <string name="LinkiChatStatsError">Не удалось загрузить все сообщения. Результат может быть неполным.</string>
+    <string name="LinkiChatStatsScope">По доступной истории чата. Служебные сообщения не учитываются, а предпросмотры ссылок не считаются медиа.</string>
+    <string name="LinkiTopicStatsScope">По доступной истории этой темы. Служебные сообщения не учитываются, а предпросмотры ссылок не считаются медиа.</string>
+    <string name="LinkiRepeatLocalLabel">Локальный повтор</string>
+    <string name="LinkiSmartCenter">Центр чатов</string>
+    <string name="LinkiAISettings">Настройки LinkiGram AI</string>
+    <string name="LinkiSmartCenterInfo">Непрочитанные чаты и упоминания этого аккаунта. Выберите чат, чтобы открыть его или получить сводку последних сообщений.</string>
+    <string name="LinkiSmartMentions">Упоминания</string>
+    <string name="LinkiSmartUnread">Непрочитанные чаты</string>
+    <string name="LinkiSmartEmpty">Здесь пока пусто</string>
+    <string name="LinkiSmartOpen">Открыть чат</string>
+    <string name="LinkiSmartSummarize">Кратко с LinkiGram AI</string>
+    <string name="LinkiSummaryConsent">До 100 последних сообщений (до 24 000 символов) этого чата будут отправлены выбранному ИИ-провайдеру. Продолжить?</string>
+    <string name="LinkiSummaryEmpty">В выбранном фрагменте нет текстовых сообщений.</string>
+    <string name="LinkiSummaryScope">Сводка ограниченного фрагмента последних сообщений. ИИ может ошибаться. Числа в скобках обозначают номера сообщений.</string>
+    <string name="LinkiSummaryHistoryError">Не удалось загрузить историю Telegram. Проверьте соединение и доступ к чату.</string>
+    <string name="LinkiSummaryProviderError">Выбранный ИИ-провайдер не выполнил запрос. Проверьте его настройки.</string>
+    <string name="LinkiSummaryAuthError">Проверьте API-ключ и доступ к выбранной модели.</string>
+    <string name="LinkiSummaryRateError">Достигнут лимит запросов провайдера. Повторите позже.</string>
+    <string name="LinkiYouCustomize">Настройка LinkiGram You</string>
+    <string name="LinkiYouColors">Цвета</string>
+    <string name="LinkiYouAccent">Акцентный цвет</string>
+    <string name="LinkiYouSystemColor">Использовать цвета системы</string>
+    <string name="LinkiYouColorsInfo">Из акцентного цвета создаётся палитра Material You для светлой и тёмной темы.</string>
+    <string name="LinkiYouLayout">Расположение</string>
+    <!-- Account session import/export -->
+    <string name="SessionTransferButton">Сессия</string>
+    <string name="SessionTransferLogin">Войти через сессию</string>
+    <string name="SessionTransferFile">Файл Telethon / Pyrogram (.session)</string>
+    <string name="SessionTransferTdata">Архив tdata (.zip)</string>
+    <string name="SessionTransferExport">Экспорт сессии аккаунта</string>
+    <string name="SessionTransferPasscode">Локальный пароль Desktop (необязательно)</string>
+    <string name="SessionTransferPasscodeInfo">Оставьте пустым, если в Telegram Desktop нет локального пароля. Это не облачный пароль Telegram.</string>
+    <string name="SessionTransferSelectAccount">Выберите аккаунт</string>
+    <string name="SessionTransferImportWarning">Импортируйте только свою сессию. Будет использована её авторизация. Не запускайте клиенты с одной авторизацией одновременно: Telegram может её отозвать.</string>
+    <string name="SessionTransferExportWarning">Экспортированный файл даёт полный доступ к аккаунту без кода входа и облачного пароля. Сохраняйте его только в надёжном месте. При утечке завершите сессию этого устройства в Telegram.</string>
+    <string name="SessionTransferInvalid">Некорректная сессия. Проверьте формат, Auth Key (512 hex-символов) и DC ID (1–5). Поддерживаются только пользовательские аккаунты основной сети.</string>
+    <string name="SessionTransferFileError">Не удалось прочитать файл. Выберите отдельную базу .session Telethon или Pyrogram, корректно закрытую её клиентом.</string>
+    <string name="SessionTransferTdataError">Не удалось прочитать tdata. Проверьте локальный пароль и содержимое ZIP (key_data и файлы авторизации аккаунтов). Удалите кэш, если распакованный архив превышает 64 МБ.</string>
+    <string name="SessionTransferLoginError">Проверка сессии не удалась или истекло время ожидания. Проверьте подключение, DC ID и действительность авторизации.</string>
+    <string name="SessionTransferAlreadyAdded">Этот аккаунт или авторизация уже добавлены.</string>
+    <string name="SessionTransferExportError">Не удалось экспортировать сессию. Проверьте место сохранения и свободную память. По выбранному пути мог остаться неполный файл.</string>
+    <string name="SessionTransferExported">Сессия экспортирована</string>
 </resources>

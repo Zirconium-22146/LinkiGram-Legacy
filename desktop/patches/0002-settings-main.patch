@@ -1,0 +1,54 @@
+diff --git a/Telegram/SourceFiles/settings/sections/settings_main.cpp b/Telegram/SourceFiles/settings/sections/settings_main.cpp
+index b452a17..f787137 100644
+--- a/Telegram/SourceFiles/settings/sections/settings_main.cpp
++++ b/Telegram/SourceFiles/settings/sections/settings_main.cpp
+@@ -7,6 +7,9 @@ https://github.com/telegramdesktop/tdesktop/blob/master/LEGAL
+ */
+ #include "settings/sections/settings_main.h"
+ 
++#include "linkigram/settings/settings_linkigram.h"
++#include "linkigram/features.h"
++
+ #include "settings/settings_common_session.h"
+ 
+ #include "api/api_cloud_password.h"
+@@ -264,7 +267,9 @@ void Cover::initViewers() {
+ 	Info::Profile::PhoneValue(
+ 		_user
+ 	) | rpl::on_next([=](const TextWithEntities &value) {
+-		_phoneText = value.text;
++		_phoneText = LinkiGram::HideOwnPhone()
++			? QString()
++			: value.text;
+ 		updatePhoneText();
+ 	}, lifetime());
+ 
+@@ -366,6 +371,18 @@ void BuildSectionButtons(SectionBuilder &builder) {
+ 	const auto controller = builder.controller();
+ 	const auto showOther = builder.showOther();
+ 
++	builder.addSectionButton({
++		.title = rpl::single(u"LinkiGram"_q),
++		.targetSection = LinkiGramId(),
++		.icon = { &st::menuIconExperimental },
++		.keywords = {
++			u"linkigram"_q,
++			u"theme"_q,
++			u"privacy"_q,
++			u"appearance"_q,
++		},
++	});
++
+ 	if (!session->supportMode()) {
+ 		builder.addButton({
+ 			.title = tr::lng_settings_my_account(),
+@@ -867,6 +884,9 @@ void SetupValidatePhoneNumberSuggestion(
+ 		not_null<Window::SessionController*> controller,
+ 		not_null<Ui::VerticalLayout*> container,
+ 		Fn<void(Type)> showOther) {
++	if (LinkiGram::HideOwnPhone()) {
++		return;
++	}
+ 	if (!controller->session().promoSuggestions().current(
+ 			kSugValidatePhone.utf8())) {
+ 		return;

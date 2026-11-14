@@ -965,7 +965,9 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
                 WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR |
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
                 WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
-        windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
+        if (!app.nimarkogram.messenger.NimarkoConfig.allowProtectedScreenshots) {
+            windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
+        }
         AndroidUtilities.logFlagSecure();
         centerImage.setParentView(containerView);
         centerImage.setForceCrossfade(true);
@@ -1514,7 +1516,7 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
                 if (f.exists()) {
                     preparePlayer(f);
                 } else {
-                    File file = FileLoader.getInstance(currentAccount).getPathToMessage(messageObject.messageOwner);
+                    File file = messageObject.isLivePhoto() ? FileLoader.getInstance(currentAccount).getPathToAttach(document, null, true) : FileLoader.getInstance(currentAccount).getPathToMessage(messageObject.messageOwner);
                     File encryptedFile = new File(file.getAbsolutePath() + ".enc");
                     if (encryptedFile.exists()) {
                         file = encryptedFile;
@@ -1566,6 +1568,11 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
         }
 
         WindowManager wm = (WindowManager) parentActivity.getSystemService(Context.WINDOW_SERVICE);
+        if (app.nimarkogram.messenger.NimarkoConfig.allowProtectedScreenshots) {
+            windowLayoutParams.flags &= ~WindowManager.LayoutParams.FLAG_SECURE;
+        } else {
+            windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
+        }
         wm.addView(windowView, windowLayoutParams);
         secretDeleteTimer.invalidate();
         isVisible = true;

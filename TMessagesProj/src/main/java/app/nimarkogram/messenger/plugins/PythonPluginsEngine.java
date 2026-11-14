@@ -27,6 +27,7 @@ import app.nimarkogram.messenger.plugins.ui.PluginSettingsActivity;
 import app.nimarkogram.messenger.plugins.ui.PluginUiRegistry;
 import app.nimarkogram.messenger.plugins.ui.components.InstallPluginBottomSheet;
 import app.nimarkogram.messenger.plugins.ui.components.PluginCell;
+import app.nimarkogram.messenger.plugins.utils.PluginDexTracking;
 import app.nimarkogram.messenger.plugins.utils.PyObjectUtils;
 import app.nimarkogram.messenger.utils.text.LocaleUtils;
 
@@ -1961,6 +1962,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 return;
             }
             try {
+                android.util.Log.i("LinkiPluginEngine", "Initializing Python plugin runtime");
                 
                 try {
                     org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("L");
@@ -1970,6 +1972,8 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 try {
                     if (!ensurePineReady()) {
                         FileLog.w("nimarko: Pine unavailable; Python starts with method hooks disabled");
+                    } else {
+                        PluginDexTracking.install();
                     }
                 } catch (Throwable pineError) {
                     
@@ -1997,7 +2001,9 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 
                 this.basePluginClass = base;
                 this.python = candidate;
+                android.util.Log.i("LinkiPluginEngine", "Python plugin runtime initialized");
             } catch (Exception e) {
+                android.util.Log.e("LinkiPluginEngine", "Python plugin runtime initialization failed", e);
                 FileLog.e("Failed to initialize Python", e);
             }
         }
@@ -2005,7 +2011,10 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
 
     @Override
     public boolean isPlugin(File file) {
-        return file != null && file.getName().toLowerCase().endsWith(PluginsConstants.PLUGINS_EXT);
+        if (file == null) return false;
+        String name = file.getName().toLowerCase(java.util.Locale.ROOT);
+        return name.endsWith(PluginsConstants.PLUGINS_EXT)
+                || name.endsWith(".elyx") || name.endsWith(".eaf");
     }
 
     @Override
@@ -2023,6 +2032,10 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         }
         Utilities.pluginsQueue.postRunnable(() -> {
             try {
+                // Publish a disabled inventory first. Recovery, Python startup and
+                // dependency setup may all fail after an interrupted process.
+                registerPluginsMetadataOnly(true);
+                getPluginsController().notifyPluginsChanged();
                 cleanupOrphanedHostInstallStages();
                 
                 recoverInterruptedPluginUpdates(getPluginsController());
@@ -2080,6 +2093,9 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 checkDevServer();
             } catch (Throwable th) {
                 FileLog.e("nimarko: PythonPluginsEngine.init crashed", th);
+                NimarkoConfig.setPluginsSafeMode(true);
+                registerPluginsForSafeMode();
+                getPluginsController().notifyPluginsChanged();
                 if (runnable != null) {
                     AndroidUtilities.runOnUIThread(runnable);
                 }
@@ -2265,6 +2281,40 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         registerPluginsMetadataOnly(true);
     }
 
+    /** Rescan installed files without replacing live plugin instances. */
+    public void rescanInstalledPluginFiles() {
+        Utilities.pluginsQueue.postRunnable(() -> {
+            PluginsController controller = getPluginsController();
+            File directory = controller.getPluginsDir();
+            File[] files = directory.listFiles((dir, name) ->
+                    name.toLowerCase(java.util.Locale.ROOT).endsWith(".py"));
+            if (files == null) return;
+            boolean changed = false;
+            for (File file : files) {
+                String id = file.getName().substring(0, file.getName().length() - 3);
+                if (id.isEmpty() || "nimarkobanner".equalsIgnoreCase(id)
+                        || controller.plugins.containsKey(id)
+                        || pluginDeleteMarker(directory, id).exists()) continue;
+                try {
+                    Plugin plugin = createBoundedMetadataPlugin(file, id);
+                    plugin.setEnabled(false);
+                    if (controller.preferences.getBoolean("plugin_crashed_" + id, false)) {
+                        plugin.setError(new Exception(LocaleController.getString(
+                                R.string.NM_PluginCrashedDisabled)));
+                    } else if (RECOVERY_BLOCKED_PLUGIN_IDS.contains(id)) {
+                        plugin.setError(new IOException("Plugin update recovery is incomplete"));
+                    }
+                    if (file.isFile() && controller.plugins.putIfAbsent(id, plugin) == null) {
+                        changed = true;
+                    }
+                } catch (Throwable failure) {
+                    FileLog.e("Could not rescan installed plugin " + id, failure);
+                }
+            }
+            if (changed) controller.notifyPluginsChanged();
+        });
+    }
+
     private void registerPluginsMetadataOnly(boolean forceDisabled) {
         PluginsController controller = getPluginsController();
         controller.clearPluginStartupActivations();
@@ -2275,31 +2325,30 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
             for (File file : files) {
                 String pid = file.getName().substring(0, file.getName().length() - 3);
                 if ("nimarkobanner".equalsIgnoreCase(pid)) continue;
-                Plugin plugin = createBoundedMetadataPlugin(file, pid);
-                boolean recoveryBlocked =
-                        RECOVERY_BLOCKED_PLUGIN_IDS.contains(pid);
-                boolean quarantined = controller.preferences.getBoolean(
-                        "plugin_crashed_" + pid, false);
-                if (recoveryBlocked) {
-                    plugin.setError(new IOException(
-                            "Plugin update recovery is incomplete"));
-                } else if (quarantined) {
-                    plugin.setError(new Exception(LocaleController.getString(
-                            R.string.NM_PluginCrashedDisabled)));
-                } else {
-                    plugin.setError(null);
+                try {
+                    Plugin plugin = createBoundedMetadataPlugin(file, pid);
+                    boolean recoveryBlocked = RECOVERY_BLOCKED_PLUGIN_IDS.contains(pid);
+                    boolean quarantined = controller.preferences.getBoolean(
+                            "plugin_crashed_" + pid, false);
+                    if (recoveryBlocked) {
+                        plugin.setError(new IOException("Plugin update recovery is incomplete"));
+                    } else if (quarantined) {
+                        plugin.setError(new Exception(LocaleController.getString(
+                                R.string.NM_PluginCrashedDisabled)));
+                    } else {
+                        plugin.setError(null);
+                    }
+                    plugin.setEnabled(false);
+                    controller.plugins.put(pid, plugin);
+                    boolean restoreEnabled = !forceDisabled
+                            && !recoveryBlocked
+                            && !quarantined
+                            && controller.preferences.getBoolean(
+                            PluginsController.PREF_PLUGIN_ENABLED_KEY_PREFIX + pid, false);
+                    controller.setPluginStartupActivationPending(pid, restoreEnabled);
+                } catch (Throwable pluginFailure) {
+                    FileLog.e("Could not list installed plugin " + pid, pluginFailure);
                 }
-                
-                plugin.setEnabled(false);
-                controller.plugins.put(pid, plugin);
-                boolean restoreEnabled = !forceDisabled
-                        && !recoveryBlocked
-                        && !quarantined
-                        && controller.preferences.getBoolean(
-                        PluginsController.PREF_PLUGIN_ENABLED_KEY_PREFIX + pid,
-                        false);
-                controller.setPluginStartupActivationPending(
-                        pid, restoreEnabled);
             }
         } catch (Throwable t) {
             FileLog.e("nimarko: safe-mode plugin listing failed", t);
@@ -2376,6 +2425,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         Utilities.pluginsQueue.postRunnable(() -> {
             Plugin plugin;
             if (getPython() == null) {
+                android.util.Log.e("LinkiPluginEngine", "Plugin startup skipped: Python runtime unavailable");
                 FileLog.e("nimarko: loadPlugins() getPython()==null");
                 getPluginsController().clearPluginStartupActivations();
                 getPluginsController().notifyPluginsChanged();
@@ -2407,6 +2457,13 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                          pyObject.callAttr("append", getPluginsController().pluginsDir.getAbsolutePath());
                          pluginsPathAdded = true;
                     }
+                    // Register the host-owned importer so plugin entry modules load by
+                    // file path. It also puts the plugins directory on sys.path itself.
+                    try {
+                        getPython().getModule("plugin_imports").callAttr(
+                                "install", getPluginsController().pluginsDir.getAbsolutePath());
+                    } catch (Throwable ignored) {
+                    }
                     
                     module.callAttr("setswitchinterval", 0.01d);
                     if (NimarkoConfig.pluginsSafeMode) {
@@ -2417,6 +2474,8 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                         return;
                     }
                     File[] fileArrListFiles = getPluginsController().pluginsDir.listFiles((dir, name) -> name.toLowerCase().endsWith(".py"));
+                    android.util.Log.i("LinkiPluginEngine", "Plugin startup: "
+                            + (fileArrListFiles == null ? "directory unavailable" : fileArrListFiles.length + " files"));
                     {
                         StringBuilder sb = new StringBuilder();
                         if (fileArrListFiles != null) for (File f : fileArrListFiles) sb.append(f.getName()).append("(").append(f.length()).append(") ");
@@ -2482,8 +2541,17 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                                 continue;
                             }
 
-                            if (getPluginsController().preferences.getBoolean(
-                                    "plugin_crashed_" + pluginId, false)) {
+                            boolean hasCrashMarker = getPluginsController().preferences
+                                    .getBoolean("plugin_crashed_" + pluginId, false);
+                            if (hasCrashMarker && isQuarantineStale(pluginId)) {
+                                // A later successful activation supersedes this marker.
+                                // Preserve the current user-selected enabled state.
+                                getPluginsController().preferences.edit()
+                                        .remove("plugin_crashed_" + pluginId)
+                                        .remove("plugin_crashed_at_" + pluginId)
+                                        .remove("plugin_enabled_before_quarantine_" + pluginId)
+                                        .apply();
+                            } else if (hasCrashMarker) {
                                 if (parsedPlugin == null) {
                                     parsedPlugin =
                                             createBoundedMetadataPlugin(
@@ -2649,6 +2717,8 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                     PipController.getInstance().cleanup();
                     getPluginsController().notifyPluginsChanged();
                     long enabledCount = getPluginsController().plugins.values().stream().filter(p -> p.isEnabled() && !p.hasError()).count();
+                    android.util.Log.i("LinkiPluginEngine", "Plugin startup complete: "
+                            + getPluginsController().plugins.size() + " registered, " + enabledCount + " enabled");
                     FileLog.d("nimarko: loadPlugins() done. Total=" + getPluginsController().plugins.size() + " Enabled=" + enabledCount);
                     if (runnable != null) {
                         AndroidUtilities.runOnUIThread(runnable);
@@ -2656,6 +2726,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 } finally {
                 }
             } catch (PyException e) {
+                android.util.Log.e("LinkiPluginEngine", "Plugin startup Python failure", e);
                 FileLog.e("nimarko: loadPlugins() Python setup failed", e);
                 getPluginsController().clearPluginStartupActivations();
                 getPluginsController().notifyPluginsChanged();
@@ -2663,6 +2734,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                     AndroidUtilities.runOnUIThread(runnable);
                 }
             } catch (Throwable failure) {
+                android.util.Log.e("LinkiPluginEngine", "Plugin startup failure", failure);
                 FileLog.e("nimarko: loadPlugins() failed", failure);
                 getPluginsController().clearPluginStartupActivations();
                 getPluginsController().notifyPluginsChanged();
@@ -2838,7 +2910,17 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 legacyOverlayProbes.put(runtimeToken, overlayProbe);
             }
             PluginDebugLog.log("loadPlugin importing module id=" + str);
-            PyObject module = getPython().getModule(str);
+            // The plugin file was written moments ago by the installer, but Python caches
+            // the contents of every sys.path directory and only revalidates on coarse
+            // mtime changes. Without this, importing a freshly installed plugin fails with
+            // "ModuleNotFoundError" even though the .py file is sitting right there.
+            invalidatePythonImportCaches();
+            // Load the entry through the host-owned importer instead of a bare
+            // `import <id>`. A plain name import depends on the module being visible
+            // on sys.path, which fails with ModuleNotFoundError for a plugin that was
+            // just installed; the importer loads exactly this file instead.
+            PyObject module = getPython().getModule("plugin_imports").callAttr(
+                    "load_plugin", str, file.getAbsolutePath(), runtimeToken);
             importedModule = module;
             
             module.put("__nimarko_runtime_token__", runtimeToken);
@@ -3004,8 +3086,6 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
             getPluginsController().endPluginInitialization(str, enableGeneration);
             
             getPluginsController().preferences.edit()
-                    .remove("plugin_crashed_" + str)
-                    .remove("plugin_enabled_before_quarantine_" + str)
                     .remove("crashed_plugin_id")
                     .remove("crashed_plugin_started_at")
                     .commit();
@@ -3312,6 +3392,12 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 boolean committed = getPluginsController().commitPluginRuntime(
                         runtimeToken, committedPlugin);
                 if (!committed) throw new EnableCancelledException(str);
+                getPluginsController().preferences.edit()
+                        .remove("plugin_crashed_" + str)
+                        .remove("plugin_crashed_at_" + str)
+                        .remove("plugin_enabled_before_quarantine_" + str)
+                        .putLong("plugin_ok_at_" + str, System.currentTimeMillis())
+                        .apply();
                 finishLegacyOverlayProbe(runtimeToken);
                 PluginDebugLog.log("PY enable committed plugin=" + str
                         + " generation=" + enableGeneration
@@ -3560,6 +3646,63 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 () -> getPluginsController().releasePluginRuntime(runtimeToken));
     }
 
+    /**
+ * Drops Python's directory caches so a plugin file written a moment ago can be imported.
+ * <p>
+ * Python caches the file listing of every {@code sys.path} entry and only rebuilds it when
+ * the directory mtime changes, which is far too coarse right after an install. Without
+ * this a freshly installed plugin fails to enable with "ModuleNotFoundError" even though
+ * its {@code .py} file is sitting in the plugins directory.
+     */
+    private void invalidatePythonImportCaches() {
+        try {
+            Python python = getPython();
+            if (python == null) {
+                return;
+            }
+            try {
+                python.getModule("importlib").callAttr("invalidate_caches");
+            } catch (Throwable ignored) {
+            }
+            try {
+                PyObject sys = python.getModule("sys");
+                PyObject path = sys != null ? sys.get("path") : null;
+                java.io.File pluginsDir = getPluginsController().pluginsDir;
+                if (path != null && pluginsDir != null) {
+                    path.callAttr("append", pluginsDir.getAbsolutePath());
+                }
+            } catch (Throwable ignored) {
+            }
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+ * True when the crash marker no longer reflects reality because the plugin has
+ * been loaded successfully since it was written.
+ * <p>
+ * The marker used to be a dead end: only a successful load cleared it, and a
+ * quarantined plugin is skipped before loading, so once flagged a plugin stayed
+ * disabled across every restart with no way back. Recording the time of the last
+ * successful load lets a stale marker be ignored, so fixing the underlying
+ * problem (or simply re-enabling the plugin once) is enough to get it running again.
+     */
+    private boolean isQuarantineStale(String pluginId) {
+        try {
+            android.content.SharedPreferences prefs =
+                    getPluginsController().preferences;
+            if (prefs == null) return false;
+            long loadedAt = prefs.getLong("plugin_ok_at_" + pluginId, 0L);
+            if (loadedAt <= 0L) return false;
+            long crashedAt = prefs.getLong("plugin_crashed_at_" + pluginId, 0L);
+            // A marker with no timestamp predates this tracking, so treat it as stale
+            // once the plugin has demonstrably loaded at least once.
+            return crashedAt <= 0L || loadedAt > crashedAt;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
     private void removePluginModuleIfOwned(
             String pluginId, PyObject expectedModule,
             PluginsController.PluginRuntimeToken runtimeToken,
@@ -3567,6 +3710,12 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         try {
             Python py = getPython();
             if (py != null) {
+                if (runtimeToken != null) {
+                    py.getModule("plugin_imports").callAttr("remove_plugin", pluginId, runtimeToken);
+                    app.nimarkogram.messenger.plugins.utils.ClassProxyFactory.releaseAllForPlugin(pluginId);
+                    py.getModule("extera_utils._generated_classes")
+                            .callAttr("forget_plugin_classes", pluginId);
+                }
                 PyObject modules = py.getModule("sys").get("modules");
                 PyObject module = modules != null
                         ? modules.callAttr("get", pluginId) : null;
@@ -3778,6 +3927,14 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         return getPluginsController().pluginsDir.getAbsolutePath() + File.separator + str + ".py";
     }
 
+    private static boolean isElyxArchive(File file) {
+        try (java.util.zip.ZipFile ignored = new java.util.zip.ZipFile(file)) {
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
+    }
+
     @Override
     public void openInExternalApp(String str) {
         BaseFragment safeLastFragment = LaunchActivity.getSafeLastFragment();
@@ -3792,13 +3949,14 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
             
             File tempDir = new File(ApplicationLoader.getFilesDirFixed(), "temp");
             if (!tempDir.exists()) tempDir.mkdirs();
-            File tempFile = new File(tempDir, str + ".py");
+            boolean archive = isElyxArchive(src);
+            File tempFile = new File(tempDir, str + (archive ? ".elyx" : ".py"));
             try (FileInputStream in = new FileInputStream(src);
                  FileOutputStream out = new FileOutputStream(tempFile)) {
                 out.getChannel().transferFrom(in.getChannel(), 0L, in.getChannel().size());
             }
             tempFile.deleteOnExit();
-            AndroidUtilities.openForView(tempFile, tempFile.getName(), "text/plain",
+            AndroidUtilities.openForView(tempFile, tempFile.getName(), archive ? "application/zip" : "text/plain",
                     safeLastFragment.getParentActivity(), safeLastFragment.getResourceProvider(), false);
         } catch (Throwable t) {
             org.telegram.messenger.FileLog.e("nimarko: openInExternalApp failed", t);
@@ -3819,7 +3977,8 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         if (!file.exists()) {
             file.mkdirs();
         }
-        File file2 = new File(file, str + PluginsConstants.PLUGINS_EXT);
+        boolean archive = isElyxArchive(new File(pluginPath));
+        File file2 = new File(file, str + (archive ? ".elyx" : PluginsConstants.PLUGINS_EXT));
         try {
             FileInputStream fileInputStream = new FileInputStream(pluginPath);
             try {
@@ -3832,7 +3991,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                     Intent intent = new Intent("android.intent.action.SEND");
                     intent.setFlags(1);
                     intent.putExtra("android.intent.extra.STREAM", uriForFile);
-                    intent.setType("application/x-plugin");
+                    intent.setType(archive ? "application/zip" : "application/x-plugin");
                     safeLastFragment.startActivityForResult(Intent.createChooser(intent, LocaleController.getString(R.string.ShareFile)), 500);
                     file2.deleteOnExit();
                 } finally {
@@ -3859,11 +4018,9 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         }
         File requested = new File(path).getAbsoluteFile();
         File canonical = requested.getCanonicalFile();
-        if (!requested.getAbsolutePath().equals(
-                canonical.getAbsolutePath())) {
-            throw new IOException(
-                    "Plugin candidate must not be a symbolic link");
-        }
+        // Android commonly exposes app storage through symlinked parent directories
+        // (/data/user/0 and /sdcard). Validate and stage the resolved regular file;
+        // comparing entire paths rejects these normal Android storage aliases.
         return copyToExclusiveHostStage(canonical);
     }
 
@@ -3876,7 +4033,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         try {
             Map<String, String> metadata =
                     parsePluginMetadataBytes(
-                            payload.bytes, displayPath);
+                            payload.bytes, displayPath, payload.file);
             PluginsController.PluginValidationResult validation =
                     validatePluginMetadata(
                             metadata, displayPath);
@@ -3915,7 +4072,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
     }
 
     private Map<String, String> parsePluginMetadataBytes(
-            byte[] payload, String displayPath) throws IOException {
+            byte[] payload, String displayPath, File stagedFile) throws IOException {
         if (payload == null
                 || payload.length == 0
                 || payload.length > MAX_PLUGIN_CANDIDATE_BYTES) {
@@ -3925,6 +4082,13 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         if (getPython() == null) {
             throw new IOException(
                     "Python engine is not initialized");
+        }
+        if (payload.length >= 4 && payload[0] == 'P' && payload[1] == 'K') {
+            try {
+                return readElyxMetadata(stagedFile.getAbsolutePath());
+            } catch (Throwable failure) {
+                throw new IOException("Invalid Elyx archive: " + failure.getMessage(), failure);
+            }
         }
         final String source;
         try {
@@ -5773,6 +5937,20 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                             case PluginsConstants.Settings.TYPE_DIVIDER:
                                 item = new DividerSetting(text);
                                 break;
+                            case "slider":
+                                double sliderMin = Double.parseDouble(PyObjectUtils.getString(pyObject, "min", "0"));
+                                double sliderMax = Double.parseDouble(PyObjectUtils.getString(pyObject, "max", "100"));
+                                double sliderStep = Double.parseDouble(PyObjectUtils.getString(pyObject, "step", "1"));
+                                double sliderDefault = defVal != null ? Double.parseDouble(defVal.toString()) : 0;
+                                if (key != null && text != null && Double.isFinite(sliderMin)
+                                        && Double.isFinite(sliderMax) && Double.isFinite(sliderStep)
+                                        && Double.isFinite(sliderDefault) && sliderMax > sliderMin
+                                        && sliderStep > 0 && Math.ceil((sliderMax - sliderMin) / sliderStep) <= Integer.MAX_VALUE) {
+                                    item = new app.nimarkogram.messenger.plugins.models.SliderSetting(
+                                            key, text, sliderDefault, sliderMin, sliderMax, sliderStep,
+                                            icon, onChange, onLongClick, linkAlias);
+                                }
+                                break;
                             case PluginsConstants.Settings.TYPE_CUSTOM:
                                 PyObject createView = pyObject.get("create_view");
                                 PyObject bindView = pyObject.get("bind_view");
@@ -5926,6 +6104,9 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                     }
                     if (string.endsWith(PluginsConstants.Strategy.MODIFY) || string.endsWith(PluginsConstants.Strategy.MODIFY_FINAL)) {
                         PyObject pyObject2 = pyObjectCall.get(str);
+                        if (pyObject2 == null) {
+                            pyObject2 = pyObjectCall.get("result");
+                        }
                         if (pyObject2 != null) {
                             t = pyObject2.toJava(cls);
                         }
@@ -5977,6 +6158,14 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
     }
 
     private PyObject callBound(String pluginId, PyObject pyObject, String hookName, Object... args) {
+        PyObject accountScope = null;
+        PyObject previousAccount = null;
+        int accountIndex = "on_send_message_hook".equals(hookName) ? 0 : 1;
+        if (args.length > accountIndex && args[accountIndex] instanceof Integer) {
+            accountScope = getPython().getModule("account_client");
+            previousAccount = accountScope.callAttr("_enter_hook_account", args[accountIndex]);
+        }
+        try {
         Plugin p = getPluginsController().plugins.get(pluginId);
         if (p != null) {
             java.util.Map<String, PyObject> bound = p.boundHooks;
@@ -5988,6 +6177,11 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
             }
         }
         return pyObject.callAttr(hookName, args);
+        } finally {
+            if (accountScope != null) {
+                accountScope.callAttr("_exit_hook_account", previousAccount);
+            }
+        }
     }
 
     @Override
@@ -6015,6 +6209,8 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
 
     public PluginsController.HookResult<PluginsHooks.PostRequestResult> executePostRequestHook(String str, int i, TLObject tLObject, TLRPC.TL_error tL_error, PyObject pyObject) {
         if (pyObject != null) {
+            PyObject accountScope = getPython().getModule("account_client");
+            PyObject previousAccount = accountScope.callAttr("_enter_hook_account", i);
             try {
                 PyObject pyObjectCallAttr = pyObject.callAttr("post_request_hook", str, Integer.valueOf(i), tLObject, tL_error);
                 if (pyObjectCallAttr != null) {
@@ -6039,6 +6235,8 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 }
             } catch (PyException e) {
                 FileLog.e("Failed to execute post_request_hook for " + str, e);
+            } finally {
+                accountScope.callAttr("_exit_hook_account", previousAccount);
             }
         }
         return new PluginsController.HookResult<>(new PluginsHooks.PostRequestResult(tLObject, tL_error), false, false);
@@ -6177,6 +6375,24 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         }
     }
 
+    private Map<String, String> readElyxMetadata(String path) {
+        PyObject metadata = getPython().getModule("elyx_runtime.metadata")
+                .callAttr("read_metadata", path);
+        Map<String, String> result = new HashMap<>();
+        for (Map.Entry<PyObject, PyObject> entry : metadata.asMap().entrySet()) {
+            String key = entry.getKey().toString();
+            PyObject value = entry.getValue();
+            if (value == null || value.toJava(Object.class) == null) continue;
+            if ("requirements".equals(key)) {
+                result.put(key, value.asList().stream().map(Object::toString)
+                        .collect(Collectors.joining("\n")));
+            } else {
+                result.put(key, value.toString());
+            }
+        }
+        return result;
+    }
+
     public java.util.Map<String, String> parsePluginMetadata(String str) {
         HashMap<String, String> map = new HashMap<>();
         if (str != null) {
@@ -6195,6 +6411,11 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                     return map;
                 }
                 try {
+                    if (getPython().getModule("zipfile").callAttr("is_zipfile", str).toBoolean()) {
+                        map.putAll(readElyxMetadata(str));
+                        metadataCache.put(cacheKey, new MetadataCacheEntry(file, map));
+                        return map;
+                    }
                     PyObject pyObjectCallAttr = getPython().getModule("utils.metadata_parser").callAttr("get_metadata", str);
                     if (pyObjectCallAttr != null) {
                         for (Map.Entry<PyObject, PyObject> entry : pyObjectCallAttr.asMap().entrySet()) {
@@ -6502,6 +6723,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                     pluginInstallParams.filePath, null);
         } catch (Throwable failure) {
             validationError = installFailureMessage(failure);
+            android.util.Log.e("LinkiPlugins", "Plugin installation validation failed", failure);
         }
         final PluginsController.PluginValidationResult pluginValidationResultValidatePluginFromFile =
                 new PluginsController.PluginValidationResult(
@@ -6544,6 +6766,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
             } catch (Throwable failure) {
                 FileLog.e("Could not show authorized plugin install sheet",
                         failure);
+                android.util.Log.e("LinkiPlugins", "Plugin install sheet failed", failure);
             } finally {
                 if (!sheetShown) {
                     if (ticket != null) {

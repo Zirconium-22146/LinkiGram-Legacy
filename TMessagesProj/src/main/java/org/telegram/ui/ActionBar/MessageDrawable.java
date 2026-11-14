@@ -33,7 +33,7 @@ public class MessageDrawable extends Drawable {
 
     private Shader gradientShader;
     private int currentBackgroundHeight;
-    private Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    public Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private Paint selectedPaint;
     private int currentColor;
     private int currentGradientColor1;
@@ -64,6 +64,8 @@ public class MessageDrawable extends Drawable {
 
     public static MotionBackgroundDrawable[] motionBackground = new MotionBackgroundDrawable[3];
 
+    public Integer overrideColor = null;
+    public boolean shadow = true;
     private int[] currentShadowDrawableRadius = new int[]{-1, -1, -1, -1};
     private Bitmap[] shadowDrawableBitmap = new Bitmap[4];
     private Drawable[] shadowDrawable = new Drawable[4];
@@ -91,6 +93,23 @@ public class MessageDrawable extends Drawable {
     int transitionDrawableColor;
     private int alpha;
     private boolean drawFullBubble;
+    private final RectF colorOsBounds = new RectF();
+    private final float[] colorOsRadii = new float[8];
+    private int cachedColorOsStyle;
+
+    private void checkColorOsCache() {
+        int enabled = (app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) ? 2
+                : app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled() ? 1 : 0;
+        if (cachedColorOsStyle == enabled) return;
+        cachedColorOsStyle = enabled;
+        for (int[] row : currentBackgroundDrawableRadius) Arrays.fill(row, -1);
+        Arrays.fill(currentShadowDrawableRadius, -1);
+    }
+
+    private static int bubbleRadiusDp() {
+        return app.nimarkogram.messenger.appearance.ClientTheme.isEnabled()
+                ? app.nimarkogram.messenger.appearance.ClientTheme.bubbleRadius() : SharedConfig.bubbleRadius;
+    }
 
     public MessageDrawable crossfadeFromDrawable;
     public float crossfadeProgress;
@@ -117,6 +136,22 @@ public class MessageDrawable extends Drawable {
         path = new Path();
         selectedPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         alpha = 255;
+    }
+
+    // compact mode: incoming bubbles are not drawn, outgoing ones are a solid tint without gradient or shadow
+    // the cached bubble bitmap is rendered through draw(), and must not be left empty by compact mode
+    private boolean renderingBackgroundCache;
+
+    private boolean isCompact() {
+        return Theme.isCompactMode(resourcesProvider) && currentType != TYPE_PREVIEW && overrideColor == null;
+    }
+
+    private int getCompactOutColor() {
+        int color = getColor(Theme.key_chat_compact_outBackground);
+        if (isSelected) {
+            color = ColorUtils.setAlphaComponent(color, Math.min(0xFF, Color.alpha(color) * 2));
+        }
+        return ColorUtils.compositeColors(color, getColor(Theme.key_chat_compact_background));
     }
 
     public boolean hasGradient() {
@@ -160,7 +195,7 @@ public class MessageDrawable extends Drawable {
             return Theme.getColor(key);
         }
         if (resourcesProvider != null) {
-            return resourcesProvider.getColor(key);
+            return app.nimarkogram.messenger.appearance.ClientTheme.resolveColor(key, resourcesProvider.getColor(key));
         }
         return Theme.getColor(key);
     }
@@ -169,7 +204,8 @@ public class MessageDrawable extends Drawable {
         if (currentType == TYPE_PREVIEW) {
             return Theme.getColor(key);
         }
-        return resourcesProvider != null ? resourcesProvider.getCurrentColor(key) : Theme.getCurrentColor(key);
+        return app.nimarkogram.messenger.appearance.ClientTheme.resolveColor(key,
+                resourcesProvider != null ? resourcesProvider.getCurrentColor(key) : Theme.getCurrentColor(key));
     }
 
     public void setBotButtonsBottom(boolean botButtonsBottom) {
@@ -189,7 +225,19 @@ public class MessageDrawable extends Drawable {
         int gradientColor2;
         int gradientColor3;
         boolean animatedGradient;
-        if (isOut) {
+        if (overrideColor != null) {
+            color = overrideColor;
+            gradientColor1 = 0;
+            gradientColor2 = 0;
+            gradientColor3 = 0;
+            animatedGradient = false;
+        } else if (isOut && isCompact()) {
+            color = getCompactOutColor();
+            gradientColor1 = 0;
+            gradientColor2 = 0;
+            gradientColor3 = 0;
+            animatedGradient = false;
+        } else if (isOut) {
             color = getColor(isSelected ? Theme.key_chat_outBubbleSelected : Theme.key_chat_outBubble);
             gradientColor1 = getCurrentColor(Theme.key_chat_outBubbleGradient1);
             gradientColor2 = getCurrentColor(Theme.key_chat_outBubbleGradient2);
@@ -318,13 +366,14 @@ public class MessageDrawable extends Drawable {
     }
 
     public Drawable getBackgroundDrawable() {
+        checkColorOsCache();
         int newRad;
         if (overrideRoundRadius != 0) {
             newRad = overrideRoundRadius;
         } else if (overrideRounding > 0) {
             newRad = 0;
         } else {
-            newRad = dp(SharedConfig.bubbleRadius);
+            newRad = dp(bubbleRadiusDp());
         }
         int idx;
         if (isTopNear && isBottomNear) {
@@ -347,16 +396,21 @@ public class MessageDrawable extends Drawable {
             idx2 = 0;
         }
         int color;
-        if (isSelected) {
+        if (overrideColor != null) {
+            color = overrideColor;
+        } else if (isOut && isCompact()) {
+            color = getCompactOutColor();
+        } else if (isSelected) {
             color = getColor(isOut ? Theme.key_chat_outBubbleSelected : Theme.key_chat_inBubbleSelected);
         } else {
             color = getColor(isOut ? Theme.key_chat_outBubble : Theme.key_chat_inBubble);
         }
 
-        boolean drawWithShadow = gradientShader == null && !isSelected && !isCrossfadeBackground;
+        boolean drawWithShadow = shadow && gradientShader == null && !isSelected && !isCrossfadeBackground && !isCompact();
         int shadowColor = getColor(isOut ? Theme.key_chat_outBubbleShadow : Theme.key_chat_inBubbleShadow);
         if (lastDrawWithShadow != drawWithShadow || currentBackgroundDrawableRadius[idx2][idx] != newRad || (drawWithShadow && shadowDrawableColor[idx] != shadowColor) || backgroundDrawableColor[idx2][idx] != color) {
             currentBackgroundDrawableRadius[idx2][idx] = newRad;
+            renderingBackgroundCache = true;
             try {
                 Bitmap bitmap = Bitmap.createBitmap(dp(50), dp(40), Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bitmap);
@@ -399,6 +453,7 @@ public class MessageDrawable extends Drawable {
             } catch (Throwable ignore) {
 
             }
+            renderingBackgroundCache = false;
         }
         lastDrawWithShadow = drawWithShadow;
         backgroundDrawableColor[idx2][idx] = color;
@@ -436,13 +491,14 @@ public class MessageDrawable extends Drawable {
     }
 
     public Drawable getShadowDrawable() {
-        if (isCrossfadeBackground) {
+        checkColorOsCache();
+        if (isCrossfadeBackground || isCompact()) {
             return null;
         }
         if (gradientShader == null && !isSelected && crossfadeFromDrawable == null) {
             return null;
         }
-        int newRad = dp(SharedConfig.bubbleRadius);
+        int newRad = dp(bubbleRadiusDp());
         int idx;
         if (isTopNear && isBottomNear) {
             idx = 3;
@@ -548,8 +604,11 @@ public class MessageDrawable extends Drawable {
     }
 
     public void draw(Canvas canvas, Paint paintToUse) {
+        if (!isOut && isCompact() && !renderingBackgroundCache) {
+            return;
+        }
         Rect bounds = getBounds();
-        if (paintToUse == null && gradientShader == null && overrideRoundRadius == 0 && overrideRounding <= 0) {
+        if (!app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled() && paintToUse == null && paint.getStyle() == Paint.Style.FILL && gradientShader == null && overrideRoundRadius == 0 && overrideRounding <= 0) {
             Drawable background = getBackgroundDrawable();
             if (background != null) {
                 background.setBounds(bounds);
@@ -565,14 +624,14 @@ public class MessageDrawable extends Drawable {
             rad = overrideRoundRadius;
             nearRad = overrideRoundRadius;
         } else if (overrideRounding > 0) {
-            rad = AndroidUtilities.lerp(dp(SharedConfig.bubbleRadius), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
-            nearRad = AndroidUtilities.lerp(dp(Math.min(6, SharedConfig.bubbleRadius)), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
+            rad = AndroidUtilities.lerp(dp(bubbleRadiusDp()), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
+            nearRad = AndroidUtilities.lerp(dp(Math.min(6, bubbleRadiusDp())), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
         } else if (currentType == TYPE_PREVIEW) {
             rad = dp(6);
             nearRad = dp(6);
         } else {
-            rad = dp(SharedConfig.bubbleRadius);
-            nearRad = dp(Math.min(6, SharedConfig.bubbleRadius));
+            rad = dp(bubbleRadiusDp());
+            nearRad = dp(Math.min(6, bubbleRadiusDp()));
         }
         int smallRad = dp(6);
 
@@ -628,14 +687,14 @@ public class MessageDrawable extends Drawable {
             rad = overrideRoundRadius;
             nearRad = overrideRoundRadius;
         } else if (overrideRounding > 0) {
-            rad = AndroidUtilities.lerp(dp(SharedConfig.bubbleRadius), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
-            nearRad = AndroidUtilities.lerp(dp(Math.min(6, SharedConfig.bubbleRadius)), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
+            rad = AndroidUtilities.lerp(dp(bubbleRadiusDp()), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
+            nearRad = AndroidUtilities.lerp(dp(Math.min(6, bubbleRadiusDp())), Math.min(bounds.width(), bounds.height()) / 2, overrideRounding);
         } else if (currentType == TYPE_PREVIEW) {
             rad = dp(6);
             nearRad = dp(6);
         } else {
-            rad = dp(SharedConfig.bubbleRadius);
-            nearRad = dp(Math.min(6, SharedConfig.bubbleRadius));
+            rad = dp(bubbleRadiusDp());
+            nearRad = dp(Math.min(6, bubbleRadiusDp()));
         }
         int smallRad = dp(6);
         int top = Math.max(bounds.top, 0);
@@ -664,6 +723,21 @@ public class MessageDrawable extends Drawable {
 
     private void generatePath(Path path, Rect bounds, int padding, int rad, int smallRad, int nearRad, int top, boolean drawFullBottom, boolean drawFullTop, boolean customPaint) {
         path.rewind();
+        if (app.nimarkogram.messenger.appearance.ClientTheme.isEnabled() && currentType != TYPE_PREVIEW && overrideRounding <= 0 && overrideRoundRadius == 0) {
+            float radius = Math.min(dp(app.nimarkogram.messenger.appearance.ClientTheme.bubbleRadius()), Math.max(0, bounds.height() - padding * 2) / 2f);
+            java.util.Arrays.fill(colorOsRadii, radius);
+            int side = isOut ? 2 : 0;
+            if (isTopNear && !app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled())
+                colorOsRadii[side] = colorOsRadii[side + 1] = Math.min(radius, dp(6));
+            side = isOut ? 4 : 6;
+            if (isBottomNear || app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled())
+                colorOsRadii[side] = colorOsRadii[side + 1] = Math.min(radius, dp(app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled() ? 4 : 6));
+            colorOsBounds.set(bounds.left + padding, bounds.top + padding,
+                    bounds.right - padding, bounds.bottom - padding);
+            path.addRoundRect(colorOsBounds, colorOsRadii, Path.Direction.CW);
+            path.close();
+            return;
+        }
         int heightHalf = (bounds.height() - padding) >> 1;
         if (rad > heightHalf) {
             rad = heightHalf;

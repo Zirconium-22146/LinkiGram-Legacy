@@ -296,19 +296,17 @@ public class MessageFiltersPreferencesActivity extends BaseFragment {
             }
         });
 
-        listView.setSections(
-            view -> !(view instanceof ShadowSectionCell
-                    || view instanceof FiltersSetupActivity.HintInnerCell
-                    || view instanceof GraySectionCell)
-                    && !java.util.Objects.equals(view.getTag(), RecyclerListView.TAG_NOT_SECTION),
-            dp(12),
-            dp(16),
-            listView::drawBackgroundRect,
-            true
-        );
-        actionBar.setAdaptiveBackground(listView);
+        listView.setSections(dp(12), dp(16), true);
+        if (!app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled()) {
+            actionBar.setAdaptiveBackground(listView);
+        }
 
         return fragmentView;
+    }
+
+    @Override
+    protected RecyclerListView getListViewForSimpleGlass() {
+        return app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled() ? listView : null;
     }
 
     private class ListAdapter extends RecyclerListView.SelectionAdapter {

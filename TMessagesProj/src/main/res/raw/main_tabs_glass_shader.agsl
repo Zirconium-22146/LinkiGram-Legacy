@@ -1,0 +1,85 @@
+/*
+ * Copyright 2025 Kyant
+ * Licensed under the Apache License, Version 2.0.
+ * http://www.apache.org/licenses/LICENSE-2.0
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Adapted for LinkiGram from Backdrop's rounded-rect lens by Kyant:
+ * https://github.com/Kyant0/AndroidLiquidGlass
+ * LinkiGram changes: bell-profile edge distortion, RGB dispersion,
+ * bevel highlights, inner shading and selector-driven surface light.
+ */
+uniform shader img;
+uniform float2 resolution;
+uniform float2 center;
+uniform float2 size;
+uniform float4 radius;
+uniform float thickness;
+uniform float refract_index;
+uniform float refract_intensity;
+uniform float4 foreground_color_premultiplied;
+uniform float light_position;
+uniform float press_progress;
+
+float sdRoundBox(float2 p, float2 halfSize, float4 r) {
+    r.xy = (p.x > 0.0) ? r.xy : r.zw;
+    r.x = (p.y > 0.0) ? r.x : r.y;
+    float2 q = abs(p) - halfSize + r.x;
+    return length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r.x;
+}
+
+half4 main(float2 coord) {
+    float2 p = coord - center;
+    float sd = sdRoundBox(p, size, radius);
+    // Central differences avoid a directional bias on small downsampled lenses.
+    float2 grad = float2(
+        sdRoundBox(p + float2(0.5, 0.0), size, radius)
+            - sdRoundBox(p - float2(0.5, 0.0), size, radius),
+        sdRoundBox(p + float2(0.0, 0.5), size, radius)
+            - sdRoundBox(p - float2(0.0, 0.5), size, radius));
+    float2 outward = grad / max(length(grad), 0.0001);
+    float t = max(thickness, 1.0);
+    float depth = max(-sd, 0.0);
+
+    // Join the silhouette and the flat centre without a displacement seam.
+    float band = clamp(depth / (t * 1.25), 0.0, 1.0);
+    float profile = max(sin(band * 3.14159265), 0.0);
+    float bend = profile * t * refract_intensity * 1.8 * (refract_index / 1.5);
+    float2 offset = -outward * bend;
+    float2 lo = max(float2(0.5), center - size + 0.5);
+    float2 hi = max(lo, min(resolution - 0.5, center + size - 0.5));
+    half4 source = img.eval(clamp(coord + offset, lo, hi));
+    half3 color = half3(
+        img.eval(clamp(coord + offset * 0.95, lo, hi)).r,
+        source.g,
+        img.eval(clamp(coord + offset * 1.05, lo, hi)).b);
+    half luminance = dot(color, half3(0.2126, 0.7152, 0.0722));
+    color = clamp(half3(luminance) + (color - half3(luminance)) * 1.12, 0.0, 1.0);
+    half4 tint = half4(foreground_color_premultiplied);
+    color = color * (1.0 - tint.a) + tint.rgb;
+
+    // Surface normal: vertical at the rim, facing the viewer on the flat centre.
+    float slope = clamp(1.0 - depth / t, 0.0, 1.0);
+    float3 normal = float3(outward * slope, sqrt(max(1.0 - slope * slope, 0.0)));
+    float3 light = normalize(float3(-0.40 + (light_position - 0.5) * 0.6, -0.70, 0.58));
+    float lit = clamp(dot(outward, normalize(light.xy)), 0.0, 1.0);
+    float bevel = clamp(1.0 - depth / (t * 1.25), 0.0, 1.0);
+    float3 halfway = normalize(light + float3(0.0, 0.0, 1.0));
+    float specular = pow(max(dot(normal, halfway), 0.0), 64.0) * bevel * 0.24;
+    float soft = pow(bevel, 1.6) * lit * lit * 0.08;
+    float rim = (1.0 - smoothstep(0.0, max(t * 0.055, 0.55), depth))
+        * (0.035 + 0.32 * lit * lit * lit);
+    float inner = pow(bevel, 3.0) * (1.0 - lit) * 0.08;
+    color = color * (1.0 - inner) + half(soft + rim + specular);
+
+    float sweep = (light_position - 0.5) * size.x * 2.0;
+    float2 glowDelta = float2(p.x - sweep, p.y)
+        / max(float2(size.y * 1.9, size.y * 1.4), float2(1.0));
+    float glow = exp(-dot(glowDelta, glowDelta) * 2.0) * (0.008 + 0.05 * press_progress);
+    color = mix(color, half3(1.0), half(glow));
+    return half4(clamp(color, 0.0, 1.0), 1.0);
+}

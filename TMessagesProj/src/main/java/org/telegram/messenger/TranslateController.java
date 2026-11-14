@@ -123,7 +123,8 @@ public class TranslateController extends BaseController {
             return false;
         }
         if (contextTranslateEnabled == null) {
-            contextTranslateEnabled = messagesController.getMainSettings().getBoolean("translate_button", MessagesController.getGlobalMainSettings().getBoolean("translate_button", false));
+            // LinkiGram: перевод по умолчанию доступен в меню сообщения (в апстриме — выключен).
+            contextTranslateEnabled = messagesController.getMainSettings().getBoolean("translate_button", MessagesController.getGlobalMainSettings().getBoolean("translate_button", true));
         }
         return contextTranslateEnabled;
     }
@@ -167,6 +168,7 @@ public class TranslateController extends BaseController {
             !messageObject.isOutOwner() &&
             !messageObject.isRestrictedMessage &&
             !messageObject.isSponsored() &&
+            !(MessageObject.getMedia(messageObject) instanceof TLRPC.TL_messageMediaWidget) &&
             (
                 messageObject.type == MessageObject.TYPE_TEXT ||
                 messageObject.type == MessageObject.TYPE_VIDEO ||

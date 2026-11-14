@@ -58,6 +58,7 @@ import java.util.regex.Pattern;
 
 import app.nimarkogram.messenger.NimarkoConfig;
 import app.nimarkogram.messenger.plugins.Plugin;
+import app.nimarkogram.messenger.plugins.PluginPermissions;
 import app.nimarkogram.messenger.plugins.PluginsController;
 import app.nimarkogram.messenger.plugins.ui.components.EmptyPluginsView;
 import app.nimarkogram.messenger.plugins.ui.components.PluginCell;
@@ -68,6 +69,7 @@ import app.nimarkogram.messenger.utils.text.LocaleUtils;
 
 public class PluginsActivity extends BasePreferencesActivity implements NotificationCenter.NotificationCenterDelegate {
     private static final int PLUGIN_SETTINGS = 3;
+    private static final int PLUGIN_AGENT = 4;
     
     private static final int REQ_PICK_PLUGIN = 4711;
     private static final long MAX_PICKER_PLUGIN_BYTES = 4L * 1024L * 1024L;
@@ -141,6 +143,10 @@ public class PluginsActivity extends BasePreferencesActivity implements Notifica
                 PLUGIN_SETTINGS, R.drawable.msg_settings);
         this.engineSettingsItem.setContentDescription(LocaleController.getString(R.string.Settings));
         this.engineSettingsItem.setOnClickListener(view -> presentFragment(new PluginsInfoActivity()));
+
+        ActionBarMenuItem agentItem = this.actionBar.menu.addItem(PLUGIN_AGENT, R.drawable.ai_chat);
+        agentItem.setContentDescription(LocaleController.getString(R.string.NM_PluginAgentTitle));
+        agentItem.setOnClickListener(view -> presentFragment(new PluginAgentActivity()));
         
         this.listView.setOnScrollListener(new RecyclerView.OnScrollListener() {
             @Override
@@ -857,7 +863,7 @@ public class PluginsActivity extends BasePreferencesActivity implements Notifica
                 pluginCell.setChecked(z, true);
                 
                 pluginCell.setLoading(isPluginToggleLoading(pluginId));
-                controller.setPluginEnabled(pluginId, z, str ->
+                Runnable applyToggle = () -> controller.setPluginEnabled(pluginId, z, str ->
                     AndroidUtilities.runOnUIThread(() -> {
                         if (!isPluginUiOperationEpochCurrent(
                                 callbackLifecycleEpoch, pluginId, operationEpoch)) {
@@ -889,6 +895,20 @@ public class PluginsActivity extends BasePreferencesActivity implements Notifica
                         }
                     })
                 );
+                if (z) {
+                    PluginPermissions.showEnablePrompt(
+                            PluginsActivity.this.getParentActivity(), pluginId,
+                            applyToggle,
+                            () -> AndroidUtilities.runOnUIThread(() -> {
+                                finishPluginUiOperation(pluginId, operationEpoch);
+                                if (pluginCell.isBoundTo(pluginId, cellBindingEpoch)) {
+                                    pluginCell.setLoading(isPluginToggleLoading(pluginId));
+                                    pluginCell.setChecked(false, true);
+                                }
+                            }));
+                } else {
+                    applyToggle.run();
+                }
             }
 
             @Override
@@ -938,6 +958,9 @@ public class PluginsActivity extends BasePreferencesActivity implements Notifica
                 final boolean hasSettings = plugin.isEnabled()
                         && PluginsController.getInstance().hasPluginSettings(plugin.getId());
                 ItemOptions opts = ItemOptions.makeOptions(PluginsActivity.this, anchor);
+                opts.add(R.drawable.ai_chat,
+                        LocaleController.getString(R.string.NM_PluginAgentTitle),
+                        () -> presentFragment(new PluginAgentActivity(plugin.getId())));
                 if (hasSettings) {
                     opts.add(R.drawable.msg_settings,
                             LocaleController.getString(R.string.Settings),
@@ -1042,6 +1065,32 @@ public class PluginsActivity extends BasePreferencesActivity implements Notifica
     @Override
     public int getNavigationBarColor() {
         return Theme.getColor(Theme.key_windowBackgroundGray);
+    }
+
+    @Override
+    public void onResume() {
+        super.onResume();
+        // pluginsUpdated can arrive while this fragment is paused or not yet
+        // attached. Re-read the registry when the screen becomes visible.
+        if (uiLifecycleActive && listView != null && listView.adapter != null) {
+            listView.adapter.update(false);
+        }
+        if (uiLifecycleActive && searchItem != null) {
+            AndroidUtilities.updateViewVisibilityAnimated(searchItem,
+                    NimarkoConfig.pluginsEngine && !PluginsController.getInstance().plugins.isEmpty(),
+                    0.5f, false);
+        }
+        if (uiLifecycleActive) {
+            updateAddButtonVisibility(false);
+            if (NimarkoConfig.pluginsEngine) {
+                PluginsController.PluginsEngine engine = PluginsController.engines.get(
+                        app.nimarkogram.messenger.plugins.PluginsConstants.PYTHON);
+                if (engine instanceof app.nimarkogram.messenger.plugins.PythonPluginsEngine) {
+                    ((app.nimarkogram.messenger.plugins.PythonPluginsEngine) engine)
+                            .rescanInstalledPluginFiles();
+                }
+            }
+        }
     }
 
     @Override

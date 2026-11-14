@@ -3,9 +3,11 @@ package org.telegram.messenger;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.BatteryManager;
 import android.os.Build;
+import android.os.SystemClock;
 
 import androidx.annotation.RequiresApi;
 import androidx.core.math.MathUtils;
@@ -13,10 +15,13 @@ import androidx.core.math.MathUtils;
 import org.telegram.tgnet.TLRPC;
 import org.telegram.ui.ActionBar.Theme;
 import org.telegram.ui.Components.AnimatedEmojiDrawable;
+import org.telegram.utils.glass.GlassEngine;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+
+import me.vkryl.core.BitwiseUtils;
 
 public class LiteMode {
 
@@ -42,7 +47,7 @@ public class LiteMode {
     public static final int FLAG_CHAT_SCALE = 32768;
     public static final int FLAG_CHAT_THANOS = 65536;
     public static final int FLAG_LIQUID_GLASS = 1 << 18;
-    public static final int FLAGS_CHAT = FLAG_CHAT_BACKGROUND | FLAG_CHAT_FORUM_TWOCOLUMN | FLAG_CHAT_SPOILER | FLAG_CHAT_BLUR | FLAG_CHAT_SCALE | FLAG_CHAT_THANOS | FLAG_LIQUID_GLASS;
+    public static final int FLAGS_CHAT = FLAG_CHAT_BACKGROUND | FLAG_CHAT_FORUM_TWOCOLUMN | FLAG_CHAT_SPOILER | FLAG_CHAT_BLUR | FLAG_CHAT_SCALE | FLAG_CHAT_THANOS;
 
     public static final int FLAG_CALLS_ANIMATIONS = 512;
     public static final int FLAG_AUTOPLAY_VIDEOS = 1024;
@@ -61,8 +66,9 @@ public class LiteMode {
         FLAG_ANIMATED_EMOJI_REACTIONS_PREMIUM |
         FLAG_AUTOPLAY_GIFS |
         FLAG_CHAT_THANOS |
+        FLAG_LIQUID_GLASS |
         FLAG_PARTICLES
-    ); // 198684
+    ); // 460828
     public static int PRESET_MEDIUM = (
         FLAGS_ANIMATED_STICKERS |
         FLAG_ANIMATED_EMOJI_KEYBOARD_PREMIUM |
@@ -73,8 +79,9 @@ public class LiteMode {
         FLAG_AUTOPLAY_VIDEOS |
         FLAG_AUTOPLAY_GIFS |
         FLAG_CHAT_THANOS |
+        FLAG_LIQUID_GLASS |
         FLAG_PARTICLES
-    ); // 204383
+    ); // 466527
     public static int PRESET_HIGH = (
         FLAGS_ANIMATED_STICKERS |
         FLAGS_ANIMATED_EMOJI |
@@ -84,11 +91,12 @@ public class LiteMode {
         FLAG_CHAT_BLUR |
         FLAG_CHAT_SCALE |
         FLAG_CHAT_THANOS |
+        FLAG_LIQUID_GLASS |
         FLAG_CALLS_ANIMATIONS |
         FLAG_AUTOPLAY_VIDEOS |
         FLAG_AUTOPLAY_GIFS |
         FLAG_PARTICLES
-    ); // 262143
+    ); // 524287
     public static int PRESET_POWER_SAVER = 0;
 
     // Lite build preset: everything expensive is off.
@@ -112,12 +120,12 @@ public class LiteMode {
         if (!loaded) {
             loadPreference();
         }
-        if (!ignorePowerSaving && Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-            if (getBatteryLevel() <= powerSaverLevel && powerSaverLevel > 0) {
+        if (!ignorePowerSaving) {
+            if (powerSaverLevel > 0 && isBatteryLow(getBatteryLevel())) {
                 if (!lastPowerSaverApplied) {
                     onPowerSaverApplied(lastPowerSaverApplied = true);
                 }
-                return PRESET_POWER_SAVER;
+                return powerSaverValue();
             }
             if (lastPowerSaverApplied) {
                 onPowerSaverApplied(lastPowerSaverApplied = false);
@@ -126,20 +134,73 @@ public class LiteMode {
         return value;
     }
 
-    private static int lastBatteryLevelCached = -1;
-    private static long lastBatteryLevelChecked;
+    private static final long BATTERY_LEVEL_QUERY_INTERVAL = 60 * 1000;
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
+    private static volatile int lastBatteryLevel = -1;
+    private static volatile long lastBatteryLevelChecked;
+    private static volatile boolean batteryLevelQueryRunning;
+
+    private static boolean isBatteryLow(int batteryLevel) {
+        return powerSaverLevel >= 100 || batteryLevel >= 0 && batteryLevel <= powerSaverLevel;
+    }
+
+    // returns the cached level (-1 if unknown); BatteryReceiver is the main source, BatteryManager is only queried in background
     public static int getBatteryLevel() {
-        long time = 0;
-        if (lastBatteryLevelCached < 0 || (time = System.currentTimeMillis()) - lastBatteryLevelChecked > 1000 * 12) {
+        final long time = SystemClock.elapsedRealtime();
+        if (!batteryLevelQueryRunning && (lastBatteryLevelChecked == 0 || time - lastBatteryLevelChecked > BATTERY_LEVEL_QUERY_INTERVAL)) {
+            batteryLevelQueryRunning = true;
+            lastBatteryLevelChecked = time;
+            Utilities.globalQueue.postRunnable(LiteMode::queryBatteryLevel);
+        }
+        return lastBatteryLevel;
+    }
+
+    private static void queryBatteryLevel() {
+        int level = -1;
+        try {
             BatteryManager batteryManager = (BatteryManager) ApplicationLoader.applicationContext.getSystemService(Context.BATTERY_SERVICE);
             if (batteryManager != null) {
-                lastBatteryLevelCached = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
-                lastBatteryLevelChecked = time;
+                level = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY);
             }
+        } catch (Throwable e) {
+            FileLog.e(e);
         }
-        return lastBatteryLevelCached;
+        lastBatteryLevelChecked = SystemClock.elapsedRealtime();
+        batteryLevelQueryRunning = false;
+        if (level >= 0 && level <= 100) {
+            setBatteryLevel(level);
+        }
+    }
+
+    private static void setBatteryLevel(int level) {
+        lastBatteryLevelChecked = SystemClock.elapsedRealtime();
+        if (lastBatteryLevel == level) {
+            return;
+        }
+        lastBatteryLevel = level;
+        // check power saver applied
+        AndroidUtilities.runOnUIThread(() -> getValue(false));
+    }
+
+    private static void onBatteryChanged(Intent intent) {
+        if (intent == null) {
+            return;
+        }
+        final int level = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, -1);
+        final int scale = intent.getIntExtra(BatteryManager.EXTRA_SCALE, -1);
+        if (level >= 0 && scale > 0) {
+            setBatteryLevel(MathUtils.clamp(Math.round(level * 100f / scale), 0, 100));
+        }
+    }
+
+    public static void registerBatteryReceiver() {
+        try {
+            // ACTION_BATTERY_CHANGED is sticky, the current state is returned right away
+            final Intent intent = ApplicationLoader.applicationContext.registerReceiver(new BatteryReceiver(), new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+            onBatteryChanged(intent);
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
     }
 
     private static int preprocessFlag(int flag) {
@@ -173,7 +234,9 @@ public class LiteMode {
     }
 
     public static void toggleFlag(int flag) {
-        toggleFlag(flag, !isEnabled(flag));
+        // User settings must toggle the persisted value, not the temporary value
+        // returned while battery saver is forcing every flag off.
+        toggleFlag(flag, !isEnabledSetting(flag));
     }
 
     public static void toggleFlag(int flag, boolean enabled) {
@@ -243,7 +306,9 @@ public class LiteMode {
         if (!preferences.contains("lite_mode6")) {
             if (preferences.contains("lite_mode5")) {
                 defaultValue = preferences.getInt("lite_mode5", defaultValue);
-                defaultValue &=~ FLAG_LIQUID_GLASS;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    defaultValue |= FLAG_LIQUID_GLASS;
+                }
                 preferences.edit().putInt("lite_mode6", defaultValue).apply();
             } else if (preferences.contains("lite_mode4")) {
                 defaultValue = preferences.getInt("lite_mode4", defaultValue);
@@ -306,6 +371,10 @@ public class LiteMode {
             }
         }
 
+        if (!preferences.contains("lite_mode6") && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            defaultValue |= FLAG_LIQUID_GLASS;
+        }
+
         int prevValue = value;
         value = preferences.getInt("lite_mode6", defaultValue);
         // Liquid glass is gone for good; lite-only flags stay forced on.
@@ -346,9 +415,9 @@ public class LiteMode {
 
     private static void onPowerSaverApplied(boolean powerSaverApplied) {
         if (powerSaverApplied) {
-            onFlagsUpdate(getValue(true), PRESET_POWER_SAVER);
+            onFlagsUpdate(getValue(true), powerSaverValue());
         } else {
-            onFlagsUpdate(PRESET_POWER_SAVER, getValue(true));
+            onFlagsUpdate(powerSaverValue(), getValue(true));
         }
         if (onPowerSaverAppliedListeners != null) {
             AndroidUtilities.runOnUIThread(() -> {
@@ -363,6 +432,14 @@ public class LiteMode {
         }
     }
 
+    private static int powerSaverValue() {
+        // Glass follows the user's saved switch even when automatic saving starts: keeping the
+        // glass flag without the blur it is built on leaves flat translucent rectangles behind
+        // the panels instead of glass, so the blur flag is kept with it.
+        final int glass = value & FLAG_LIQUID_GLASS;
+        return PRESET_POWER_SAVER | glass | (glass != 0 ? FLAG_CHAT_BLUR : 0);
+    }
+
     private static void onFlagsUpdate(int oldValue, int newValue) {
         int changedFlags = ~oldValue & newValue;
         if ((changedFlags & FLAGS_ANIMATED_EMOJI) > 0) {
@@ -373,6 +450,9 @@ public class LiteMode {
         }
         if ((changedFlags & FLAG_CHAT_BACKGROUND) > 0) {
             Theme.reloadWallpaper(true);
+        }
+        if (BitwiseUtils.hasFlag(changedFlags, FLAG_CHAT_BLUR) || BitwiseUtils.hasFlag(changedFlags, FLAG_LIQUID_GLASS)) {
+            GlassEngine.getCurrentGlassSettings();
         }
     }
 
@@ -390,11 +470,10 @@ public class LiteMode {
         }
     }
 
-    public static class BatteryReceiver extends BroadcastReceiver {
+    private static class BatteryReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            lastBatteryLevelChecked = 0;
-            getValue();
+            onBatteryChanged(intent);
         }
     }
 }

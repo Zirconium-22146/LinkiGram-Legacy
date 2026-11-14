@@ -110,6 +110,14 @@ public class NimarkoIconResources extends Resources {
 
 
 
+    /** Activities can retain a stock Resources instance after a locale change. */
+    public static Resources forContext(android.content.Context context) {
+        Resources applicationResources = org.telegram.messenger.ApplicationLoader.applicationContext == null
+                ? null : org.telegram.messenger.ApplicationLoader.applicationContext.getResources();
+        return applicationResources instanceof NimarkoIconResources
+                ? applicationResources : context.getResources();
+    }
+
     public static Drawable getStockDrawable(android.content.Context context, int id) {
         final Resources resources = context.getResources();
         final Theme theme = context.getTheme();
@@ -203,6 +211,9 @@ public class NimarkoIconResources extends Resources {
                 clearCache();
             } else {
                 generation = state.generation;
+                if (selection == NimarkoConfig.ICON_REPLACE_CUSTOM_SVG) {
+                    clearCache();
+                }
             }
         }
         
@@ -394,17 +405,22 @@ public class NimarkoIconResources extends Resources {
             final ReplacementState state = replacementState;
             final CacheKey key = new CacheKey(id, density, theme, state.generation);
             final Drawable drawable = cachedGetOrLoad(
-                    key, () -> skinned(id, density, theme, state.replacement));
+                    key, () -> skinned(id, density, theme, state.replacement, state.selection));
             if (replacementState == state) {
                 return drawable;
             }
         }
     }
 
-    private Drawable skinned(int stockId, int density, Theme theme, BaseIconReplace replacement) {
+    private Drawable skinned(int stockId, int density, Theme theme, BaseIconReplace replacement, int selection) {
         if (NON_SKINNABLE_DRAWABLES.contains(stockId)
-                || STOCK_COMPOSER_DRAWABLES.contains(stockId)) {
+                || (STOCK_COMPOSER_DRAWABLES.contains(stockId)
+                && selection != NimarkoConfig.ICON_REPLACE_CUSTOM_SVG)) {
             return loadRaw(stockId, density, theme);
+        }
+        if (selection == NimarkoConfig.ICON_REPLACE_CUSTOM_SVG) {
+            Drawable custom = CustomSvgIconPack.load(wrapped, stockId);
+            if (custom != null) return custom;
         }
         final int wrappedId = replacement.wrap(stockId);
         if (wrappedId == stockId) return loadRaw(wrappedId, density, theme);   

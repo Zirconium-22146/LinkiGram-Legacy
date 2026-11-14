@@ -46,13 +46,15 @@ import app.nimarkogram.messenger.preferences.helpers.SettingsHelper;
 public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivity {
 
     private final int sortByUnreadRow = 1, unarchiveOnSwipeRow = 2, forwardWithoutAuthorRow = 3,
-            customChatRow = 4, recentEmojisStickersRow = 5, openSettingsBySwipeRow = 6;
+            customChatRow = 4, recentEmojisStickersRow = 5, openSettingsBySwipeRow = 6,
+            readAllInMenuRow = 7;
 
     private final int centerTitleRow = 10, unreadBadgeRow = 11, customBackgroundInChatsRow = 12,
             snowflakesRow = 13, pencilIconRow = 14, forwardDateRow = 15, hideBottomBarRow = 16,
             sendAsChannelButtonRow = 17, messageSizeRow = 18, chatMenuShortcutsRow = 19,
             weekdayRow = 20;
 
+    private final int doubleTapOutgoingRow = 41;
     private final int doubleTapRow = 30, slideActionRow = 31, leftBottomBtnRow = 32, autoQuoteRow = 33,
             disableSwipeToNextRow = 34, deleteForAllRow = 35, directShareRow = 36, disableVibrationRow = 37,
             hideKbdSliderRow = 38, preReformRussianRow = 39, latexRenderingRow = 40;
@@ -65,7 +67,8 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
 
     private final int notificationSoundRow = 70, vibrateInChatsRow = 71;
 
-    private final int messageMenuRow = 80, messageFilterRow = 81;
+    private final int messageMenuRow = 80, messageFilterRow = 81, localPinsInfoRow = 82,
+            dialogsMenuRow = 83;
 
     @Override
     protected CharSequence getTitle() {
@@ -81,6 +84,7 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
     @Override
     public void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
         
+        items.add(UItem.asButton(8901, R.drawable.msg_settings_solar, getString(R.string.LX_Title)));
         items.add(UItem.asHeader(getString(R.string.CP_Header_DialogList)));
         items.add(SettingsHelper.asSwitchCG(sortByUnreadRow, getString(R.string.CP_SortByUnread))
                 .setChecked(NimarkoConfig.sortByUnread));
@@ -88,6 +92,8 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
                 .setChecked(NimarkoConfig.unarchiveOnSwipe));
         items.add(SettingsHelper.asSwitchCG(openSettingsBySwipeRow, getString(R.string.CP_OpenSettingsBySwipe), getString(R.string.CP_OpenSettingsBySwipe_Desc))
                 .setChecked(NimarkoConfig.openSettingsBySwipe));
+        items.add(SettingsHelper.asSwitchCG(readAllInMenuRow, getString(R.string.NM_CP_ReadAllInMenu), getString(R.string.NM_CP_ReadAllInMenu_Desc))
+                .setChecked(NimarkoConfig.readAllInMenu));
         items.add(SettingsHelper.asSwitchCG(forwardWithoutAuthorRow, getString(R.string.ForwardWithoutAuthor))
                 .setChecked(NimarkoConfig.forwardWithoutAuthor));
         items.add(SettingsHelper.asSwitchCG(customChatRow, getString(R.string.EP_CustomChat), getString(R.string.EP_CustomChat_Desc))
@@ -122,7 +128,8 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(getString(R.string.NM_CP_Header_Interaction)));
-        items.add(UItem.asButton(doubleTapRow, getString(R.string.CP_DoubleTapAction), getDoubleTapActionValue()));
+        items.add(UItem.asButton(doubleTapRow, getString(R.string.LinkiDoubleTapIncoming), getDoubleTapActionValue(false)));
+        items.add(UItem.asButton(doubleTapOutgoingRow, getString(R.string.LinkiDoubleTapOutgoing), getDoubleTapActionValue(true)));
         items.add(UItem.asButton(slideActionRow, getString(R.string.NM_MsgSlideAction), getSlideActionValue()));
         items.add(UItem.asButton(leftBottomBtnRow, getString(R.string.CP_LeftBottomButtonAction), getLeftBottomButtonValue()));
         items.add(SettingsHelper.asSwitchCG(autoQuoteRow, getString(R.string.CP_AutoQuoteReplies), getString(R.string.CP_AutoQuoteReplies_Desc))
@@ -183,16 +190,24 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
         items.add(UItem.asShadow(null));
 
         items.add(UItem.asButton(directShareRow, R.drawable.msg_share, getString(R.string.DirectShare)));
+        items.add(UItem.asButton(localPinsInfoRow, R.drawable.msg_pin, getString(R.string.LC_Pins)));
         items.add(UItem.asButton(messageMenuRow, R.drawable.msg_list, getString(R.string.CP_MessageMenu)));
+        items.add(UItem.asButton(dialogsMenuRow, R.drawable.msg_list, getString(R.string.NM_DM_Title)));
         items.add(UItem.asButton(messageFilterRow, R.drawable.msg_notspam, getString(R.string.CP_Message_Filtering)));
         items.add(UItem.asShadow(null));
     }
 
     @Override
     public void onClick(UItem item, View view, int position, float x, float y) {
+        if (item.id == 8901) { presentFragment(new ChatExtrasPreferencesActivity()); return; }
+
         final int id = item.id;
         
-        if (id == sortByUnreadRow) {
+        if (id == localPinsInfoRow) {
+            showDialog(new org.telegram.ui.ActionBar.AlertDialog.Builder(getParentActivity())
+                    .setTitle(getString(R.string.LC_Pins)).setMessage(getString(R.string.LC_PinsInfo))
+                    .setPositiveButton(getString(R.string.OK), null).create());
+        } else if (id == sortByUnreadRow) {
             NimarkoConfig.toggleSortByUnread();
             updateCheckState(view, NimarkoConfig.sortByUnread);
             MessagesController.getInstance(currentAccount).sortDialogs(null);
@@ -204,6 +219,9 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
             NimarkoConfig.toggleOpenSettingsBySwipe();
             updateCheckState(view, NimarkoConfig.openSettingsBySwipe);
             listView.invalidateItemDecorations();
+        } else if (id == readAllInMenuRow) {
+            NimarkoConfig.toggleReadAllInMenu();
+            updateCheckState(view, NimarkoConfig.readAllInMenu);
         } else if (id == forwardWithoutAuthorRow) {
             NimarkoConfig.toggleForwardWithoutAuthor();
             updateCheckState(view, NimarkoConfig.forwardWithoutAuthor);
@@ -248,8 +266,9 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
         } else if (id == chatMenuShortcutsRow) {
             showChatMenuItemsConfigurator(this);
 
-        } else if (id == doubleTapRow) {
-            showDoubleTapSelector(() -> SettingsHelper.updateButtonValue(view, getDoubleTapActionValue()));
+        } else if (id == doubleTapRow || id == doubleTapOutgoingRow) {
+            boolean outgoing = id == doubleTapOutgoingRow;
+            showDoubleTapSelector(outgoing, () -> SettingsHelper.updateButtonValue(view, getDoubleTapActionValue(outgoing)));
         } else if (id == slideActionRow) {
             showSlideActionSelector(() -> SettingsHelper.updateButtonValue(view, getSlideActionValue()));
         } else if (id == leftBottomBtnRow) {
@@ -336,6 +355,8 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
 
         } else if (id == messageMenuRow) {
             presentFragment(new MessageMenuPreferencesActivity());
+        } else if (id == dialogsMenuRow) {
+            presentFragment(new DialogsMenuItemsPreferencesActivity());
         } else if (id == messageFilterRow) {
             presentFragment(new MessageFiltersPreferencesActivity());
         }
@@ -398,8 +419,8 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
         return userCell;
     }
 
-    private String getDoubleTapActionValue() {
-        return switch (NimarkoConfig.doubletapaction) {
+    private String getDoubleTapActionValue(boolean outgoing) {
+        return switch (NimarkoConfig.getDoubleTapAction(outgoing)) {
             case NimarkoConfig.DOUBLE_TAP_ACTION_REACTION -> getString(R.string.Reactions);
             case NimarkoConfig.DOUBLE_TAP_ACTION_REPLY -> getString(R.string.Reply);
             case NimarkoConfig.DOUBLE_TAP_ACTION_SAVE -> getString(R.string.NM_ToSaved);
@@ -410,7 +431,7 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
         };
     }
 
-    private void showDoubleTapSelector(Runnable runnable) {
+    private void showDoubleTapSelector(boolean outgoing, Runnable runnable) {
         ArrayList<String> keys = new ArrayList<>();
         ArrayList<Integer> values = new ArrayList<>();
         keys.add(getString(R.string.Disable)); values.add(NimarkoConfig.DOUBLE_TAP_ACTION_NONE);
@@ -420,8 +441,9 @@ public class ChatsPreferencesActivity extends NimarkoUniversalPreferencesActivit
         keys.add(getString(R.string.Edit)); values.add(NimarkoConfig.DOUBLE_TAP_ACTION_EDIT);
         keys.add(getString(R.string.TranslateMessage)); values.add(NimarkoConfig.DOUBLE_TAP_ACTION_TRANSLATE);
         keys.add(getString(R.string.NM_DoubleTap_EditOrReact)); values.add(NimarkoConfig.DOUBLE_TAP_ACTION_EDIT_OR_REACTION);
-        PopupHelper.show(keys, getString(R.string.CP_DoubleTapAction), values.indexOf(NimarkoConfig.doubletapaction), getContext(), i -> {
-            NimarkoConfig.setDoubleTapAction(values.get(i));
+        PopupHelper.show(keys, getString(R.string.CP_DoubleTapAction), values.indexOf(NimarkoConfig.getDoubleTapAction(outgoing)), getContext(), i -> {
+            if (outgoing) NimarkoConfig.setDoubleTapOutgoingAction(values.get(i));
+            else NimarkoConfig.setDoubleTapAction(values.get(i));
             if (runnable != null) runnable.run();
         });
     }

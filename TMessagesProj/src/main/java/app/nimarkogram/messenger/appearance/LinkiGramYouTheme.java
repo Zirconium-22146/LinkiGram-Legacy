@@ -1,0 +1,81 @@
+package app.nimarkogram.messenger.appearance;
+
+import android.content.Context;
+import android.os.Build;
+
+import org.telegram.messenger.ApplicationLoader;
+import org.telegram.ui.ActionBar.Theme;
+
+/** Global Material You layer for Telegram's existing native views. */
+public final class LinkiGramYouTheme {
+    private static final String PREF_ENABLED = "linkigramYouEnabled";
+    public static final int NAV_COLOR_SURFACE = 0;
+    public static final int NAV_COLOR_INDICATOR = 1;
+    public static final int NAV_COLOR_SELECTED = 2;
+    public static final int NAV_COLOR_UNSELECTED = 3;
+    private static volatile boolean enabled;
+    private static volatile boolean loaded;
+    private static final String PREF_SEED = "linkigramYouSeedColor";
+    public static int radius(String element, int fallback) {
+        return Math.max(4, Math.min(32, app.nimarkogram.messenger.NimarkoConfig.getPreferences()
+                .getInt("linkigramYouRadius_" + element, fallback)));
+    }
+
+    public static void setRadius(String element, int value) {
+        app.nimarkogram.messenger.NimarkoConfig.getPreferences().edit()
+                .putInt("linkigramYouRadius_" + element, Math.max(4, Math.min(32, value))).apply();
+    }
+
+    public static int getSeedColor() {
+        return app.nimarkogram.messenger.NimarkoConfig.getPreferences().getInt(PREF_SEED, 0);
+    }
+
+    public static void setSeedColor(int color) {
+        app.nimarkogram.messenger.NimarkoConfig.getPreferences().edit().putInt(PREF_SEED, color == 0 ? 0 : color | 0xff000000).apply();
+    }
+
+    private LinkiGramYouTheme() { }
+
+    public static boolean isEnabled() {
+        if (loaded) return enabled;
+        try {
+            synchronized (LinkiGramYouTheme.class) {
+                if (!loaded) {
+                    enabled = app.nimarkogram.messenger.NimarkoConfig.getPreferences().getBoolean(PREF_ENABLED, true);
+                    loaded = true;
+                }
+                return enabled;
+            }
+        } catch (Throwable ignore) {
+            return false;
+        }
+    }
+
+    public static void setEnabled(boolean enabled) {
+        if (enabled) {
+            ColorOs17Theme.setEnabled(false);
+            Material3Theme.setEnabled(false);
+        }
+        LinkiGramYouTheme.enabled = enabled;
+        loaded = true;
+        app.nimarkogram.messenger.NimarkoConfig.getPreferences().edit().putBoolean(PREF_ENABLED, enabled).apply();
+    }
+
+    /** One role map serves dialogs, chat content, profiles, media and controls. */
+    public static int resolveColor(int key, int original) {
+        return ClientTheme.resolveColor(key, original);
+    }
+
+    public static int navigationBarColor(Context context, int role, int fallback) {
+        if (!ClientTheme.isEnabled()) return fallback;
+        if (ColorOs17Theme.isEnabled()) return ColorOs17Theme.navigationBarColor(role, fallback);
+        if (Material3Theme.isEnabled()) return Material3Theme.navigationBarColor(role, fallback);
+        switch (role) {
+            case NAV_COLOR_SURFACE: return ClientTheme.color(ClientTheme.SURFACE_HIGH);
+            case NAV_COLOR_INDICATOR: return ClientTheme.color(ClientTheme.CONTAINER);
+            case NAV_COLOR_SELECTED: return ClientTheme.color(ClientTheme.ON_CONTAINER);
+            case NAV_COLOR_UNSELECTED: return ClientTheme.color(ClientTheme.SECONDARY);
+            default: return fallback;
+        }
+    }
+}

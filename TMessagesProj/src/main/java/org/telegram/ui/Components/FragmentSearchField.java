@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
+import java.util.HashSet;
 
 @SuppressLint("ViewConstructor")
 public class FragmentSearchField extends FrameLayout implements FactorAnimator.Target, Theme.Colorable {
@@ -215,6 +216,10 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     }
 
     public void setBlurredBackgroundVisibility(float visibility) {
+        if (app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled() && !isSectionBackground
+                && !app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled()) {
+            visibility = 0f;
+        }
         final int alpha = (int) (255 * visibility);
         boolean changed = false;
         if (blurredBackgroundDrawable != null) {
@@ -274,7 +279,11 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
     @Override
     public void updateColors() {
         final boolean isDark = resourcesProvider != null ? resourcesProvider.isDark() : Theme.isCurrentThemeDark();
-        bg = isSectionBackground ?
+        final boolean you = app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled() && !isSectionBackground;
+        final boolean youGlass = you && app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled();
+        bg = you ? Theme.createRoundRectDrawable(dp(24), youGlass
+            ? app.nimarkogram.messenger.appearance.ClientTheme.glassColor(app.nimarkogram.messenger.appearance.ClientTheme.SURFACE_HIGH)
+            : app.nimarkogram.messenger.appearance.ClientTheme.color(app.nimarkogram.messenger.appearance.ClientTheme.SURFACE_HIGH)) : isSectionBackground ?
             Theme.createRoundRectDrawableShadowed(dp(20), getThemedColor(Theme.key_windowBackgroundWhite)) :
             Theme.createRoundRectDrawable(dp(20), isWhiteBackground ? getThemedColor(Theme.key_windowBackgroundWhite) : getThemedColor(Theme.key_windowBackgroundWhiteBlackText, isDark ? 0.07f : 0.05f));
         searchIcon.setColorFilter(getThemedColor(Theme.key_windowBackgroundWhiteBlackText, 0.6f), PorterDuff.Mode.MULTIPLY);
@@ -283,6 +292,15 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
         editText.setHintTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText, 0.5f));
         editText.setTextColor(getThemedColor(Theme.key_windowBackgroundWhiteBlackText));
         editText.setCursorColor(getThemedColor(Theme.key_groupcreate_cursor));
+        if (you) {
+            int onSurface = app.nimarkogram.messenger.appearance.ClientTheme.color(app.nimarkogram.messenger.appearance.ClientTheme.ON_SURFACE);
+            int secondary = app.nimarkogram.messenger.appearance.ClientTheme.color(app.nimarkogram.messenger.appearance.ClientTheme.SECONDARY);
+            searchIcon.setColorFilter(secondary, PorterDuff.Mode.SRC_IN);
+            closeIcon.setColorFilter(secondary, PorterDuff.Mode.SRC_IN);
+            editText.setTextColor(onSurface);
+            editText.setHintTextColor(secondary);
+            editText.setCursorColor(app.nimarkogram.messenger.appearance.ClientTheme.color(app.nimarkogram.messenger.appearance.ClientTheme.PRIMARY));
+        }
         if (blurredBackgroundDrawable != null) {
             blurredBackgroundDrawable.updateColors();
         }
@@ -305,6 +323,13 @@ public class FragmentSearchField extends FrameLayout implements FactorAnimator.T
         }
 
         invalidate();
+    }
+    @Override
+    public void addColorKeys(HashSet<Integer> colors) {
+        colors.add(Theme.key_windowBackgroundWhite);
+        colors.add(Theme.key_windowBackgroundWhiteBlackText);
+        colors.add(Theme.key_listSelector);
+        colors.add(Theme.key_groupcreate_cursor);
     }
 
     private int getThemedColor(int key) {

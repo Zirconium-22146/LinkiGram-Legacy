@@ -3,37 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LinkiGram — открытый Telegram-клиент для Android</title>
-  <meta name="description" content="LinkiGram — бесплатный неофициальный клиент Telegram для Android с расширенной настройкой, приватностью, прокси в фоне и поддержкой плагинов. Скачайте APK.">
+  <title>LinkiGram 2.9 — плеер, текст песен и офлайн-перевод</title>
+  <meta name="description" content="LinkiGram 2.9 — стабильная версия Android-клиента Telegram: база Telegram 13.2.1, очереди треков, текст песен с пословной подсветкой и офлайн-перевод сообщений на устройстве.">
   <link rel="canonical" href="https://www.linkigram.bond/">
   <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="LinkiGram">
   <meta property="og:url" content="https://www.linkigram.bond/">
-  <meta property="og:title" content="LinkiGram — открытый Telegram-клиент для Android">
-  <meta property="og:description" content="Бесплатный неофициальный клиент Telegram для Android: гибкая настройка, приватность, прокси в фоне и плагины. Скачайте APK.">
+  <meta property="og:title" content="LinkiGram 2.9 — плеер, текст песен и офлайн-перевод">
+  <meta property="og:description" content="В LinkiGram 2.9: база Telegram 13.2.1, перетаскивание треков в очереди, центрированный текст песен с пословной подсветкой и офлайн-перевод через ML Kit. Скачайте стабильную версию для Android.">
   <meta property="og:locale" content="ru_RU">
   <meta name="twitter:card" content="summary">
-  <meta name="twitter:title" content="LinkiGram — открытый Telegram-клиент для Android">
-  <meta name="twitter:description" content="Бесплатный неофициальный клиент Telegram для Android: гибкая настройка, приватность, прокси в фоне и плагины.">
+  <meta name="twitter:title" content="LinkiGram 2.9 — плеер, текст песен и офлайн-перевод">
+  <meta name="twitter:description" content="В LinkiGram 2.9: база Telegram 13.2.1, плеер с очередью и свечением обложки, текст песен и офлайн-перевод. Стабильная версия для Android.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <meta name="theme-color" content="#030805">
-  <link rel="stylesheet" href="css/theme.css?v=5">
+  <meta name="theme-color" content="#08090b">
+  <link rel="stylesheet" href="css/theme.css?v=8">
   <script>
     // Ставим тему до отрисовки, иначе мигнёт зелёный
     (function () {
       try {
-        var t = localStorage.getItem("lg-theme") || "green";
-        if (["green", "purple", "red", "yellow"].indexOf(t) === -1) t = "green";
+        var t = localStorage.getItem("lg-theme") || "gray";
+        if (["gray", "purple", "red", "yellow"].indexOf(t) === -1) t = "gray";
         document.documentElement.setAttribute("data-theme", t);
         var m = document.querySelector('meta[name="theme-color"]');
         if (m) m.setAttribute("content", getComputedStyle(document.documentElement).getPropertyValue("--bg").trim());
       } catch (e) {}
     })();
   </script>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path fill='%233ddc84' d='M10 50 L90 12 L70 88 L50 62 Z'/></svg>">
+  <link rel="icon" type="image/png" href="favicon.png">
 </head>
 <body>
 
@@ -55,18 +55,18 @@
         <a href="#privacy">Приватность</a>
         <a href="#download">Установка</a>
         <a href="#faq">FAQ</a>
-        <a class="nav__tg" href="https://t.me/linkireleases" target="_blank" rel="noopener">@linkireleases</a>
+        <a class="nav__tg" href="https://t.me/serostgram" target="_blank" rel="noopener">@serostgram</a>
       </nav>
       <div class="header__actions">
         <button class="theme-toggle" type="button" data-theme-toggle aria-label="Сменить тему" title="Сменить тему">
           <span class="theme-toggle__dot"></span>
-          <span class="theme-toggle__label" data-theme-label>green</span>
+          <span class="theme-toggle__label" data-theme-label>gray</span>
         </button>
-        <a class="btn btn--small btn--tg" href="https://t.me/linkireleases" target="_blank" rel="noopener">
+        <a class="btn btn--small btn--tg" href="https://t.me/serostgram" target="_blank" rel="noopener">
           <svg class="btn__icon" viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.4-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.7 13.1l-4.8-1.5c-1-.3-1-1 .2-1.5l18.7-7.2c.9-.3 1.6.2 1.1 2.4z"/></svg>
           Канал
         </a>
-        <a class="btn btn--small" href="https://github.com/timaa130704/LinkiGram/releases/latest" target="_blank" rel="noopener">
+        <a class="btn btn--small" href="https://github.com/timaa130704/LinkiGram/releases/tag/v2.9" target="_blank" rel="noopener">
           Скачать APK
         </a>
         <button class="burger" type="button" aria-label="Меню" aria-expanded="false">
@@ -80,8 +80,8 @@
   <section class="hero" id="top">
     <div class="container hero__inner">
       <div class="hero__badge" data-reveal>
-        <span class="hero__tag">v2.4</span>
-        <span>новая версия Telegram 12.10.5</span>
+        <span class="hero__tag">v2.9</span>
+        <span>стабильный релиз</span>
       </div>
       <h1 class="hero__title" data-reveal>
         Telegram,<br>
@@ -92,15 +92,21 @@
         с гибкой настройкой, инструментами приватности, прокси в фоне
         и полноценной платформой плагинов.
       </p>
+      <p class="hero__subtitle" data-reveal>
+        В версии 2.9 обновлена база Telegram до 13.2.1: в плеере появилось
+        перетаскивание треков в очереди и мягкое свечение по цвету обложки,
+        текст песен стал центрированным с пословной подсветкой, а перевод
+        сообщений теперь работает офлайн на устройстве.
+      </p>
       <div class="term" data-reveal>
         <div class="term__bar">linkigram — bash — 80&times;24</div>
         <div class="term__body">
           <p class="term__line"><span class="term__ps">user@linkigram:~$</span><span class="term__cmd" data-cmd="git clone --depth 1 https://github.com/timaa130704/LinkiGram.git"></span></p>
-          <p class="term__line term__line--out">&#8627; клонировано · v2.4 · APK в releases &#10003;</p>
+          <p class="term__line term__line--out">&#8627; LinkiGram v2.9 · база 13.2.1 + плеер + перевод &#10003;</p>
         </div>
       </div>
       <div class="hero__cta" data-reveal>
-        <a class="btn btn--primary btn--large" href="https://github.com/timaa130704/LinkiGram/releases/latest" target="_blank" rel="noopener">
+        <a class="btn btn--primary btn--large" href="https://github.com/timaa130704/LinkiGram/releases/tag/v2.9" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Скачать APK
         </a>
@@ -111,14 +117,14 @@
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.2a8.8 8.8 0 1 0 0 17.6 8.8 8.8 0 0 0 0-17.6Z"/><path d="M9.5 9.3a2.7 2.7 0 1 1 4.6 1.9c-1.1 1.1-2.1 1.4-2.1 3"/><path d="M12 17.2h.01"/></svg>
           Сообщить о баге
         </a>
-        <a class="btn btn--large btn--tg" href="https://t.me/linkireleases" target="_blank" rel="noopener" aria-label="Telegram-канал LinkiGram с обновлениями">
+        <a class="btn btn--large btn--tg" href="https://t.me/serostgram" target="_blank" rel="noopener" aria-label="Telegram-канал LinkiGram с обновлениями">
           <svg class="btn__icon" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M21.9 4.3 18.9 19c-.2 1-.8 1.3-1.7.8l-4.6-3.4-2.2 2.1c-.3.3-.5.5-1 .5l.4-5 9.1-8.2c.4-.4-.1-.6-.6-.2L6.7 13.1l-4.8-1.5c-1-.3-1-1 .2-1.5l18.7-7.2c.9-.3 1.6.2 1.1 2.4z"/></svg>
           Telegram-канал
         </a>
       </div>
       <div class="hero__meta" data-reveal>
         <span>Android 7.0+</span><span class="sep"></span>
-        <span>ARM64 + ARMv7</span><span class="sep"></span>
+        <span>ARM64</span><span class="sep"></span>
         <span>GPL-2.0</span><span class="sep"></span>
         <span>Бесплатно</span>
       </div>
@@ -184,6 +190,34 @@
           <h3>Приватность и биометрия</h3>
           <p>Дополнительные инструменты приватности, блокировка биометрией, фильтрация и управление чатами.</p>
         </div>
+        <div class="card tilt" data-reveal>
+          <div class="card__head">
+            <div class="card__icon"><svg viewBox="0 0 24 24"><path d="M4 5.5h16v13H4z"/><path d="M8 9h8M8 12h5M8 15h7"/><circle cx="18" cy="15" r="2.5"/></svg></div>
+            <span class="card__num">07</span>
+          </div>
+          <h3>Плеер в 2.9</h3>
+          <p>Треки в очереди перетаскиваются, полоса перемотки больше не «залипает», а вокруг обложки появляется мягкое свечение по её цвету.</p>
+        </div>
+        <div class="card tilt" data-reveal>
+          <div class="card__head"><div class="card__icon"><svg viewBox="0 0 24 24"><path d="M4 5h16v12H8l-4 3V5z"/><path d="M8 9h8M8 13h5"/></svg></div><span class="card__num">08</span></div>
+          <h3>Центр чатов и LinkiGram AI</h3>
+          <p>Непрочитанные чаты и упоминания в одном месте. Экспериментальные сводки последних сообщений через выбранного ИИ-провайдера.</p>
+        </div>
+        <div class="card tilt" data-reveal>
+          <div class="card__head"><div class="card__icon"><svg viewBox="0 0 24 24"><path d="M4 19V5M4 19h16M8 15v-4M12 15V7M16 15v-6"/></svg></div><span class="card__num">09</span></div>
+          <h3>Статистика и повторы</h3>
+          <p>Статистика доступной истории групп и тем за выбранный период. Локальные повторы отображаются рядом с отложенными сообщениями.</p>
+        </div>
+        <div class="card tilt" data-reveal>
+          <div class="card__head"><div class="card__icon"><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></div><span class="card__num">10</span></div>
+          <h3>Текст песен</h3>
+          <p>Центрированный режим с расширенной областью текста. Пословная подсветка от Deezer и KuGou, построчная от YouTube Music, текст от Musixmatch.</p>
+        </div>
+        <div class="card tilt" data-reveal>
+          <div class="card__head"><div class="card__icon"><svg viewBox="0 0 24 24"><path d="M4 6h9M8.5 4v2c0 4-2 7-4.5 8.5"/><path d="M6 11c2 3 4.5 4.5 7 5.5"/><path d="M13 20l4-10 4 10M14.6 16.6h4.8"/></svg></div><span class="card__num">11</span></div>
+          <h3>Офлайн-перевод</h3>
+          <p>Перевод сообщений через ML Kit прямо на устройстве: модель скачивается при первом использовании, без сетевой подмены результата.</p>
+        </div>
       </div>
     </div>
   </section>
@@ -193,7 +227,7 @@
     <div class="container">
       <div class="proxy tilt" data-reveal>
         <div class="proxy__text">
-          <span class="eyebrow">Новое в 2.21</span>
+          <span class="eyebrow">Фоновое соединение</span>
           <h2>Прокси в фоне —<br>уведомления <span class="gradient-text">всегда приходят</span></h2>
           <p>При уходе приложения в фон соединение через прокси больше не засыпает. Обновления и уведомления идут постоянно,
              даже если push-канал FCM недоступен. Фоновый сервис самовосстанавливается после закрытия процесса.</p>
@@ -230,18 +264,19 @@
         <span class="eyebrow">Установка</span>
         <h2>Скачайте LinkiGram<br><span class="gradient-text">за три простых шага</span></h2>
         <ol class="steps">
-          <li><span>1</span>Скачайте <code>LinkiGram.apk</code> с GitHub Releases</li>
+          <li><span>1</span>Скачайте APK LinkiGram 2.9 с GitHub Releases</li>
           <li><span>2</span>Разрешите установку из неизвестных источников</li>
           <li><span>3</span>Откройте APK и подтвердите установку</li>
         </ol>
-        <a class="btn btn--primary btn--large" href="https://github.com/timaa130704/LinkiGram/releases/latest" target="_blank" rel="noopener">
+        <a class="btn btn--primary btn--large" href="https://github.com/timaa130704/LinkiGram/releases/tag/v2.9" target="_blank" rel="noopener">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Перейти к скачиванию
+          Скачать LinkiGram 2.9
         </a>
-        <p class="download__note">Ставится поверх 2.x без потери данных · Android 7.0+ · ARM64</p>
+        <p class="download__note">Стабильная версия · Android 7.0+ · ARM64</p>
+        <p class="download__note">Стабильная версия 2.9 доступна в <a href="https://github.com/timaa130704/LinkiGram/releases/tag/v2.9" target="_blank" rel="noopener">GitHub Releases</a>.</p>
         <p class="download__note">
           Новые версии выходят сюда:
-          <a href="https://t.me/linkireleases" target="_blank" rel="noopener">t.me/linkireleases</a>
+          <a href="https://t.me/serostgram" target="_blank" rel="noopener">t.me/serostgram</a>
         </p>
       </div>
     </div>
@@ -264,11 +299,11 @@
       </details>
       <details class="faq" data-reveal>
         <summary>Как обновляться?</summary>
-        <p>Подпишитесь на Telegram-канал <a href="https://t.me/linkireleases" target="_blank" rel="noopener">@linkireleases</a> — там анонсы релизов выходят первыми. APK можно скачать с GitHub Releases и установить поверх текущей версии — данные не потеряются.</p>
+        <p>Подпишитесь на Telegram-канал <a href="https://t.me/serostgram" target="_blank" rel="noopener">@serostgram</a> — там анонсы релизов выходят первыми. APK можно скачать с GitHub Releases и установить поверх текущей версии — данные не потеряются.</p>
       </details>
       <details class="faq" data-reveal>
         <summary>Какие архитектуры поддерживаются?</summary>
-        <p>Единый standalone APK поддерживает ARM64 и ARMv7. Требуется Android 7.0 или новее.</p>
+        <p>APK версии 2.9 предназначен для устройств ARM64. Требуется Android 7.0 или новее.</p>
       </details>
     </div>
   </section>
@@ -283,16 +318,43 @@
         <span>Linki<span class="logo__accent">Gram</span></span>
       </a>
       <div class="footer__links">
-        <a href="https://github.com/timaa130704/LinkiGram/releases/latest" target="_blank" rel="noopener">Скачать</a>
+        <a href="https://github.com/timaa130704/LinkiGram/releases/tag/v2.9" target="_blank" rel="noopener">Скачать 2.9</a>
         <a href="https://github.com/timaa130704/LinkiGram" target="_blank" rel="noopener">GitHub</a>
         <a href="https://github.com/timaa130704/LinkiGram/issues" target="_blank" rel="noopener">Ошибки</a>
-        <a href="https://t.me/linkireleases" target="_blank" rel="noopener">Telegram-канал</a>
+        <a href="https://t.me/serostgram" target="_blank" rel="noopener">Telegram-канал</a>
         <a href="https://github.com/timaa130704/LinkiGram/blob/main/LICENSE" target="_blank" rel="noopener">GPL-2.0</a>
       </div>
       <p class="footer__copy">© 2026 LinkiGram. Открытый проект. Не связан с Telegram Messenger Inc.</p>
     </div>
   </footer>
 
-  <script type="module" src="js/main.js?v=4"></script>
+  <!-- Уведомление о смене Telegram-канала -->
+  <div class="notice" id="channel-notice" role="dialog" aria-modal="true" aria-labelledby="channel-notice-title" hidden>
+    <div class="notice__backdrop" data-notice-close></div>
+    <div class="notice__card" role="document">
+      <div class="notice__bar">
+        <span>linkigram — channel — notice</span>
+        <button class="notice__close" type="button" data-notice-close aria-label="Закрыть уведомление">&times;</button>
+      </div>
+      <div class="notice__body">
+        <span class="notice__badge">канал переехал</span>
+        <h2 class="notice__title" id="channel-notice-title">
+          Мы теперь в <span class="gradient-text">@serostgram</span>
+        </h2>
+        <p class="notice__text">
+          Старый канал <span class="notice__old">@linkireleases</span> больше не обновляется:
+          аккаунт владельца удалили, и доступа к нему нет. Все новости, анонсы и релизы
+          LinkiGram выходят в <b>@serostgram</b> — включая 2.9.
+        </p>
+        <p class="notice__hint">// подпишись заново, чтобы не пропустить следующие версии</p>
+        <div class="notice__actions">
+          <a class="btn btn--primary" href="https://t.me/serostgram" target="_blank" rel="noopener" data-notice-close>Перейти в @serostgram</a>
+          <button class="btn btn--ghost" type="button" data-notice-close>Позже</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js?v=7"></script>
 </body>
 </html>

@@ -96,7 +96,7 @@ function initThemeToggle() {
   if (!btn) return;
   const label = document.querySelector("[data-theme-label]");
   const meta = document.querySelector('meta[name="theme-color"]');
-  const ORDER = ["green", "purple", "red", "yellow"];
+  const ORDER = ["gray", "purple", "red", "yellow"];
 
   const apply = (theme) => {
     const root = document.documentElement;
@@ -114,7 +114,7 @@ function initThemeToggle() {
     }
   };
 
-  const current = () => document.documentElement.getAttribute("data-theme") || "green";
+  const current = () => document.documentElement.getAttribute("data-theme") || "gray";
 
   // Синхронизируем подпись с темой, могшей прийти из localStorage до отрисовки
   apply(current());
@@ -125,6 +125,48 @@ function initThemeToggle() {
   });
 }
 
+/* ---------- Уведомление о смене канала ---------- */
+function initChannelNotice() {
+  const notice = document.getElementById("channel-notice");
+  if (!notice) return;
+  const KEY = "lg-channel-notice-2.9";
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+
+  let dismissed = 0;
+  try {
+    dismissed = parseInt(localStorage.getItem(KEY) || "0", 10) || 0;
+  } catch (e) {
+    /* приватный режим — показываем всегда */
+  }
+  if (dismissed && Date.now() - dismissed < WEEK) return;
+
+  let closed = false;
+  const close = () => {
+    if (closed) return;
+    closed = true;
+    notice.hidden = true;
+    document.body.classList.remove("notice-open");
+    try {
+      localStorage.setItem(KEY, String(Date.now()));
+    } catch (e) {
+      /* не критично */
+    }
+    document.removeEventListener("keydown", onKey);
+  };
+  const onKey = (e) => {
+    if (e.key === "Escape") close();
+  };
+
+  notice.hidden = false;
+  document.body.classList.add("notice-open");
+  notice.querySelectorAll("[data-notice-close]").forEach((el) => {
+    el.addEventListener("click", close);
+  });
+  document.addEventListener("keydown", onKey);
+  const primary = notice.querySelector(".notice__actions .btn--primary");
+  if (primary) primary.focus({ preventScroll: true });
+}
+
 /* ---------- Старт ---------- */
 initHeader();
 initNav();
@@ -132,4 +174,77 @@ initTilt();
 initReveal();
 initTypeCmd();
 initThemeToggle();
+initChannelNotice();
 
+
+// A quiet snowfall, with a bounded flake count and no background work.
+(() => {
+  const motion = matchMedia('(prefers-reduced-motion: reduce)');
+  const canvas = document.createElement('canvas');
+  canvas.className = 'ambient-snow';
+  canvas.setAttribute('aria-hidden', 'true');
+  document.body.prepend(canvas);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) { canvas.remove(); return; }
+  let width = 0, height = 0, flakes = [], frame = 0, previous = 0, clock = 0;
+  let tint = '#e8eef6';
+  const refreshColor = () => {
+    const accent = getComputedStyle(document.documentElement).getPropertyValue('--accent-bright').trim();
+    tint = accent || '#e8eef6';
+  };
+  const makeFlake = (spawnOnTop) => {
+    const radius = 0.8 + Math.random() * 2.4;
+    return {
+      x: Math.random() * (width + 120) - 60,
+      y: spawnOnTop ? -radius * 4 : Math.random() * height,
+      r: radius,
+      speed: 14 + radius * 11 + Math.random() * 16,
+      drift: 5 + Math.random() * 18,
+      phase: Math.random() * Math.PI * 2,
+      spin: 0.4 + Math.random() * 1.1,
+      alpha: 0.3 + Math.random() * 0.55
+    };
+  };
+  const resize = () => {
+    width = innerWidth; height = innerHeight;
+    const ratio = Math.min(devicePixelRatio || 1, 2);
+    canvas.width = Math.round(width * ratio);
+    canvas.height = Math.round(height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    refreshColor();
+    const count = Math.min(150, Math.max(40, Math.round(width / 11)));
+    flakes = Array.from({length: count}, () => makeFlake(false));
+  };
+  const draw = now => {
+    const dt = previous ? Math.min((now - previous) / 1000, .04) : 0;
+    previous = now;
+    clock += dt;
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = tint;
+    for (const flake of flakes) {
+      flake.y += flake.speed * dt;
+      flake.x += Math.cos(clock * flake.spin + flake.phase) * flake.drift * dt - 6 * dt;
+      if (flake.y > height + flake.r * 4) {
+        Object.assign(flake, makeFlake(true));
+      } else if (flake.x < -70) {
+        flake.x = width + 60;
+      }
+      ctx.globalAlpha = flake.alpha;
+      ctx.beginPath();
+      ctx.arc(flake.x, flake.y, flake.r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    frame = requestAnimationFrame(draw);
+  };
+  const sync = () => {
+    cancelAnimationFrame(frame); previous = 0;
+    if (!document.hidden && !motion.matches) frame = requestAnimationFrame(draw);
+    else ctx.clearRect(0, 0, width, height);
+  };
+  new MutationObserver(refreshColor).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+  addEventListener('resize', resize, {passive: true});
+  document.addEventListener('visibilitychange', sync);
+  motion.addEventListener('change', sync);
+  refreshColor(); resize(); sync();
+})();

@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+"""Regenerate static search labels from LinkiGram settings declarations (no live values).
+Run after adding/removing settings: python Tools/generate_settings_search.py
+"""
+from pathlib import Path
+import re
+import json
+import xml.etree.ElementTree as ET
+ROOT=Path(__file__).resolve().parents[1]
+JAVA=ROOT/'TMessagesProj/src/main/java'
+PREF='app/nimarkogram/messenger/preferences/'
+names=['Main','General','Appearance','Chats','Camera','Privacy','AyuMoments','Messages',
+       'RecentEmojisStickers','Folders','BottomTabs','NimarkoMedia','Banner','Debug',
+       'Experimental','NimarkoTextAnim','Background','MessageMenuItems','DialogsMenuItems','Drawer']
+specs=[(PREF+n+'PreferencesActivity.java',None,None) for n in names]
+specs += [(PREF+'ScreenAppearanceActivity.java','LF_DrawerStyle','new ScreenAppearanceActivity("drawer")'),
+          ('app/exteraless/ai/ui/AiSettingsActivity.java','OEAiTitle','new app.exteraless.ai.ui.AiSettingsActivity()'),
+          ('app/nimarkogram/messenger/infocards/preferences/InfoCardsPreferencesActivity.java',None,None),
+          ('app/nimarkogram/messenger/wsbypass/preferences/WsBypassPreferencesActivity.java',None,None)]
+# Non-universal settings pages are indexed as sections; these use their own list adapters.
+sections=[('MessageMenuPreferencesActivity','CP_MessageMenu'),
+          ('MessageFiltersPreferencesActivity','NM_MF_Title'),
+          ('MessageMenuOrderPreferencesActivity','NM_Menu_Reorder'),
+          ('MessagesAndProfilesPreferencesActivity','CP_ProfileReplyBackground'),
+          ('DialogsMenuOrderPreferencesActivity','NM_Menu_Reorder'),
+          ('IconPackSelectorActivity','AP_IconReplacements')]
+def cleaned(s):
+ return re.sub(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])*\'|//[^\n]*|/\*[\s\S]*?\*/',lambda m:' '*len(m[0]),s)
+def body(s,pattern):
+ m=re.search(pattern,s);assert m,pattern
+ start=s.index('{',m.start());scan=cleaned(s);depth=1;i=start+1
+ while depth:
+  depth+=(scan[i]=='{')-(scan[i]=='}');i+=1
+ return s[start+1:i-1]
+def calls(s):
+ scan=cleaned(s)
+ for match in re.finditer(r'(?:UItem|SettingsHelper)\.(as\w+)\(',s):
+  if match[1] in ('asShadow','asCustomShadow','asSpace','asSpaceCG','asTopView'):continue
+  i=match.end();depth=1
+  while depth and i<len(scan):depth+=(scan[i]=='(')-(scan[i]==')');i+=1
+  keys=re.findall(r'R\.string\.(\w+)',s[match.end():i-1])
+  if keys:yield keys[0]
+def guid(key):
+ value=0
+ for c in key:value=(31*value+ord(c))&0xffffffff
+ return 0x40000000|(value&0x3fffffff)
+lines=[];identities=set();ids=set();counts={}
+def emit(cls,title,key,factory,row=None):
+ identity=cls+':'+key
+ if identity in identities:return
+ identities.add(identity);g=guid(identity);assert g not in ids,identity;ids.add(g)
+ method='addRow' if row else 'add'
+ suffix=', "'+row+'"' if row else ''
+ lines.append(f'        LinkiSettingsSearch.{method}(items, host, "{identity}", R.string.{key}, R.string.{title}, account -> {factory}{suffix});')
+ counts[cls]=counts.get(cls,0)+1
+for file,title,factory in specs:
+ s=(JAVA/file).read_text();cls=Path(file).stem
+ if title is None:
+  content=body(s,r'\bgetTitle\s*\(')
+  title=re.search(r'R\.string\.(\w+)',content)[1]
+ fullcls=file[:-5].replace('/','.')
+ factory=factory or 'new '+fullcls+'()'
+ emit(cls,title,title,factory)
+ if cls=='MainPreferencesActivity':continue
+ if cls=='AiSettingsActivity':
+  for key in dict.fromkeys(re.findall(r'R\.string\.(OEAi\w+)',s)):
+   emit(cls,title,key,factory)
+  continue
+ fill=body(s,r'\bvoid\s+fillItems\s*\(')
+ if cls=='AutoReplyPreferencesActivity':fill=fill[fill.index('items.add(UItem.asButton(1,'):]
+ for key in calls(fill):emit(cls,title,key,factory)
+ if cls=='AppearancePreferencesActivity':
+  for key in ['NM_Stickers_Header','NM_AvatarCorners_Header']:
+   emit(cls,title,key,factory)
+  for array in ['MATERIAL_LABELS','IOS_LABELS']:
+   content=re.search(array+r'\s*=\s*\{(.*?)\}',s,re.S)[1]
+   for key in re.findall(r'R.string.(\w+)',content):emit(cls,title,key,factory)
+for cls,title in sections:
+ factory='new '+cls+'()'
+ emit(cls,title,title,factory)
+ if cls in ['MessageMenuPreferencesActivity','MessageFiltersPreferencesActivity']:
+  source=(JAVA/PREF/(cls+'.java')).read_text()
+  bind=body(source,r'\bonBindViewHolder\s*\(')
+  matches=list(re.finditer(r'\bposition\s*==\s*(\w+)',bind))
+  for i,m in enumerate(matches):
+   segment=bind[m.end():matches[i+1].start() if i+1<len(matches) else len(bind)]
+   key=re.search(r'R.string.(\w+)',segment)
+   if key and not key[1].endswith(('_Desc','Desc')) and key[1]!='LocalMiscellaneousCache':
+    emit(cls,title,key[1],factory,m[1])
+ if cls=='MessagesAndProfilesPreferencesActivity':
+  for key in ['NM_MP_ShowSeconds','NM_MP_DisablePremiumStatuses','NM_MP_ReplyBackground',
+              'NM_MP_ReplyCustomColors','NM_MP_ReplyBackgroundEmoji','NM_MP_ProfileChannelPreview',
+              'NM_MP_ShowIdDc','NM_MP_ProfileBirthDatePreview','NM_MP_ProfileBusinessPreview',
+              'NM_MP_ProfileBackgroundColor','NM_MP_ProfileBackgroundEmoji']:
+   emit(cls,title,key,factory)
+emit('PluginsActivity','Plugins','Plugins','new app.nimarkogram.messenger.plugins.ui.PluginsActivity()')
+header='''// Generated by Tools/generate_settings_search.py; edit the settings source, then regenerate.
+package app.nimarkogram.messenger.search;
+
+import java.util.ArrayList;
+import org.telegram.messenger.R;
+import org.telegram.ui.ActionBar.BaseFragment;
+import org.telegram.ui.ProfileActivity.SearchAdapter.SearchResult;
+import app.nimarkogram.messenger.preferences.*;
+
+final class LinkiSettingsCatalog {
+    static void add(ArrayList<SearchResult> items, BaseFragment host) {
+'''
+p=JAVA/'app/nimarkogram/messenger/search/LinkiSettingsCatalog.java'
+p.write_text(header+'\n'.join(lines)+'\n    }\n}\n')
+keys=set(re.findall(r'R\.string\.(\w+)', '\n'.join(lines)))
+english={}
+for resource_file in sorted((ROOT/'TMessagesProj/src/main/res/values').glob('*.xml')):
+ try: root=ET.parse(resource_file).getroot()
+ except ET.ParseError: continue
+ for node in root.findall('string'):
+  key=node.attrib.get('name')
+  if key in keys and key not in english:
+   english[key]=''.join(node.itertext())
+english_lines=[]
+for key in sorted(keys):
+ value=english.get(key, key.replace('_',' '))
+ english_lines.append(f'        labels.put(R.string.{key}, {json.dumps(value, ensure_ascii=False)});')
+english_header='''// Generated by Tools/generate_settings_search.py from default English resources.
+package app.nimarkogram.messenger.search;
+
+import org.telegram.messenger.R;
+import android.util.SparseArray;
+
+final class LinkiSettingsEnglishCatalog {
+    private LinkiSettingsEnglishCatalog() {}
+    private static final SparseArray<String> labels = new SparseArray<>();
+    static {
+'''
+english_path=JAVA/'app/nimarkogram/messenger/search/LinkiSettingsEnglishCatalog.java'
+english_path.write_text(english_header+'\n'.join(english_lines)+'''\n    }
+    static String get(int resource) {
+        return labels.get(resource, "");
+    }
+}
+''')
+print(f'{len(lines)} entries in {len(counts)} sections; stable IDs unique')
+print(f'{len(keys)} English labels generated; {len(keys-set(english))} resource names use key fallback')
+for name,n in counts.items():print(name,n)
