@@ -4893,10 +4893,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             chatInputViewsContainer = new ChatInputViewsContainer(context);
             chatInputViewsContainer.setClipChildren(false);
             chatInputViewsContainer.setWindowInsetsProvider(windowInsetsStateHolder);
-            chatInputViewsContainer.setInputIslandBubbleDrawable(
-                iBlur3FactoryLiquidGlass.create(chatInputViewsContainer, BlurredBackgroundProviderImpl.inputFieldDialogActivity(resourceProvider)));
-            chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
-                iBlur3FactoryFrostedLiquidGlass.create(chatInputViewsContainer, BlurredBackgroundProviderImpl.inputFieldDialogActivity(resourceProvider)));
+            // Legacy: панель ввода — обычный прямоугольник, без «островка» и размытия.
+            chatInputViewsContainer.setPlainPanelColor(getThemedColor(Theme.key_chat_messagePanelBackground));
 
             BlurredBackgroundWithFadeDrawable fadeDrawable = new BlurredBackgroundWithFadeDrawable(
                     iBlur3FactoryFade.create(chatInputViewsContainer, null));

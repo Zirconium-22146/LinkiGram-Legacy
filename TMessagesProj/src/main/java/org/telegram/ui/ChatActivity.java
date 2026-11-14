@@ -4311,7 +4311,8 @@ public class ChatActivity extends BaseFragment implements
                 openSearchWithText(isSupportedTags() ? "" : null);
             }
         };
-        avatarContainer.setGlassMode();
+        // Legacy: обычные размеры шапки, как до редизайна (setGlassMode() подгонял
+        // шрифты и отступы под плавающую «пилюлю»).
         // LinkiGram: iOS-шапка чата (NM_Style_ChatHeader) — центрированный заголовок без аватарки.
         if (app.nimarkogram.messenger.appearance.AppearanceConfig.iosChatHeader()) {
             avatarContainer.hideAvatarForIosHeader();
@@ -4746,15 +4747,10 @@ public class ChatActivity extends BaseFragment implements
 
         contentView.setOccupyStatusBar(!inBubbleMode && !isInsideContainer && !inPreviewMode);
 
-        if (app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
-                && !app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled()) {
-            actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
-        } else {
-            actionBar.setupGlass(
-            glassBackgroundDrawableFactory,
-            BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate),
-            ChatObject.isForum(currentChat));
-        }
+        // Legacy: сплошная шапка, как в старом Telegram. Без setupGlass здесь нет ни
+        // скруглённых «пилюль» вокруг названия чата и кнопок, ни их перерисовки
+        // через размытие на каждом кадре.
+        actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
         setupHeaderMenuOverlay(parentView);
         if (app.nimarkogram.messenger.appearance.AppearanceConfig.newChatHeaderStyle()) {
             actionBar.setDrawGlassTitle(false);
@@ -4778,10 +4774,8 @@ public class ChatActivity extends BaseFragment implements
         chatInputViewsContainer = new ChatInputViewsContainer(context);
         chatInputViewsContainer.setClipChildren(false);
         chatInputViewsContainer.setWindowInsetsProvider(windowInsetsStateHolder);
-        chatInputViewsContainer.setInputIslandBubbleDrawable(
-            glassBackgroundDrawableFactory.create(chatInputViewsContainer, blurredBackgroundColorProvider));
-        chatInputViewsContainer.setUnderKeyboardBackgroundDrawable(
-            glassBackgroundDrawableFactoryFrosted.create(chatInputViewsContainer, blurredBackgroundColorProvider));
+        // Legacy: панель ввода — обычный прямоугольник во всю ширину, без «островка».
+        chatInputViewsContainer.setPlainPanelColor(getThemedColor(Theme.key_chat_messagePanelBackground));
 
 
         chatInputBubbleContainer = chatInputViewsContainer.getInputIslandBubbleContainer();
@@ -48700,6 +48694,7 @@ public class ChatActivity extends BaseFragment implements
             avatarContainer.getTimeItem().invalidate();
         }
         if (chatInputViewsContainer != null) {
+            chatInputViewsContainer.setPlainPanelColor(getThemedColor(Theme.key_chat_messagePanelBackground));
             chatInputViewsContainer.updateColors();
         }
         if (sideControlsButtonsLayout != null) {

@@ -81,14 +81,25 @@ public class ChatAvatarContainer extends FrameLayout implements FactorAnimator.T
     private Integer storiesForceState;
     private int avatarSizeInDp = 42;
 
-    /** LinkiGram: MD3-шапка чата (порт exteraless ChatHeaderUiHelper, NM_Style_ChatHeader). */
-    public int getAvatarSizeInDp() {
+    /**
+     * Размер аватарки считается один раз: раньше getAvatarSizeInDp() звали из
+     * onMeasure() и onLayout(), и каждый такой вызов проверял три темы и читал
+     * настройки. На раскладке шапки это лишняя работа на каждом кадре.
+     */
+    private final int resolvedAvatarSizeInDp = resolveAvatarSizeInDp();
+
+    private int resolveAvatarSizeInDp() {
         if (app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) return 40;
         if (app.nimarkogram.messenger.appearance.AppearanceConfig.newChatHeaderStyle()
                 && !app.nimarkogram.messenger.appearance.AppearanceConfig.iosChatHeader()) {
             return 46;
         }
         return avatarSizeInDp;
+    }
+
+    /** LinkiGram: MD3-шапка чата (порт exteraless ChatHeaderUiHelper, NM_Style_ChatHeader). */
+    public int getAvatarSizeInDp() {
+        return resolvedAvatarSizeInDp;
     }
     public BackupImageView avatarImageView;
     private boolean avatarImageIsHidden;

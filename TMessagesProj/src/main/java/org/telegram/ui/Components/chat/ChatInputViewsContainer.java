@@ -4,6 +4,7 @@ import static org.telegram.messenger.AndroidUtilities.dp;
 
 import android.content.Context;
 import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.graphics.Path;
 import android.graphics.Rect;
 import android.graphics.RectF;
@@ -83,6 +84,30 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
         blurredBackgroundDrawable.setRadius(dp(INPUT_BUBBLE_RADIUS));
     }
 
+    /**
+     * Legacy: панель ввода — обычный прямоугольник во всю ширину экрана, как в
+     * старом Telegram, а не плавающий «островок» со скруглением и размытием.
+     *
+     * Раньше фон панели рисовал BlurredBackgroundDrawable со скруглением 22dp и
+     * отступом 7dp по краям. Теперь фон рисуется здесь одним прямоугольником:
+     * это и старый вид, и минус один проход размытия на кадр.
+     */
+    private final android.graphics.Paint plainPanelPaint = new android.graphics.Paint();
+    private boolean plainPanel;
+
+    /**
+     * Включает сплошную панель ввода заданного цвета (тема чата учитывается
+     * вызывающим фрагментом). Пока цвет не задан, панель рисуется по-старому —
+     * так низкие шторки вроде подарка остаются со своим «островком».
+     */
+    public void setPlainPanelColor(int color) {
+        plainPanel = true;
+        if (plainPanelPaint.getColor() != color) {
+            plainPanelPaint.setColor(color);
+            invalidate();
+        }
+    }
+
     public void setUnderKeyboardBackgroundDrawable(BlurredBackgroundDrawable drawable) {
         underKeyboardBackgroundDrawable = drawable;
         underKeyboardBackgroundDrawable.enableInAppKeyboardOptimization();
@@ -142,9 +167,12 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
         checkViewsPositions();
 
         final int blurredHeight = inputBubbleHeightRound + dp(INPUT_BUBBLE_BOTTOM) + Math.round(maxBottomInset);
-        if (currentBlurredHeight != blurredHeight || force) {
+        final boolean heightChanged = currentBlurredHeight != blurredHeight;
+        if (heightChanged || force) {
             currentBlurredHeight = blurredHeight;
-
+        }
+        if (heightChanged) {
+            // Путь нужен только для клавиатуры; перестраивать его на каждом measure незачем.
             final int r = dp(INPUT_KEYBOARD_RADIUS);
             tmpRectF.set(0, getMeasuredHeight() - imeBottomInset, getMeasuredWidth(), getMeasuredHeight());
             underKeyboardPath.rewind();
@@ -189,8 +217,14 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
     }
 
     private void checkViewsPositions() {
-        inputIslandBubbleContainer.setTranslationY(-maxBottomInset - dp(INPUT_BUBBLE_BOTTOM));
-        inAppKeyboardBubbleContainer.setTranslationY(inAppKeyboardBubbleContainer.getMeasuredHeight() - imeBottomInset);
+        final float islandTranslation = -maxBottomInset - dp(INPUT_BUBBLE_BOTTOM);
+        if (inputIslandBubbleContainer.getTranslationY() != islandTranslation) {
+            inputIslandBubbleContainer.setTranslationY(islandTranslation);
+        }
+        final float keyboardTranslation = inAppKeyboardBubbleContainer.getMeasuredHeight() - imeBottomInset;
+        if (inAppKeyboardBubbleContainer.getTranslationY() != keyboardTranslation) {
+            inAppKeyboardBubbleContainer.setTranslationY(keyboardTranslation);
+        }
     }
 
 
@@ -258,38 +292,56 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
-        underKeyboardBackgroundDrawable.setBounds(
-            0,
-            getMeasuredHeight() - (int) imeBottomInset,
-            getMeasuredWidth(),
-            Math.max(getMeasuredHeight(), getMeasuredHeight() - (int) imeBottomInset + dp(INPUT_KEYBOARD_RADIUS * 2))
-        );
+        if (underKeyboardBackgroundDrawable != null) {
+            underKeyboardBackgroundDrawable.setBounds(
+                0,
+                getMeasuredHeight() - (int) imeBottomInset,
+                getMeasuredWidth(),
+                Math.max(getMeasuredHeight(), getMeasuredHeight() - (int) imeBottomInset + dp(INPUT_KEYBOARD_RADIUS * 2))
+            );
+        }
 
         final int blurTop = getMeasuredHeight() - currentBlurredHeight;
 
-        tmpRect.set(
-            Math.round(inputBubbleOffsetLeft),
-            0,
-            getMeasuredWidth() - Math.round(inputBubbleOffsetRight),
-            inputBubbleHeightRound
-        );
-        tmpRect.inset(0, -dp(7));
-        tmpRect.offset(0, blurTop + (int) bubbleInputTranlationY);
+        if (plainPanel) {
+            // Сплошная панель от верха поля ввода до низа экрана, без скруглений.
+            if (drawInputBackground) {
+                final int top = blurTop + Math.round(bubbleInputTranlationY);
+                final int bottom = getMeasuredHeight() + Math.round(bubbleInputTranlationY);
+                canvas.drawRect(0, top, getMeasuredWidth(), bottom, plainPanelPaint);
+                // Тень над панелью — как в старом Telegram: отделяет ввод от ленты.
+                final Drawable shadow = Theme.chat_composeShadowDrawable;
+                if (shadow != null) {
+                    final int shadowHeight = shadow.getIntrinsicHeight();
+                    shadow.setBounds(0, top - shadowHeight, getMeasuredWidth(), top);
+                    shadow.draw(canvas);
+                }
+            }
+        } else if (blurredBackgroundDrawable != null) {
+            tmpRect.set(
+                Math.round(inputBubbleOffsetLeft),
+                0,
+                getMeasuredWidth() - Math.round(inputBubbleOffsetRight),
+                inputBubbleHeightRound
+            );
+            tmpRect.inset(0, -dp(7));
+            tmpRect.offset(0, blurTop + (int) bubbleInputTranlationY);
 
-        blurredBackgroundDrawable.setBounds(tmpRect);
-        if (drawInputBackground) {
-            if (app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
-                    && !app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled()) {
-                youComposerPaint.setColor(app.nimarkogram.messenger.appearance.ClientTheme.color(
-                    app.nimarkogram.messenger.appearance.ClientTheme.BACKGROUND));
-                youComposerPaint.setAlpha(blurredBackgroundDrawable.getAlpha());
-                canvas.drawRect(0, tmpRect.top, getWidth(), getHeight(), youComposerPaint);
-            } else {
-                blurredBackgroundDrawable.draw(canvas);
+            blurredBackgroundDrawable.setBounds(tmpRect);
+            if (drawInputBackground) {
+                if (app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()
+                        && !app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled()) {
+                    youComposerPaint.setColor(app.nimarkogram.messenger.appearance.ClientTheme.color(
+                        app.nimarkogram.messenger.appearance.ClientTheme.BACKGROUND));
+                    youComposerPaint.setAlpha(blurredBackgroundDrawable.getAlpha());
+                    canvas.drawRect(0, tmpRect.top, getWidth(), getHeight(), youComposerPaint);
+                } else {
+                    blurredBackgroundDrawable.draw(canvas);
+                }
             }
         }
 
-        if (needDrawInAppKeyboard) {
+        if (needDrawInAppKeyboard && underKeyboardBackgroundDrawable != null) {
             underKeyboardBackgroundDrawable.draw(canvas);
         }
 
@@ -298,7 +350,7 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
 
     @Override
     protected boolean drawChild(@NonNull Canvas canvas, View child, long drawingTime) {
-        final boolean needClip = child == inAppKeyboardBubbleContainer;
+        final boolean needClip = child == inAppKeyboardBubbleContainer && underKeyboardBackgroundDrawable != null;
         if (needClip) {
             canvas.save();
             canvas.clipPath(underKeyboardBackgroundDrawable.getPath());
@@ -337,10 +389,12 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
     }
 
     public void setInputBubbleAlpha(int alpha) {
+        if (plainPanelPaint.getAlpha() != alpha) {
+            plainPanelPaint.setAlpha(alpha);
+        }
         if (blurredBackgroundDrawable != null) {
             blurredBackgroundDrawable.setAlpha(alpha);
         }
-
     }
 
     private void checkDrawableBounds() {
@@ -369,7 +423,8 @@ public class ChatInputViewsContainer extends FrameLayout implements Theme.Colora
             final int x = (int) event.getX();
             final int y = (int) event.getY();
 
-            captured = blurredBackgroundDrawable != null && blurredBackgroundDrawable.getAlpha() == 255 && blurredBackgroundDrawable.getBounds().contains(x, y)
+            captured = plainPanel && plainPanelPaint.getAlpha() == 255 && y >= getMeasuredHeight() - currentBlurredHeight
+                || blurredBackgroundDrawable != null && blurredBackgroundDrawable.getAlpha() == 255 && blurredBackgroundDrawable.getBounds().contains(x, y)
                 || underKeyboardBackgroundDrawable != null && underKeyboardBackgroundDrawable.getBounds().contains(x, y);
 
         }

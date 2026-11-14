@@ -163,13 +163,17 @@ public final class OnceMediaArchive {
     }
 
     private static java.util.Set<String> snapshotIndex(int account) {
-        long uid = UserConfig.getInstance(account).getClientUserId();
-        return snapshots.computeIfAbsent(uid, key -> {
-            java.util.Set<String> names = ConcurrentHashMap.newKeySet();
-            File[] files = directory(account).listFiles((dir, name) -> name.endsWith(".tl"));
-            if (files != null) for (File file : files) names.add(file.getName().substring(0, file.getName().length() - 3));
+        final long uid = UserConfig.getInstance(account).getClientUserId();
+        java.util.Set<String> names = snapshots.get(uid);
+        if (names != null) {
             return names;
-        });
+        }
+        names = ConcurrentHashMap.newKeySet();
+        // Раскладка папки — один раз на аккаунт, дальше только map-поиск.
+        File[] files = directory(account).listFiles((dir, name) -> name.endsWith(".tl"));
+        if (files != null) for (File file : files) names.add(file.getName().substring(0, file.getName().length() - 3));
+        snapshots.put(uid, names);
+        return names;
     }
 
     private static void writeAtomic(File file, byte[] bytes) throws Exception {
@@ -220,8 +224,12 @@ public final class OnceMediaArchive {
     }
 
     private static TLRPC.Message readSnapshot(int account, long dialogId, int messageId) {
+        final java.util.Set<String> index = snapshotIndex(account);
+        // Быстрый выход: у большинства пользователей архив пуст, а readSnapshot
+        // вызывается из MessageObject.setType() для каждого сообщения.
+        if (index.isEmpty()) return null;
         String base = dialogId + "_" + messageId;
-        if (!snapshotIndex(account).contains(base)) return null;
+        if (!index.contains(base)) return null;
         long uid = UserConfig.getInstance(account).getClientUserId();
         String key = uid + ":" + base;
         if (!viewed.contains(key)) {
@@ -257,6 +265,7 @@ public final class OnceMediaArchive {
     /** Applies a local rendering overlay. No Telegram message is edited or re-sent. */
     public static boolean restoreMedia(int account, TLRPC.Message message) {
         if (message == null || UserConfig.getInstance(account).getClientUserId() <= 0) return false;
+        if (snapshotIndex(account).isEmpty()) return false;
         long dialogId = MessageObject.getDialogId(message);
         TLRPC.Message original = readSnapshot(account, dialogId, message.id);
         if (original == null || original.media == null) return false;
