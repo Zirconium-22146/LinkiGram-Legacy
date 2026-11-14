@@ -19252,7 +19252,7 @@ public class ChatActivity extends BaseFragment implements
                 // Место под название считаем по видимым иконкам шапки, а не 52/92dp:
                 // иконок может быть три (призрак + поиск/звонок + меню).
                 updateTitleRightMargin();
-                AndroidUtilities.runOnUIThread(this::updateTitleRightMargin);
+                AndroidUtilities.runOnUIThread(() -> updateTitleRightMargin());
                 if (showSearchAsIcon) {
                     if (!actionBar.isSearchFieldVisible() && searchIconItem != null) {
                         searchIconItem.setVisibility(View.VISIBLE);
