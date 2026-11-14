@@ -656,6 +656,26 @@ public final class ProxyApplier {
         }
     }
 
+    /**
+     * Linkigram Legacy: called on startup when the bypass is off.
+     *
+     * The user's own proxy configuration is left exactly as it is. All this does is take
+     * away what a previous process armed for the relay: the persisted proxy_ip/proxy_port
+     * pair, the in-memory current proxy and the saved list entry. Otherwise
+     * ConnectionsManager.init() restores 127.0.0.1:port on the next launch and routes every
+     * MTProto connection into a local port nobody is listening on — the client hangs with
+     * the account still "connecting".
+     */
+    public static void clearStaleLocalProxyWhenDisabled(String localHost) {
+        try {
+            clearIfLocalProxyPersisted(localHost);
+            forceClearCurrent(localHost);
+            removeLocalFromList(localHost);
+        } catch (Throwable t) {
+            FileLog.e("ProxyApplier.clearStaleLocalProxyWhenDisabled", t);
+        }
+    }
+
     public static boolean isLocalEntryPresent(String localHost, int port) {
         try {
             final String host = localHost == null ? "" : localHost;

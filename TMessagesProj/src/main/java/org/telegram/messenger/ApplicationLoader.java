@@ -402,7 +402,15 @@ public class ApplicationLoader extends Application {
         // controller is the only thing that can arm the local SOCKS listener, so
         // without these calls "Bypass" stays off with no error anywhere.
         try { app.nimarkogram.messenger.wsbypass.NimarkoVpnDetector.start(); } catch (Throwable ignored) {}
-        try { app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().ensureStartedSync(); } catch (Throwable ignored) {}
+        try {
+            if (app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.enabled) {
+                app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().ensureStartedSync();
+            } else {
+                // Bypass off: hands off the user's proxies, only drop a stale relay entry.
+                app.nimarkogram.messenger.wsbypass.ProxyApplier.clearStaleLocalProxyWhenDisabled(
+                        app.nimarkogram.messenger.wsbypass.WsBypassCore.LOCAL_PROXY_HOST);
+            }
+        } catch (Throwable ignored) {}
 
         // Re-arm the sleep timer. AlarmManager does not survive a reboot, so a
         // timer set before one would otherwise never fire and the row would keep
