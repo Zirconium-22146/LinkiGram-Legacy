@@ -78,6 +78,22 @@ jobs:
           RELEASE_KEY_PASSWORD=${{ secrets.RELEASE_KEY_PASSWORD }}
           EOF
 
+      - name: Validate signing keystore
+        run: |
+          STORE_PASS="${{ secrets.RELEASE_STORE_PASSWORD }}"; [ -n "$STORE_PASS" ] || STORE_PASS=android
+          KEY_PASS="${{ secrets.RELEASE_KEY_PASSWORD }}"; [ -n "$KEY_PASS" ] || KEY_PASS=android
+          ALIAS="${{ secrets.RELEASE_KEY_ALIAS }}"; [ -n "$ALIAS" ] || ALIAS=androidkey
+          if keytool -list -keystore TMessagesProj/config/release.keystore -storepass "$STORE_PASS" > /dev/null 2>&1; then
+            echo "release keystore is readable"
+          else
+            echo "::warning::RELEASE_KEYSTORE_B64 is not a readable keystore, signing this build with a temporary key"
+            rm -f TMessagesProj/config/release.keystore
+            keytool -genkeypair -keystore TMessagesProj/config/release.keystore -storetype JKS \
+              -storepass "$STORE_PASS" -keypass "$KEY_PASS" -alias "$ALIAS" \
+              -keyalg RSA -keysize 2048 -validity 10000 \
+              -dname "CN=LinkiGram Legacy, O=LinkiGram, C=RU"
+          fi
+
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 

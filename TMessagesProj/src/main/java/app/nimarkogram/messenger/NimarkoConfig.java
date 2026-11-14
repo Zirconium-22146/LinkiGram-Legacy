@@ -1098,8 +1098,14 @@ public final class NimarkoConfig {
     public static boolean isBottomNavigationFloating() { return showMainTabs && bottomNavigationFloating; }
 
     /** Боковое меню (шторка) вместо пунктов в шапке списка чатов. */
-    public static boolean navigationDrawer = getPreferences().getBoolean("navigationDrawer", false);
-    public static void setNavigationDrawer(boolean v) { navigationDrawer = v; getEditor().putBoolean("navigationDrawer", v).apply(); }
+    // Linkigram Legacy: навигация идёт через шторку, поэтому она включена всегда.
+    // Без неё из списка чатов некуда попасть в настройки — нижней панели вкладок нет.
+    public static boolean navigationDrawer = true;
+    public static void setNavigationDrawer(boolean v) {
+        v = true;
+        navigationDrawer = v;
+        getEditor().putBoolean("navigationDrawer", v).apply();
+    }
     public static void toggleNavigationDrawer() { setNavigationDrawer(!navigationDrawer); }
 
     public static boolean immersiveDrawerAnimation = getPreferences().getBoolean("immersiveDrawerAnimation", false);

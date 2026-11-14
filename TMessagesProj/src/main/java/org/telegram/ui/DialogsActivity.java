@@ -5354,16 +5354,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             contentView.addView(actionBar, layoutParams);
         //}
 
-        // Linkigram Legacy: with the bottom tab bar hidden there was nothing left to reach
-        // Settings/Contacts, so put the classic "three lines" button back in the header.
-        if (!onlySelect && !hasMainTabs && NimarkoConfig.classicUi) {
-            ImageView classicMenuButton = new ImageView(context);
-            classicMenuButton.setImageResource(R.drawable.ic_ab_classic_menu);
-            classicMenuButton.setColorFilter(new PorterDuffColorFilter(getThemedColor(Theme.key_actionBarDefault), PorterDuff.Mode.SRC_IN));
-            classicMenuButton.setContentDescription(getString(R.string.Settings));
-            classicMenuButton.setOnClickListener(v -> presentFragment(new SettingsActivity()));
-            actionBar.addView(classicMenuButton, 0, LayoutHelper.createFrame(LayoutHelper.WRAP_CONTENT, LayoutHelper.MATCH_PARENT, Gravity.LEFT | Gravity.CENTER_VERTICAL, 8, 0, 48, 0));
-        }
+        // Linkigram Legacy: в шапке не нужен отдельный бургер — при включённой шторке
+        // updateDrawerButton() сам ставит MenuDrawable вместо кнопки «назад», и два
+        // значка на одном месте накладывались друг на друга.
         if (!onlySelect) {
             animatedStatusView = new AnimatedStatusView(context, 20, 60);
             contentView.addView(animatedStatusView, LayoutHelper.createFrame(20, 20, Gravity.LEFT | Gravity.TOP));
