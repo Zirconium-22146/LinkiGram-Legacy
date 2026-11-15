@@ -34,6 +34,20 @@ public final class LinkiDiagnosticsActivity extends BasePreferencesActivity {
         items.add(UItem.asHeader("Telegram"));
         items.add(UItem.asShadow("Соединение: " + connection));
         items.add(UItem.asShadow("Прокси: " + (proxy ? "включён" : "выключен")));
+        items.add(UItem.asHeader("Вход и обход"));
+        try {
+            boolean bypass = app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.enabled;
+            int route = app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.routeMode;
+            String routeName = route == app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_RELAY ? "релей"
+                    : route == app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_XCFG ? "X-CFG" : "tg-ws";
+            String bypassState = !bypass ? "выключен"
+                    : app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().getConnectionState();
+            items.add(UItem.asShadow("Обход: " + bypassState + " (" + routeName + ")"));
+        } catch (Throwable ignored) {
+        }
+        for (String line : app.nimarkogram.messenger.diagnostics.LinkiAuthLog.snapshot(12)) {
+            items.add(UItem.asShadow(line));
+        }
         items.add(UItem.asHeader("Тексты песен"));
         items.add(UItem.asShadow("Онлайн-поиск: " + (NimarkoConfig.lrclibAllowed() ? "включён" : "выключен")));
         items.add(UItem.asShadow("Эта проверка показывает локальное состояние. Она не отправляет диагностические данные."));

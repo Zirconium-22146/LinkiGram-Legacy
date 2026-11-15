@@ -400,82 +400,11 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
         header.setPadding(AndroidUtilities.dp(16), AndroidUtilities.dp(10), AndroidUtilities.dp(16), AndroidUtilities.dp(12));
 
         ImageView icon = new ImageView(context);
-        // Draw the plate and plane separately so the logo follows the same
-        // palette as the settings badges, including live theme changes.
-        final android.graphics.Bitmap source = android.graphics.BitmapFactory.decodeResource(context.getResources(), R.drawable.linkigram_about_icon);
-        final int width = source.getWidth(), height = source.getHeight();
-        final int[] pixels = new int[width * height];
-        source.getPixels(pixels, 0, width, 0, 0, width, height);
-        // Remove only the flat background connected to the image border.
-        // The cat artwork inside the LinkiGram mark remains unchanged.
-        final int background = pixels[0];
-        final int[] queue = new int[pixels.length];
-        int tail = 0;
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                if (x != 0 && y != 0 && x != width - 1 && y != height - 1) continue;
-                int index = y * width + x;
-                if (pixels[index] == background) { pixels[index] = 0; queue[tail++] = index; }
-            }
-        }
-        for (int head = 0; head < tail; head++) {
-            int index = queue[head];
-            int x = index % width;
-            if (x > 0 && pixels[index - 1] == background) { pixels[index - 1] = 0; queue[tail++] = index - 1; }
-            if (x + 1 < width && pixels[index + 1] == background) { pixels[index + 1] = 0; queue[tail++] = index + 1; }
-            if (index >= width && pixels[index - width] == background) { pixels[index - width] = 0; queue[tail++] = index - width; }
-            if (index + width < pixels.length && pixels[index + width] == background) { pixels[index + width] = 0; queue[tail++] = index + width; }
-        }
-        final android.graphics.Bitmap artwork = android.graphics.Bitmap.createBitmap(pixels, width, height, android.graphics.Bitmap.Config.ARGB_8888);
-        final android.graphics.drawable.Drawable plane = new android.graphics.drawable.BitmapDrawable(context.getResources(), artwork);
-        icon.setImageDrawable(new android.graphics.drawable.Drawable() {
-            private final android.graphics.Paint paint = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
-
-            @Override
-            public void draw(android.graphics.Canvas canvas) {
-                final boolean dark = Theme.isCurrentThemeDark();
-                final int mode = app.nimarkogram.messenger.appearance.SettingsIconColors.mode();
-                int plate = dark ? 0xFF2E2E33 : 0xFFE6E6EB;
-                int glyph = dark ? 0xFFF2F2F7 : 0xFF17171A;
-                if (mode == app.nimarkogram.messenger.appearance.SettingsIconColors.ACCENT
-                        || mode == app.nimarkogram.messenger.appearance.SettingsIconColors.CUSTOM) {
-                    glyph = mode == app.nimarkogram.messenger.appearance.SettingsIconColors.CUSTOM
-                            ? app.nimarkogram.messenger.appearance.SettingsIconColors.customColor()
-                            : Theme.getColor(Theme.key_windowBackgroundWhiteBlueText);
-                    plate = androidx.core.graphics.ColorUtils.blendARGB(
-                            Theme.getColor(Theme.key_windowBackgroundWhite), glyph, dark ? 0.22f : 0.12f);
-                } else if (mode == app.nimarkogram.messenger.appearance.SettingsIconColors.ORIGINAL) {
-                    plate = 0xFF424242;
-                    glyph = android.graphics.Color.WHITE;
-                }
-                android.graphics.Rect bounds = getBounds();
-                float cx = bounds.exactCenterX();
-                float cy = bounds.exactCenterY();
-                float radius = Math.min(bounds.width(), bounds.height()) / 2f;
-                paint.setStyle(android.graphics.Paint.Style.FILL);
-                paint.setColor(plate);
-                canvas.drawCircle(cx, cy, radius, paint);
-                if (dark && mode == app.nimarkogram.messenger.appearance.SettingsIconColors.NEUTRAL) {
-                    paint.setStyle(android.graphics.Paint.Style.STROKE);
-                    paint.setStrokeWidth(AndroidUtilities.dp(1));
-                    paint.setColor(0x1FFFFFFF);
-                    canvas.drawCircle(cx, cy, radius - AndroidUtilities.dp(0.5f), paint);
-                }
-                plane.setBounds(bounds);
-                plane.draw(canvas);
-            }
-
-            @Override public void setAlpha(int alpha) { }
-            @Override public void setColorFilter(android.graphics.ColorFilter filter) { }
-            @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
-        });
-        icon.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        icon.setOutlineProvider(new android.view.ViewOutlineProvider() {
-            @Override public void getOutline(View view, android.graphics.Outline outline) {
-                outline.setOval(0, 0, view.getWidth(), view.getHeight());
-            }
-        });
-        icon.setClipToOutline(true);
+        // The header shows the current launcher artwork (the cat-plane mark from the
+        // 2.6 logo) instead of the old bitmap on a grey field. The asset already has
+        // transparent corners, so no flood-fill and no extra themed plate are needed.
+        icon.setImageResource(R.drawable.linkigram_about_icon);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(AndroidUtilities.dp(58), AndroidUtilities.dp(58));
         iconParams.bottomMargin = AndroidUtilities.dp(8);
         header.addView(icon, iconParams);

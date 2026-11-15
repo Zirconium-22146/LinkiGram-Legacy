@@ -327,6 +327,23 @@ public final class ProxyApplier {
         DEFERRED_RETRY_PENDING.set(false);
     }
 
+    /**
+     * Called by the login screen when auth.sendCode got no answer for 12 seconds: the
+     * bridge may still be forming, so drop the proxy for a direct retry and keep it off
+     * until an account exists. The deferred retry arms it again right after sign-in.
+     */
+    public static synchronized void dropProxyForLoginFallback() {
+        try {
+            clearIfLocalProxyPersisted(WsBypassCore.LOCAL_PROXY_HOST);
+            android.util.Log.i("NimarkoProxy", "login fallback: proxy dropped for a direct retry");
+            app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(
+                    "обход: прокси снят на время прямой попытки входа");
+            scheduleDeferredApply(WsBypassCore.LOCAL_PROXY_HOST);
+        } catch (Throwable t) {
+            FileLog.e("ProxyApplier.dropProxyForLoginFallback", t);
+        }
+    }
+
     private static void scheduleDeferredApply(String host) {
         deferredHost = host == null ? "" : host;
         deferredAttempt = 0;
@@ -417,24 +434,8 @@ public final class ProxyApplier {
                 return false;
             }
 
-            if (enable && !anyAccountActivated()) {
-                // Pre-auth: auth.sendCode/auth.signUp must not be routed through the local
-                // bridge. While the bridge is still forming it accepts the connection and
-                // silently drops it, so the request neither succeeds nor errors and the
-                // phone-number screen just spins. This is the same hang in every route:
-                // the relay and tg-ws-linki both answer on 127.0.0.1 only once their
-                // upstream is ready.
-                //
-                // The core itself keeps running (the caller decides that), so the settings
-                // screen shows a live state instead of "failed to start". The proxy is
-                // armed by the retry below as soon as the first account is activated,
-                // which is the same moment authorized traffic starts flowing.
-                FileLog.d("ProxyApplier.apply: deferring bypass proxy until authorization");
-                android.util.Log.i("NimarkoProxy", "apply(): deferring bypass proxy until authorization");
-                clearIfLocalProxyPersisted(host);
-                scheduleDeferredApply(host);
-                return true;
-            }
+            app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(
+                    "обход: apply " + (enable ? "вкл" : "выкл") + " 127.0.0.1:" + ownPort);
 
             if (enable) {
                 captureSnapshotIfMissing(host);
@@ -742,6 +743,17 @@ public final class ProxyApplier {
             FileLog.e(t);
         }
         return false;
+    }
+
+    /** True when a bypass proxy is currently armed for this process (used by login). */
+    public static boolean isLoginProxyArmed() {
+        try {
+            return NimarkoWsBypassConfig.enabled
+                    && isLocalProxyActive(WsBypassCore.LOCAL_PROXY_HOST,
+                            NimarkoWsBypassConfig.localPort, NimarkoWsBypassConfig.mtprotoSecret);
+        } catch (Throwable t) {
+            return false;
+        }
     }
 
     public static boolean isLocalProxyActive(String localHost, int port, String secret) {

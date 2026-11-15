@@ -3304,6 +3304,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             int reqId = ConnectionsManager.getInstance(currentAccount).sendRequest(req, (response, error) -> AndroidUtilities.runOnUIThread(() -> {
                 nextPressed = false;
                 cancelSendCodeWatchdog();
+                app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(error == null
+                        ? "вход: ответ сервера получен (" + (response == null ? "пусто" : response.getClass().getSimpleName()) + ")"
+                        : "вход: ошибка " + error.code + " " + error.text);
                 if (error == null) {
                     if (response instanceof TLRPC.TL_auth_sentCodeSuccess) {
                         final TLRPC.auth_Authorization auth = ((TLRPC.TL_auth_sentCodeSuccess) response).authorization;
@@ -3394,33 +3397,58 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 }
             }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagTryDifferentDc | ConnectionsManager.RequestFlagEnableUnauthorized);
             needShowProgress(reqId);
-            startSendCodeWatchdog();
+            app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add("вход: запрошен код для " + maskPhone(phone) + (directRetryDone ? " (напрямую)" : ""));
+            startSendCodeWatchdog(code);
         }
 
         private Runnable sendCodeWatchdog;
+        private boolean directRetryDone;
+
+        private String maskPhone(String phone) {
+            if (phone == null) return "";
+            return phone.length() <= 4 ? phone : "+…" + phone.substring(phone.length() - 4);
+        }
 
         /**
          * auth.sendCode can hang forever without any callback when the connection cannot
-         * reach Telegram (blocked network, dead pre-auth bypass relay). The screen then
-         * spins with no way out, which looks exactly like a broken button. Give the
-         * request a deadline and release the UI when it is exceeded.
+         * reach Telegram: a blocked direct route, or a bypass bridge that is still forming
+         * and silently drops the socket. The screen then spins with no way out, which looks
+         * exactly like a broken button.
+         *
+         * So the request gets a deadline. If the bypass is armed and nothing came back in
+         * 12 seconds, the proxy is dropped and the same request is retried once directly.
+         * Only if that also fails does the user see the error.
          */
-        private void startSendCodeWatchdog() {
+        private void startSendCodeWatchdog(final String code) {
             cancelSendCodeWatchdog();
             sendCodeWatchdog = () -> {
-                if (nextPressed) {
+                if (!nextPressed) {
+                    return;
+                }
+                if (!directRetryDone && app.nimarkogram.messenger.wsbypass.ProxyApplier.isLoginProxyArmed()) {
+                    directRetryDone = true;
+                    app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(
+                            "вход: обход не ответил за 12 с, прямая попытка");
                     nextPressed = false;
                     isRequestingFirebaseSms = false;
-                    if (getParentActivity() == null) {
-                        return;
-                    }
                     needHideProgress(false);
-                    showDoneButton(true, false);
-                    needShowAlert(getString(R.string.RestorePasswordNoEmailTitle),
-                            getString(R.string.ErrorOccurred));
+                    app.nimarkogram.messenger.wsbypass.ProxyApplier.dropProxyForLoginFallback();
+                    postDelayed(() -> onNextPressed(code), 700);
+                    return;
                 }
+                nextPressed = false;
+                isRequestingFirebaseSms = false;
+                if (getParentActivity() == null) {
+                    return;
+                }
+                app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(
+                        "вход: ответа нет за " + (directRetryDone ? 20 : 12) + " с");
+                needHideProgress(false);
+                showDoneButton(true, false);
+                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle),
+                        getString(R.string.ErrorOccurred));
             };
-            postDelayed(sendCodeWatchdog, 30000);
+            postDelayed(sendCodeWatchdog, directRetryDone ? 20000 : 12000);
         }
 
         private void cancelSendCodeWatchdog() {
