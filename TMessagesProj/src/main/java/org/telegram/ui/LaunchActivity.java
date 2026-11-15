@@ -1230,13 +1230,17 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
             final android.widget.ImageView logo = new android.widget.ImageView(this);
             logo.setImageResource(R.drawable.splash_linki_avd);
             logo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-            final int pad = AndroidUtilities.dp(48);
-            logo.setPadding(pad, pad, pad, pad);
 
             // The main layout is attached to this container after this call, so post the
             // overlay and lift it to the front; added now it would sit underneath.
             parent.post(() -> {
-                parent.addView(logo, new FrameLayout.LayoutParams(LayoutHelper.MATCH_PARENT, LayoutHelper.MATCH_PARENT));
+                // The mark keeps the system splash geometry (a 288dp square around the
+                // artwork) instead of stretching to the whole screen: a full-bleed image
+                // looked like a giant avatar and did not match the main project's icon.
+                final int side = AndroidUtilities.dp(288);
+                final FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(side, side);
+                lp.gravity = Gravity.CENTER;
+                parent.addView(logo, lp);
                 logo.bringToFront();
 
                 logo.setAlpha(0f);
