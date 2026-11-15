@@ -109,6 +109,10 @@ public class WsBypassPreferencesActivity extends BasePreferencesActivity
                 dot = "🔴";
                 label = LocaleController.getString(R.string.NM_WSB_Status_Failed);
                 break;
+            case NimarkoWsBypassController.STATE_WAITING_AUTH:
+                dot = "🟡";
+                label = LocaleController.getString(R.string.NM_WSB_Status_WaitingAuth);
+                break;
             case NimarkoWsBypassController.STATE_VPN:
                 dot = "🔵";
                 label = LocaleController.getString(R.string.NM_WSB_Status_VpnSuspended);

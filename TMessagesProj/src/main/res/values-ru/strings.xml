@@ -1467,6 +1467,7 @@
     <string name="NM_WSB_Status_Connected">Обходит блокировку</string>
     <string name="NM_WSB_Status_Starting">Запускается...</string>
     <string name="NM_WSB_Status_Failed">Не удалось запуститься</string>
+    <string name="NM_WSB_Status_WaitingAuth">Ждёт входа в аккаунт</string>
     <string name="NM_WSB_Status_Off">Выключено</string>
     <string name="NM_WSB_OpenProxySettings">Настройки прокси Telegram</string>
     <string name="NM_WSB_Status_VpnSuspended">Приостановлено — VPN активен</string>

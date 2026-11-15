@@ -1228,6 +1228,7 @@
     <string name="NM_WSB_Status_Connected">正在繞過封鎖</string>
     <string name="NM_WSB_Status_Starting">正在啟動...</string>
     <string name="NM_WSB_Status_Failed">無法啟動</string>
+    <string name="NM_WSB_Status_WaitingAuth">等待登入</string>
     <string name="NM_WSB_Status_Off">已關閉</string>
     <string name="NM_WSB_OpenProxySettings">開啟 Telegram 代理設定</string>
     <string name="NM_WSB_Status_VpnSuspended">已暫停 — VPN 已啟用</string>

@@ -313,6 +313,57 @@ public final class ProxyApplier {
         return false;
     }
 
+    private static final AtomicBoolean DEFERRED_RETRY_PENDING = new AtomicBoolean(false);
+    private static volatile String deferredHost = "";
+    private static int deferredAttempt;
+
+    /** True while the bypass is running but its proxy waits for the first sign-in. */
+    public static boolean isDeferredUntilAuth() {
+        return DEFERRED_RETRY_PENDING.get();
+    }
+
+    /** Stops the deferred arming, e.g. when the user turns the bypass off. */
+    public static void cancelDeferredApply() {
+        DEFERRED_RETRY_PENDING.set(false);
+    }
+
+    private static void scheduleDeferredApply(String host) {
+        deferredHost = host == null ? "" : host;
+        deferredAttempt = 0;
+        if (!DEFERRED_RETRY_PENDING.compareAndSet(false, true)) {
+            return;
+        }
+        AndroidUtilities.runOnUIThread(DEFERRED_RETRY);
+    }
+
+    /**
+     * Polls once per two seconds (for up to half an hour) for the first activated account,
+     * then arms the proxy with the port and secret the core is actually listening on.
+     * Login is the only step that must stay direct; everything after it can be routed.
+     */
+    private static final Runnable DEFERRED_RETRY = new Runnable() {
+        @Override
+        public void run() {
+            if (!DEFERRED_RETRY_PENDING.get()) return;
+            if (anyAccountActivated()) {
+                DEFERRED_RETRY_PENDING.set(false);
+                if (!NimarkoWsBypassConfig.enabled) return;
+                try {
+                    apply(NimarkoWsBypassConfig.localPort, true,
+                            NimarkoWsBypassConfig.mtprotoSecret, deferredHost);
+                } catch (Throwable t) {
+                    FileLog.e("ProxyApplier deferred apply", t);
+                }
+                return;
+            }
+            if (++deferredAttempt > 900) {
+                DEFERRED_RETRY_PENDING.set(false);
+                return;
+            }
+            AndroidUtilities.runOnUIThread(this, 2000L);
+        }
+    };
+
     private static boolean applyToAllAccounts(boolean enable, String host, int port,
                                               String user, String pass, String secret) {
         
@@ -366,26 +417,23 @@ public final class ProxyApplier {
                 return false;
             }
 
-            if (enable && !anyAccountActivated()
-                    && NimarkoWsBypassConfig.routeMode != NimarkoWsBypassConfig.ROUTE_TGWS) {
-                // Pre-auth: auth.sendCode/auth.signUp must not be routed through the bypass
-                // relay. Dropping the request with no callback is exactly the silent hang we
-                // are fixing, so refuse to arm the proxy and clear any stale one left over
-                // from a previous process, otherwise ConnectionsManager.init() would restore
-                // 127.0.0.1:port from prefs and block login before the user ever signs in.
+            if (enable && !anyAccountActivated()) {
+                // Pre-auth: auth.sendCode/auth.signUp must not be routed through the local
+                // bridge. While the bridge is still forming it accepts the connection and
+                // silently drops it, so the request neither succeeds nor errors and the
+                // phone-number screen just spins. This is the same hang in every route:
+                // the relay and tg-ws-linki both answer on 127.0.0.1 only once their
+                // upstream is ready.
                 //
-                // Return false, not true: the controller treats false as "not applied" and
-                // retries via watchdog/resume once the account is loaded. Returning true
-                // here used to wedge the status on "starting" forever -- running=true with
-                // no proxy armed, so no client ever connected and no bridge ever formed.
-                //
-                // The guard is relay-only. tg-ws-linki talks straight to the Telegram
-                // datacenters, so arming it before login is safe and often necessary: on
-                // a blocked network it is the only way to receive the login code at all.
-                FileLog.d("ProxyApplier.apply: skipping bypass proxy before authorization");
-                android.util.Log.i("NimarkoProxy", "apply(): skipping bypass proxy before authorization");
+                // The core itself keeps running (the caller decides that), so the settings
+                // screen shows a live state instead of "failed to start". The proxy is
+                // armed by the retry below as soon as the first account is activated,
+                // which is the same moment authorized traffic starts flowing.
+                FileLog.d("ProxyApplier.apply: deferring bypass proxy until authorization");
+                android.util.Log.i("NimarkoProxy", "apply(): deferring bypass proxy until authorization");
                 clearIfLocalProxyPersisted(host);
-                return false;
+                scheduleDeferredApply(host);
+                return true;
             }
 
             if (enable) {

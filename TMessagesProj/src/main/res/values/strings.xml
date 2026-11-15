@@ -12067,6 +12067,7 @@
 <string name="NM_WSB_Status_Connected">Bypassing the block</string>
 <string name="NM_WSB_Status_Starting">Starting...</string>
 <string name="NM_WSB_Status_Failed">Couldn\'t start</string>
+    <string name="NM_WSB_Status_WaitingAuth">Waiting for sign-in</string>
 <string name="NM_WSB_Status_Off">Off</string>
 <string name="NM_WSB_OpenProxySettings">Open Telegram proxy settings</string>
 <string name="NM_WSB_Status_VpnSuspended">Suspended — VPN is active</string>

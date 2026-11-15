@@ -17,7 +17,9 @@ public final class NimarkoWsBypassController {
     public static final String STATE_STARTING = "starting";
     public static final String STATE_RUNNING = "running";
     public static final String STATE_FAILED = "failed";
-    public static final String STATE_VPN = "vpn"; 
+    public static final String STATE_VPN = "vpn";
+    /** The core runs, but the proxy waits for the first sign-in, which must stay direct. */
+    public static final String STATE_WAITING_AUTH = "waiting_auth";
 
     private static final long WATCHDOG_INTERVAL_SEC = 30L;
 
@@ -97,6 +99,9 @@ public final class NimarkoWsBypassController {
                 .isDataBypassEnabled()) return STATE_OFF;
         if (blockedByVpn()) return STATE_VPN;
         if (running) {
+            if (ProxyApplier.isDeferredUntilAuth()) {
+                return STATE_WAITING_AUTH;
+            }
             if (NimarkoWsBypassConfig.routeMode == NimarkoWsBypassConfig.ROUTE_TGWS) {
                 // The embedded core reports liveness through its own stats string.
                 try {
@@ -177,6 +182,7 @@ public final class NimarkoWsBypassController {
             invalidateStartLocked();
             cancelRelayAuthConnections();
             cancelWatchdogLocked();
+            ProxyApplier.cancelDeferredApply();
             try {
                 if (NimarkoWsBypassConfig.routeMode == NimarkoWsBypassConfig.ROUTE_TGWS) {
                     TgWsBridge.stop();
@@ -214,6 +220,7 @@ public final class NimarkoWsBypassController {
             invalidateStartLocked();
             cancelRelayAuthConnections();
             cancelWatchdogLocked();
+            ProxyApplier.cancelDeferredApply();
             try {
                 if (NimarkoWsBypassConfig.routeMode == NimarkoWsBypassConfig.ROUTE_TGWS) {
                     TgWsBridge.stop();
@@ -624,6 +631,10 @@ public final class NimarkoWsBypassController {
 
             int p = currentPort;
             if (p <= 0) return;
+            if (ProxyApplier.isDeferredUntilAuth()) {
+                // Before sign-in the proxy is deliberately off; the retry arms it later.
+                return;
+            }
             if (!ProxyApplier.isLocalProxyActive(
                     WsBypassCore.LOCAL_PROXY_HOST, p, currentSecret)) {
                 FileLog.d("NimarkoWsBypassController watchdog: proxy state diverged, re-applying");
