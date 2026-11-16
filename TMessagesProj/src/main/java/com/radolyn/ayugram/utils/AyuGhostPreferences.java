@@ -49,15 +49,23 @@ public class AyuGhostPreferences {
     }
 
     public static boolean isReadExcluded(int account, long dialogId) {
-        String key = normalChatKey(account, dialogId);
-        return NimarkoConfig.getPreferences().contains(key) ? isNormalChat(account, dialogId)
-                : getGhostModeReadExclusion(dialogId);
+        // Asked for every ghost-affected request. Read the override once instead of
+        // contains() followed by getBoolean().
+        final android.content.SharedPreferences preferences = NimarkoConfig.getPreferences();
+        final String key = normalChatKey(account, dialogId);
+        if (preferences.contains(key)) {
+            return preferences.getBoolean(key, false);
+        }
+        return getGhostModeReadExclusion(dialogId);
     }
 
     public static boolean isTypingExcluded(int account, long dialogId) {
-        String key = normalChatKey(account, dialogId);
-        return NimarkoConfig.getPreferences().contains(key) ? isNormalChat(account, dialogId)
-                : getGhostModeTypingExclusion(dialogId);
+        final android.content.SharedPreferences preferences = NimarkoConfig.getPreferences();
+        final String key = normalChatKey(account, dialogId);
+        if (preferences.contains(key)) {
+            return preferences.getBoolean(key, false);
+        }
+        return getGhostModeTypingExclusion(dialogId);
     }
 
 }

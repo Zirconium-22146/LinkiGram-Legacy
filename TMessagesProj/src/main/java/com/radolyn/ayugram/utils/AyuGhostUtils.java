@@ -189,6 +189,13 @@ public class AyuGhostUtils {
             return InterceptResult.Proceed(onCompleteOrig);
         }
         Long dialogId = requestDialogs.remove(object);
+        // Every request the client sends passes through here, so the cheapest possible
+        // exit comes first: with no ghost switch on there is nothing below that could
+        // change the outcome, and the instanceof chain plus the per-chat preference
+        // reads are pure overhead on the hottest path in the app.
+        if (!hasActiveGhostFeatures()) {
+            return InterceptResult.Proceed(onCompleteOrig);
+        }
         if (dialogId == null) dialogId = extractDialogId(object);
         boolean readExcluded = dialogId != null && AyuGhostPreferences.isReadExcluded(account, dialogId);
         boolean typingExcluded = dialogId != null && AyuGhostPreferences.isTypingExcluded(account, dialogId);
@@ -245,6 +252,19 @@ public class AyuGhostUtils {
         RequestDelegate effectiveOnComplete = handleOfflineAfterSend(account, object, onCompleteOrig);
 
         return InterceptResult.Proceed(effectiveOnComplete);
+    }
+
+    /** True when at least one ghost switch can change the outcome of a request. */
+    private static boolean hasActiveGhostFeatures() {
+        return app.nimarkogram.messenger.NimarkoConfig.ghostTyping
+                || app.nimarkogram.messenger.NimarkoConfig.ghostRecording
+                || app.nimarkogram.messenger.NimarkoConfig.ghostReadReceipts
+                || app.nimarkogram.messenger.NimarkoConfig.ghostStories
+                || app.nimarkogram.messenger.NimarkoConfig.hideStoryViews
+                || app.nimarkogram.messenger.NimarkoConfig.ghostOnline
+                || app.nimarkogram.messenger.NimarkoConfig.ghostReadAfterSend
+                || app.nimarkogram.messenger.NimarkoConfig.ghostOfflineAfterSend
+                || storyGhostSession;
     }
 
     private static void handleReadAfterSend(int account, TLObject object) {

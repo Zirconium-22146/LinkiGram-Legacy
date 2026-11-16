@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.app.ActivityManager;
 import android.content.SharedPreferences;
 import android.os.BatteryManager;
 import android.os.Build;
@@ -105,6 +106,41 @@ public class LiteMode {
     private static int BATTERY_LOW = 10;
     private static int BATTERY_MEDIUM = 10;
     private static int BATTERY_HIGH = 10;
+
+    /**
+     * Linkigram Legacy: the switches that cost a weak phone the most - animated stickers
+     * and emoji, chat scaling animation, call animations, autoplay and particles - are
+     * cleared automatically on such a device. Everything else stays as the person left
+     * it; blur is deliberately kept, because the pinned bar is meant to keep it.
+     */
+    private static final int WEAK_DEVICE_FLAGS = FLAGS_ANIMATED_STICKERS | FLAGS_ANIMATED_EMOJI
+            | FLAG_CHAT_SCALE | FLAG_CALLS_ANIMATIONS
+            | FLAG_AUTOPLAY_VIDEOS | FLAG_PARTICLES;
+
+    private static int lowRamDevice = -1; // -1 unknown, 0 no, 1 yes
+
+    /**
+     * A low-RAM phone pays for every animation with jank, so it gets the cheap preset on
+     * its own. isLowRamDevice() is the system's own verdict; the memory class catches the
+     * 1-2 GB phones that do not report themselves as low-RAM (192 MB heap or less).
+     */
+    public static boolean isLowRamDevice() {
+        final int cached = lowRamDevice;
+        if (cached >= 0) {
+            return cached == 1;
+        }
+        boolean low = false;
+        try {
+            final ActivityManager activityManager = (ActivityManager) ApplicationLoader.applicationContext.getSystemService(Context.ACTIVITY_SERVICE);
+            if (activityManager != null) {
+                low = activityManager.isLowRamDevice() || activityManager.getMemoryClass() <= 192;
+            }
+        } catch (Throwable e) {
+            FileLog.e(e);
+        }
+        lowRamDevice = low ? 1 : 0;
+        return low;
+    }
 
     private static int powerSaverLevel;
     private static boolean lastPowerSaverApplied;
@@ -256,6 +292,9 @@ public class LiteMode {
         // Linkigram Legacy: liquid glass cannot be turned back on.
         flags &= ~FLAG_LIQUID_GLASS;
         value = flags;
+        // Touching the preset by hand (here, or through any switch that maps to a flag)
+        // means the automatic weak-device preset must never override it again.
+        MessagesController.getGlobalMainSettings().edit().putBoolean("lite_mode_user_chosen", true).apply();
         savePreference();
     }
 
@@ -381,6 +420,18 @@ public class LiteMode {
         value &= ~FLAG_LIQUID_GLASS;
         if (BuildVars.LITE_VERSION) {
             value |= FLAGS_LITE;
+        }
+        if (!preferences.getBoolean("lite_mode_user_chosen", false)
+                && !preferences.getBoolean("lite_mode_auto_low_ram", false)
+                && isLowRamDevice()) {
+            // Applied once per install: a change the person makes afterwards is theirs
+            // and is not undone on the next launch.
+            value &= ~(WEAK_DEVICE_FLAGS | FLAG_LIQUID_GLASS);
+            preferences.edit()
+                    .putInt("lite_mode6", value)
+                    .putBoolean("lite_mode_auto_low_ram", true)
+                    .apply();
+            FileLog.d("LiteMode: low-RAM device, heavy switches disabled automatically");
         }
         if (loaded) {
             onFlagsUpdate(prevValue, value);

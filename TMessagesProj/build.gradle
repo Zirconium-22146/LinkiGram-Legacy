@@ -315,7 +315,12 @@ android {
             jniDebuggable false
             shrinkResources false
             multiDexEnabled true
-            ndk.debugSymbolLevel = 'FULL'
+            // 'FULL' keeps .debug_info inside the packaged .so files: about 20 MB of
+            // dead weight in an APK nobody debugs, plus extra time to install and to
+            // verify on every launch. Release builds carry neither debug info nor a
+            // symbol table; keep the unstripped libraries from the build dir if a
+            // native crash ever needs to be decoded.
+            ndk.debugSymbolLevel = 'none'
             buildConfigField "String", "BUILD_VERSION_STRING", "\"" + APP_VERSION_NAME + "\""
             buildConfigField "String", "BETA_URL", "\"\""
             buildConfigField "boolean", "DEBUG_VERSION", "false"
