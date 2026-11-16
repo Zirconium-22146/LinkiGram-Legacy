@@ -825,6 +825,12 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 BulletinFactory.of(this).createSimpleBulletin(R.raw.info, LocaleController.getString(R.string.ErrorOccurred)).show();
             }
         });
+        // Before an account exists the settings hub cannot show the sign-in journal, so a
+        // long press on the same gear opens it directly.
+        nimarkoSettingsButtonView.setOnLongClickListener(v -> {
+            showAuthJournal();
+            return true;
+        });
         nimarkoSettingsButtonView.setPadding(padding, padding, padding, padding);
         sizeNotifierFrameLayout.addView(nimarkoSettingsButtonView, LayoutHelper.createFrame(32, 32, Gravity.RIGHT | Gravity.TOP, 0, 16, 56, 0));
 
@@ -1215,6 +1221,62 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
         AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
         builder.setTitle(title);
         builder.setMessage(text);
+        builder.setPositiveButton(getString("OK", R.string.OK), null);
+        showDialog(builder.create());
+    }
+
+    /**
+     * Linkigram Legacy: a failed sign-in has to explain itself. The alert carries the
+     * reason plus the last steps of the masked journal, and the whole journal is copied
+     * to Download/LinkiGram-Legacy-2.6/auth.log so it can be sent without logcat.
+     */
+    private void showAuthFailure(String base) {
+        try {
+            app.nimarkogram.messenger.diagnostics.LinkiAuthLog.dumpToDownloads(ApplicationLoader.applicationContext);
+        } catch (Throwable ignored) {
+        }
+        final StringBuilder sb = new StringBuilder(base == null ? "" : base);
+        try {
+            final boolean bypass = app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.enabled;
+            sb.append("\nОбход: ").append(!bypass ? "выключен"
+                    : app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().getConnectionState());
+        } catch (Throwable ignored) {
+        }
+        final java.util.List<String> recent = app.nimarkogram.messenger.diagnostics.LinkiAuthLog.all();
+        final int from = Math.max(0, recent.size() - 4);
+        if (from < recent.size()) {
+            sb.append("\n\n");
+            for (int i = from; i < recent.size(); i++) {
+                sb.append(recent.get(i)).append('\n');
+            }
+        }
+        needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), sb.toString());
+    }
+
+    /** Full sign-in journal, opened by long-pressing the gear on this screen. */
+    private void showAuthJournal() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        final StringBuilder sb = new StringBuilder();
+        try {
+            final boolean bypass = app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.enabled;
+            sb.append("Обход: ").append(!bypass ? "выключен"
+                    : app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().getConnectionState());
+            sb.append("\n\n");
+        } catch (Throwable ignored) {
+        }
+        final java.util.List<String> all = app.nimarkogram.messenger.diagnostics.LinkiAuthLog.all();
+        if (all.isEmpty()) {
+            sb.append("Журнал пуст");
+        } else {
+            for (String line : all) {
+                sb.append(line).append('\n');
+            }
+        }
+        AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle("Диагностика входа");
+        builder.setMessage(sb.toString());
         builder.setPositiveButton(getString("OK", R.string.OK), null);
         showDialog(builder.create());
     }
@@ -3022,6 +3084,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
 
                     private void onConfirm(PhoneNumberConfirmView confirmView) {
                         confirmedNumber = true;
+                        // A fresh, user-initiated attempt starts the fallback chain over.
+                        routeRetries = 0;
+                        directRetryDone = false;
                         currentDoneType = DONE_TYPE_FLOATING;
                         needShowProgress(0, false);
 
@@ -3307,6 +3372,9 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(error == null
                         ? "вход: ответ сервера получен (" + (response == null ? "пусто" : response.getClass().getSimpleName()) + ")"
                         : "вход: ошибка " + error.code + " " + error.text);
+                if (error != null) {
+                    app.nimarkogram.messenger.diagnostics.LinkiAuthLog.dumpToDownloads(ApplicationLoader.applicationContext);
+                }
                 if (error == null) {
                     if (response instanceof TLRPC.TL_auth_sentCodeSuccess) {
                         final TLRPC.auth_Authorization auth = ((TLRPC.TL_auth_sentCodeSuccess) response).authorization;
@@ -3387,9 +3455,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                         // No error text at all. AlertsCreator.processError() also returns
                         // null in this case, which left the screen silent: no alert and no
                         // page change, so the arrow just looked broken. Show a generic one.
-                        AlertsCreator.showSimpleAlert(LoginActivity.this,
-                                getString(R.string.RestorePasswordNoEmailTitle),
-                                getString(R.string.ErrorOccurred));
+                        showAuthFailure(getString(R.string.ErrorOccurred) + " (" + error.code + ")");
                     }
                 }
                 if (!isRequestingFirebaseSms) {
@@ -3397,12 +3463,19 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 }
             }), ConnectionsManager.RequestFlagFailOnServerErrors | ConnectionsManager.RequestFlagWithoutLogin | ConnectionsManager.RequestFlagTryDifferentDc | ConnectionsManager.RequestFlagEnableUnauthorized);
             needShowProgress(reqId);
+            // A cold start can leave the bridge half-up; asking it to start here (it is
+            // idempotent) means the request is not sent into a port that nothing listens on.
+            try {
+                app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().ensureStarted();
+            } catch (Throwable ignored) {
+            }
             app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add("вход: запрошен код для " + maskPhone(phone) + (directRetryDone ? " (напрямую)" : ""));
             startSendCodeWatchdog(code);
         }
 
         private Runnable sendCodeWatchdog;
         private boolean directRetryDone;
+        private int routeRetries;
 
         private String maskPhone(String phone) {
             if (phone == null) return "";
@@ -3425,6 +3498,18 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 if (!nextPressed) {
                     return;
                 }
+                // Nothing listens on the local port when the bridge is not up, so the
+                // request cannot be answered no matter how long we wait. Switching to the
+                // next route and restarting the bridge is the only useful move here.
+                if (routeRetries < 2 && !isBypassRunning()) {
+                    routeRetries++;
+                    nextPressed = false;
+                    isRequestingFirebaseSms = false;
+                    needHideProgress(false);
+                    switchToNextBypassRoute();
+                    postDelayed(() -> onNextPressed(code), 9000);
+                    return;
+                }
                 if (!directRetryDone && app.nimarkogram.messenger.wsbypass.ProxyApplier.isLoginProxyArmed()) {
                     directRetryDone = true;
                     app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(
@@ -3445,8 +3530,7 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                         "вход: ответа нет за " + (directRetryDone ? 20 : 12) + " с");
                 needHideProgress(false);
                 showDoneButton(true, false);
-                needShowAlert(getString(R.string.RestorePasswordNoEmailTitle),
-                        getString(R.string.ErrorOccurred));
+                showAuthFailure("Нет ответа от сервера");
             };
             postDelayed(sendCodeWatchdog, directRetryDone ? 20000 : 12000);
         }
@@ -3459,6 +3543,39 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                 removeCallbacks(sendCodeWatchdog);
                 sendCodeWatchdog = null;
             }
+        }
+
+        private boolean isBypassRunning() {
+            try {
+                return app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().isRunning();
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+
+        /** tg-ws -> relay -> x-cfg -> tg-ws; the order the settings screen lists them. */
+        private void switchToNextBypassRoute() {
+            try {
+                final int current = app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.routeMode;
+                final int next = current == app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_TGWS
+                        ? app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_RELAY
+                        : current == app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_RELAY
+                        ? app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_XCFG
+                        : app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_TGWS;
+                app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(
+                        "вход: мост не запущен, меняю маршрут обхода на " + bypassRouteName(next));
+                app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.setRouteMode(next);
+                app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().stop();
+                app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().ensureStarted();
+            } catch (Throwable t) {
+                FileLog.e("LoginActivity.switchToNextBypassRoute", t);
+            }
+        }
+
+        private String bypassRouteName(int route) {
+            if (route == app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_RELAY) return "релей";
+            if (route == app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.ROUTE_XCFG) return "X-CFG";
+            return "tg-ws";
         }
 
         private boolean numberFilled;

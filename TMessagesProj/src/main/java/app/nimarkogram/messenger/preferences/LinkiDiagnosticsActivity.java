@@ -45,6 +45,7 @@ public final class LinkiDiagnosticsActivity extends BasePreferencesActivity {
             items.add(UItem.asShadow("Обход: " + bypassState + " (" + routeName + ")"));
         } catch (Throwable ignored) {
         }
+        items.add(UItem.asShadow("Журнал входа: Download/LinkiGram-Legacy-2.6/auth.log"));
         for (String line : app.nimarkogram.messenger.diagnostics.LinkiAuthLog.snapshot(12)) {
             items.add(UItem.asShadow(line));
         }
