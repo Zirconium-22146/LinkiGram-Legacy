@@ -1263,6 +1263,18 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
             final boolean bypass = app.nimarkogram.messenger.wsbypass.NimarkoWsBypassConfig.enabled;
             sb.append("Обход: ").append(!bypass ? "выключен"
                     : app.nimarkogram.messenger.wsbypass.NimarkoWsBypassController.getInstance().getConnectionState());
+            sb.append("\n");
+            // api_id is not a secret, and Telegram flags the well-known public pairs
+            // (4, 6, 2040 and the open-source Android hash) with API_ID_PUBLISHED_FLOOD.
+            // Showing what this build actually carries turns that into a one-glance check.
+            sb.append("Ключ приложения: api_id ").append(BuildVars.APP_ID);
+            final String hash = BuildVars.APP_HASH;
+            if (hash != null && hash.length() >= 8) {
+                sb.append(", hash ").append(hash, 0, 6).append("…");
+                if ("014b35b6184100b085b0d0572f9b5103".equals(hash)) {
+                    sb.append(" (публичный)");
+                }
+            }
             sb.append("\n\n");
         } catch (Throwable ignored) {
         }
@@ -3448,6 +3460,23 @@ public class LoginActivity extends BaseFragment implements NotificationCenter.No
                             needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("CodeExpired", R.string.CodeExpired));
                         } else if (error.text.startsWith("FLOOD_WAIT")) {
                             needShowAlert(getString(R.string.RestorePasswordNoEmailTitle), getString("FloodWait", R.string.FloodWait));
+                        } else if (error.text.contains("API_ID_PUBLISHED_FLOOD")
+                                || error.text.contains("API_ID_INVALID")
+                                || error.text.contains("API_ID_PERMISSION")) {
+                            // Telegram itself rejected the app's api_id: it is on the list of
+                            // published/leaked keys (the open-source Telegram Android pair).
+                            // The request did reach the server, so neither the network nor the
+                            // bypass can change the answer, and retrying only repeats it.
+                            cancelSendCodeWatchdog();
+                            nextPressed = false;
+                            app.nimarkogram.messenger.diagnostics.LinkiAuthLog.add(
+                                    "вход: Telegram отклонил ключ приложения - " + error.text);
+                            showAuthFailure("Telegram отклонил ключ приложения (" + error.text + ").\n\n"
+                                    + "Это не блокировка провайдера и не сбой обхода: запрос дошёл до Telegram "
+                                    + "и отклонён на его стороне, потому что в этой сборке прописан общий "
+                                    + "публичный api_id.\n\n"
+                                    + "Нужен свой api_id и api_hash с my.telegram.org, добавленные в секреты "
+                                    + "сборки TELEGRAM_API_ID и TELEGRAM_API_HASH.");
                         } else if (error.code != -1000) {
                             AlertsCreator.processError(currentAccount, error, LoginActivity.this, req, phoneInputData.phoneNumber);
                         }
