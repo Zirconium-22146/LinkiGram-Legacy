@@ -405,9 +405,9 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
         // transparent corners, so no flood-fill and no extra themed plate are needed.
         icon.setImageResource(R.drawable.linkigram_about_icon);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        // The full-colour mark reads heavier than the small plane glyph the main
-        // project draws on its plate, so the header box is a bit smaller here.
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(AndroidUtilities.dp(46), AndroidUtilities.dp(46));
+        // The mark is drawn tight to its own bounds, so the box size is the size of
+        // the plane itself: 26dp puts it on the same scale the header had before.
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(AndroidUtilities.dp(26), AndroidUtilities.dp(26));
         iconParams.bottomMargin = AndroidUtilities.dp(8);
         header.addView(icon, iconParams);
 

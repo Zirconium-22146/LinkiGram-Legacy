@@ -260,6 +260,29 @@ public class BlurredBackgroundProviderImpl {
                 .build();
     }
 
+    /**
+     * Linkigram Legacy: the chat top panel (the pinned message) as a plain blurred
+     * surface. The blur stays, so the chat still shows through softly, but the glass
+     * rim - the white highlight along the top edge and its hairline - is gone, so the
+     * panel reads as a normal rounded bar and not as a glass lens.
+     */
+    public static BlurredBackgroundProvider topPanelChatActivityPlain(Theme.ResourcesProvider resourcesProvider) {
+        return new BlurredBackgroundProviderBuilder(resourcesProvider)
+                .setBackgroundColor((r, isDark) -> {
+                    if (!checkBlurEnabled(resourcesProvider)) {
+                        return ColorUtils.setAlphaComponent(Theme.getColor(isDark ?
+                                Theme.key_actionBarDefault : Theme.key_chat_topPanelBackground, r), 255);
+                    }
+                    final float alpha = LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0.85f : 0.76f;
+                    return Theme.multAlpha(Theme.getColor(Theme.key_chat_topPanelBackground, r), alpha);
+                })
+                .setStrokeColorTop(0, 0)
+                .setStrokeColorBottom(0, 0)
+                .setShadowColor(0x20000000, 0)
+                .setStrokeWidth(0, 0)
+                .build();
+    }
+
     // with the design's outline there is no white highlight on the glass
     private static int compactGlassStroke(int color, Theme.ResourcesProvider resourcesProvider) {
         if (!Theme.isCompactMode(resourcesProvider)) return color;

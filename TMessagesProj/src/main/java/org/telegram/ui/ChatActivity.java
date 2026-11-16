@@ -9206,8 +9206,10 @@ public class ChatActivity extends BaseFragment implements
         }
 
         checkUi_topPanelLayoutWidth();
+        // Legacy: the pinned bar keeps its rounded shape and its blur, but drops the
+        // glass rim and its highlight. Everything else on this layout shares it.
         topPanelLayout.setBlurredBackground(glassBackgroundDrawableFactory.create(topPanelLayout)
-            .setColorProvider(BlurredBackgroundProviderImpl.topPanelChatActivity(themeDelegate))
+            .setColorProvider(BlurredBackgroundProviderImpl.topPanelChatActivityPlain(themeDelegate))
             .setRadius(dp(18))
             .setPadding(dp(7)));
 
