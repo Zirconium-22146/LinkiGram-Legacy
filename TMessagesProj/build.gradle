@@ -159,6 +159,15 @@ def telegramApiHash = privateValue('TELEGRAM_API_HASH', '014b35b6184100b085b0d05
 if (telegramApiHash.trim().isEmpty()) {
     telegramApiHash = '014b35b6184100b085b0d0572f9b5103'
 }
+// The open-source pair is on Telegram's list of published application keys and the
+// server answers API_ID_PUBLISHED_FLOOD with it: the request reaches Telegram and is
+// rejected there, so neither the network nor the bypass can fix a failed sign-in.
+// Warn loudly at configure time, because the symptom looks like a broken connection.
+if (telegramApiId == '4' && telegramApiHash == '014b35b6184100b085b0d0572f9b5103') {
+    logger.warn("TELEGRAM_API_ID/TELEGRAM_API_HASH are the public open-source pair: " +
+            "sign-in will fail with API_ID_PUBLISHED_FLOOD. Put the app's own key into " +
+            "private.properties or into the TELEGRAM_API_ID/TELEGRAM_API_HASH secrets.")
+}
 
 def linkiGramStandaloneCiBuild = gradle.startParameter.taskNames.any {
     it.contains('TMessagesProj_AppStandalone:assemble') ||
