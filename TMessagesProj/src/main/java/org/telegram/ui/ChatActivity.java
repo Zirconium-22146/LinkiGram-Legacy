@@ -36981,22 +36981,31 @@ public class ChatActivity extends BaseFragment implements
     public static void putNimarkoForwardOptions(Bundle args, boolean a, boolean b) {
     }
 
+    /**
+     * The linked discussion group of this channel, or 0. It lives in the full chat info:
+     * a TL_chat / TL_channel carries no linked id of its own in this version.
+     */
+    private long getLinkedChatId() {
+        return chatInfo != null ? chatInfo.linked_chat_id : 0;
+    }
+
     public boolean showDiscussInsteadOfMute() {
         return NimarkoConfig.discussInsteadOfMute
                 && !isInScheduleMode()
                 && !isThreadChat()
                 && currentChat != null
                 && ChatObject.isChannelAndNotMegaGroup(currentChat)
-                && currentChat.linked_chat_id != 0;
+                && getLinkedChatId() != 0;
     }
 
     /** Opens the group that hosts comments for this channel. */
     private void openDiscussionChat() {
-        if (currentChat == null || currentChat.linked_chat_id == 0) {
+        final long linkedChatId = getLinkedChatId();
+        if (linkedChatId == 0) {
             return;
         }
         final Bundle args = new Bundle();
-        args.putLong("chat_id", currentChat.linked_chat_id);
+        args.putLong("chat_id", linkedChatId);
         if (!getMessagesController().checkCanOpenChat(args, this)) {
             return;
         }
