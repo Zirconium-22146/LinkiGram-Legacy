@@ -189,6 +189,14 @@ android {
     // packaged alongside the Java bridge for plugin hooks to initialize.
     sourceSets.main.jniLibs.srcDirs += ['jni']
 
+    // xxxhdpi artwork is 8 MB in the source tree, about 4 MB compressed in the APK, and
+    // only ever used on screens denser than every phone this fork targets. Without it
+    // Android falls back to the xxhdpi set and scales it up, which on real screens is
+    // not visible; the night variants of the same artwork already ship without xxxhdpi,
+    // so this makes the two consistent instead of removing something the app relies on.
+    sourceSets.main.res.exclude '**/drawable-xxxhdpi/**'
+    sourceSets.main.res.exclude '**/mipmap-xxxhdpi/**'
+
 
     // The full LinkiGram port must include its runtime sources. The API
     // migration fixes are applied in source, not hidden by source exclusions.
@@ -363,21 +371,30 @@ chaquopy {
         buildPython(nimarkoBuildPython ?: "python3.11")
         pip {
             options "--find-links", "${project.projectDir}/python-wheels/arm64-v8a"
+            // The Python runtime exists for plugins, and the wheel set is what a plugin
+            // may import without downloading anything. It is also the single heaviest
+            // thing in the APK, so the list is kept to what is actually plausible in a
+            // chat plugin: networking, parsing, small databases, images and numpy.
+            //
+            // Everything below is packaged for arm64 as a compiled extension:
+            //   numpy 7.2 MB, Pillow 0.9 - the two worth keeping, plugins that do
+            //   number crunching or draw images cannot work without them.
+            //
+            // Dropped, with the packaged size each one cost inside the APK:
+            //   cryptography 1.2, pycryptodome 1.9, lxml 1.5, mpmath 1.1, regex 0.4.
+            //   Pure-Python replacements remain available: hashlib/hmac from the
+            //   standard library, re instead of regex, html.parser inside
+            //   beautifulsoup4 instead of lxml, and float math instead of mpmath.
             install "requests==2.31.0"
             install "certifi"
             install "httpx[http2]==0.28.1"
             install "urllib3"
-            install "mpmath"
             install "tinydb"
             install "packaging"
             install "humanize"
             install "typing_extensions"
             install "Pillow"
-            install "lxml"
             install "numpy==1.26.2"
-            install "cryptography==42.0.8"
-            install "pycryptodome"
-            install "regex==2023.10.3"
             install "PyYAML"
             install "beautifulsoup4"
             install "soupsieve"
