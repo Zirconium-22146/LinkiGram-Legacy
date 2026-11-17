@@ -899,7 +899,12 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         ThemeBind.selectorBackground(item, Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ALL), null, ThemeBind.of(Theme.key_listSelector), getResourceProvider());
 
         final FrameLayout plate = new FrameLayout(context);
-        ThemeBind.fillBackground(plate, Theme.createCircleDrawable(dp(44), getThemedColor(Theme.key_windowBackgroundGray)), ThemeBind.of(Theme.key_windowBackgroundGray), getResourceProvider());
+        // A tonal plate: the accent at 12%, so it reads as a raised surface in the dark
+        // theme and as a soft tint in the light one without another hard colour.
+        ThemeBind.fillBackground(plate,
+                Theme.createCircleDrawable(dp(44), Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhiteBlueText), 0.12f)),
+                ThemeBind.multAlpha(Theme.key_windowBackgroundWhiteBlueText, 0.12f),
+                getResourceProvider());
         final ImageView icon = new ImageView(context);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         icon.setImageResource(iconRes);
