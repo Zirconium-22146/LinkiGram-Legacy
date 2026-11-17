@@ -189,14 +189,6 @@ android {
     // packaged alongside the Java bridge for plugin hooks to initialize.
     sourceSets.main.jniLibs.srcDirs += ['jni']
 
-    // xxxhdpi artwork is 8 MB in the source tree, about 4 MB compressed in the APK, and
-    // only ever used on screens denser than every phone this fork targets. Without it
-    // Android falls back to the xxhdpi set and scales it up, which on real screens is
-    // not visible; the night variants of the same artwork already ship without xxxhdpi,
-    // so this makes the two consistent instead of removing something the app relies on.
-    sourceSets.main.res.exclude '**/drawable-xxxhdpi/**'
-    sourceSets.main.res.exclude '**/mipmap-xxxhdpi/**'
-
 
     // The full LinkiGram port must include its runtime sources. The API
     // migration fixes are applied in source, not hidden by source exclusions.
