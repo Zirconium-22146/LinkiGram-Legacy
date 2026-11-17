@@ -493,6 +493,8 @@ public class ChatActivity extends BaseFragment implements
     private ChatActivityAdapter chatAdapter;
     private UnreadCounterTextView bottomOverlayChatText;
     private boolean bottomOverlayLinks;
+    // "Discuss" is shown in the bottom channel slot when the channel has a discussion group.
+    private boolean bottomOverlayChatDiscuss;
     private LinkSpanDrawable.LinksTextView bottomOverlayLinksText;
     private TextView bottomOverlayText;
     private TextView bottomOverlayStartButton;
@@ -1164,6 +1166,7 @@ public class ChatActivity extends BaseFragment implements
     private boolean startedTrackingSlidingView;
 
     private boolean canShowPagedownButton;
+    private boolean canShowScrollUpButton;
     private TextSelectionHint textSelectionHint;
     private boolean textSelectionHintWasShowed;
     private float lastTouchY;
@@ -7091,6 +7094,7 @@ public class ChatActivity extends BaseFragment implements
                     chatListThanosEffect.scroll(dx, dy);
                 }
                 scrollUp = dy < 0;
+                updateScrollUpButtonVisibility(false);
                 int firstVisibleItem = chatLayoutManager.findFirstVisibleItemPosition();
                 if (dy != 0 && (scrollByTouch && recyclerView.getScrollState() == RecyclerView.SCROLL_STATE_SETTLING) || recyclerView.getScrollState() == RecyclerView.SCROLL_STATE_DRAGGING) {
                     if (forceNextPinnedMessageId != 0) {
@@ -8819,6 +8823,10 @@ public class ChatActivity extends BaseFragment implements
                 botUser = null;
                 updateBottomOverlay();
             } else {
+                if (bottomOverlayChatDiscuss) {
+                    openDiscussionChat();
+                    return;
+                }
                 if (ChatObject.isChannel(currentChat) && !(currentChat instanceof TLRPC.TL_channelForbidden)) {
                     if (ChatObject.isNotInChat(currentChat)) {
                         if (currentChat.join_request) {
@@ -17983,6 +17991,37 @@ public class ChatActivity extends BaseFragment implements
         }
 
         sideControlsButtonsLayout.showButton(ChatActivitySideControlsButtonsLayout.BUTTON_PAGE_DOWN, show, animated);
+    }
+
+    /**
+     * The "up" button appears once the list has left the first message, and disappears
+     * again at the top. It is recomputed on every scroll frame, so it only touches the
+     * animator when the answer actually changes.
+     */
+    private void updateScrollUpButtonVisibility(boolean animated) {
+        if (sideControlsButtonsLayout == null || chatListView == null || chatLayoutManager == null) {
+            return;
+        }
+        final int first = chatLayoutManager.findFirstVisibleItemPosition();
+        boolean atTop = first == RecyclerView.NO_POSITION;
+        if (!atTop) {
+            if (first > 0) {
+                atTop = false;
+            } else {
+                final View firstView = chatLayoutManager.findViewByPosition(0);
+                atTop = firstView == null || firstView.getTop() >= chatListView.getPaddingTop() - AndroidUtilities.dp(4);
+            }
+        }
+        final boolean show = !atTop
+                && !hasTextSelection()
+                && !isInsideContainer
+                && !searching
+                && !chatActivityEnterView.isRecordingAudioVideo();
+        if (show == canShowScrollUpButton) {
+            return;
+        }
+        canShowScrollUpButton = show;
+        sideControlsButtonsLayout.showButton(ChatActivitySideControlsButtonsLayout.BUTTON_SCROLL_UP, show, animated);
     }
 
     private void updateSearchUpDownButtonVisibility(boolean animated) {
@@ -28888,6 +28927,7 @@ public class ChatActivity extends BaseFragment implements
         }
         bottomOverlayChatWaitsReply = false;
         bottomOverlayLinks = false;
+        bottomOverlayChatDiscuss = false;
 
         boolean accentTextButton = false;
         boolean forceVisible = false;
@@ -29021,6 +29061,16 @@ public class ChatActivity extends BaseFragment implements
                     showBottomOverlayProgress(false, false);
                     bottomOverlayChatText.setTextInfo(LocaleController.getString(R.string.ForumReplyToMessagesInTopic));
                     bottomOverlayChatText.setEnabled(false);
+                } else if (showDiscussInsteadOfMute()) {
+                    // A channel with a discussion group answers the same slot with
+                    // "Discuss". Muting is still one tap away in the menu, while the
+                    // discussion is what people actually open from a channel.
+                    bottomOverlayChatDiscuss = true;
+                    bottomOverlayChatText.setText(LocaleController.getString(R.string.ChannelDiscussNoCaps), false);
+                    bottomOverlayChatText.setEnabled(true);
+                    showBottomOverlayProgress(false, bottomOverlayProgress.getTag() != null);
+                    showGiftButton = chatInfo != null && chatInfo.stargifts_available;
+                    showSuggestButton = currentChat.broadcast_messages_allowed && currentChat.linked_monoforum_id != 0;
                 } else if (!isThreadChat()) {
                     if (!getMessagesController().isDialogMuted(dialog_id, getTopicId())) {
                         bottomOverlayChatText.setText(LocaleController.getString(R.string.ChannelMuteNoCaps), false);
@@ -36932,7 +36982,25 @@ public class ChatActivity extends BaseFragment implements
     }
 
     public boolean showDiscussInsteadOfMute() {
-        return false;
+        return NimarkoConfig.discussInsteadOfMute
+                && !isInScheduleMode()
+                && !isThreadChat()
+                && currentChat != null
+                && ChatObject.isChannelAndNotMegaGroup(currentChat)
+                && currentChat.linked_chat_id != 0;
+    }
+
+    /** Opens the group that hosts comments for this channel. */
+    private void openDiscussionChat() {
+        if (currentChat == null || currentChat.linked_chat_id == 0) {
+            return;
+        }
+        final Bundle args = new Bundle();
+        args.putLong("chat_id", currentChat.linked_chat_id);
+        if (!getMessagesController().checkCanOpenChat(args, this)) {
+            return;
+        }
+        presentFragment(new ChatActivity(args));
     }
     public MessageObject getReplyMessage() {
         return replyingMessageObject;
@@ -48114,6 +48182,12 @@ public class ChatActivity extends BaseFragment implements
                     scrollToMessageId(messageId, 0, false, 0, true, 0);
                 }
             });
+        } else if (buttonId == ChatActivitySideControlsButtonsLayout.BUTTON_SCROLL_UP) {
+            // Only loaded messages exist in the adapter, so this is the oldest message in
+            // memory; checkScrollForLoad pulls the previous page in as the animation runs,
+            // which is what lets repeated taps walk all the way back.
+            checkScrollForLoad(true);
+            chatListView.smoothScrollToPosition(0);
         } else if (buttonId == ChatActivitySideControlsButtonsLayout.BUTTON_SEARCH_UP) {
             goToNextOrPrevSearchMessage(true);
         } else if (buttonId == ChatActivitySideControlsButtonsLayout.BUTTON_SEARCH_DOWN) {
