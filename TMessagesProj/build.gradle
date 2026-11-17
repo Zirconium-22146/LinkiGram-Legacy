@@ -164,9 +164,16 @@ if (telegramApiHash.trim().isEmpty()) {
 // rejected there, so neither the network nor the bypass can fix a failed sign-in.
 // Warn loudly at configure time, because the symptom looks like a broken connection.
 if (telegramApiId == '4' && telegramApiHash == '014b35b6184100b085b0d0572f9b5103') {
-    logger.warn("TELEGRAM_API_ID/TELEGRAM_API_HASH are the public open-source pair: " +
+    def publicKeyMessage = "TELEGRAM_API_ID/TELEGRAM_API_HASH are the public open-source pair: " +
             "sign-in will fail with API_ID_PUBLISHED_FLOOD. Put the app's own key into " +
-            "private.properties or into the TELEGRAM_API_ID/TELEGRAM_API_HASH secrets.")
+            "private.properties or into the TELEGRAM_API_ID/TELEGRAM_API_HASH repository secrets."
+    if ('true'.equalsIgnoreCase(System.getenv('GITHUB_ACTIONS'))) {
+        // A CI run that carries the public key cannot log in, no matter what else it
+        // builds. Fail here, in the first minutes, instead of after half an hour of
+        // compiling an APK whose sign-in is guaranteed to be rejected by Telegram.
+        throw new GradleException(publicKeyMessage)
+    }
+    logger.warn(publicKeyMessage)
 }
 
 def linkiGramStandaloneCiBuild = gradle.startParameter.taskNames.any {
