@@ -1790,4 +1790,10 @@
     <string name="SessionTransferExported">Сессия экспортирована</string>
     <string name="AccDescrPageUp">Наверх</string>
     <string name="ChannelDiscussNoCaps">Обсудить</string>
+    <string name="SettingsQuickSearch">Поиск</string>
+    <string name="SettingsQuickTheme">Тема</string>
+    <string name="SettingsQuickData">Данные</string>
+    <string name="SettingsQuickSessions">Сессии</string>
+    <string name="SettingsSectionGeneral">Основное</string>
+    <string name="SettingsSectionPurchases">Покупки</string>
 </resources>

@@ -13289,4 +13289,10 @@
     <string name="SessionTransferAlreadyAdded">This account or authorization is already added.</string>
     <string name="SessionTransferExportError">Could not export the session. Check the destination and available space. The destination may contain an incomplete file.</string>
     <string name="SessionTransferExported">Session exported</string>
+    <string name="SettingsQuickSearch">Search</string>
+    <string name="SettingsQuickTheme">Theme</string>
+    <string name="SettingsQuickData">Data</string>
+    <string name="SettingsQuickSessions">Sessions</string>
+    <string name="SettingsSectionGeneral">General</string>
+    <string name="SettingsSectionPurchases">Purchases</string>
 </resources>
