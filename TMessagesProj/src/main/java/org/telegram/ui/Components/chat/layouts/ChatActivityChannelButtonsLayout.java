@@ -116,7 +116,7 @@ public class ChatActivityChannelButtonsLayout extends FrameLayout implements Fac
         if (buttonHolders[buttonId] == null) {
             final int animatorId = (buttonId << 16) | VISIBILITY_ANIMATOR_ID;
             final BoolAnimator visibilityAnimator = new BoolAnimator(animatorId, this,
-                CubicBezierInterpolator.EASE_OUT_QUINT, 300);
+                CubicBezierInterpolator.EASE_OUT_QUINT, 150);
 
             final ChatActivityBlurredRoundButton button = ChatActivityBlurredRoundButton.create(
                 getContext(),

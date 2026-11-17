@@ -221,13 +221,13 @@ public class ChatActivitySideControlsButtonsLayout extends FrameLayout implement
             final BoolAnimator visibilityAnimator = new BoolAnimator(
                 (buttonId << 16) | ANIMATOR_ID_VISIBILITY, this,
                 buttonId == BUTTON_ATTACH ? CubicBezierInterpolator.EASE_OUT_QUINT : AnimatorUtils.DECELERATE_INTERPOLATOR,
-                buttonId == BUTTON_ATTACH ? 300 : 280
+                150
             );
 
             final BoolAnimator counterVisibilityAnimator = new BoolAnimator(
                 (buttonId << 16) | ANIMATOR_ID_COUNTER_VISIBILITY, this,
                 buttonId == BUTTON_ATTACH ? CubicBezierInterpolator.EASE_OUT_QUINT : AnimatorUtils.DECELERATE_INTERPOLATOR,
-                buttonId == BUTTON_ATTACH ? 300 : 280);
+                150);
 
             int size = 56, iconSize = 48;
             if (buttonId == BUTTON_ATTACH) {

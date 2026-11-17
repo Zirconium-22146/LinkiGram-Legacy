@@ -43,8 +43,8 @@ public class ChatActivityBlurredRoundButton extends FrameLayout implements Facto
     private static final int ANIMATOR_ID_LOADING_VISIBILITY = 0;
     private static final int ANIMATOR_ID_IS_ENABLED = 1;
 
-    private final BoolAnimator animatorLoadingVisibility = new BoolAnimator(ANIMATOR_ID_LOADING_VISIBILITY, this, CubicBezierInterpolator.EASE_OUT_QUINT, 320);
-    private final BoolAnimator animatorIsEnabled = new BoolAnimator(ANIMATOR_ID_IS_ENABLED, this, CubicBezierInterpolator.EASE_OUT_QUINT, 320, true);
+    private final BoolAnimator animatorLoadingVisibility = new BoolAnimator(ANIMATOR_ID_LOADING_VISIBILITY, this, CubicBezierInterpolator.EASE_OUT_QUINT, 160);
+    private final BoolAnimator animatorIsEnabled = new BoolAnimator(ANIMATOR_ID_IS_ENABLED, this, CubicBezierInterpolator.EASE_OUT_QUINT, 160, true);
 
     private @Nullable ImageView imageView;
     private @Nullable ImageView loadingIndicatorView;
