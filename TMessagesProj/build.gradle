@@ -381,10 +381,15 @@ chaquopy {
             //   number crunching or draw images cannot work without them.
             //
             // Dropped, with the packaged size each one cost inside the APK:
-            //   cryptography 1.2, pycryptodome 1.9, lxml 1.5, mpmath 1.1, regex 0.4.
-            //   Pure-Python replacements remain available: hashlib/hmac from the
-            //   standard library, re instead of regex, html.parser inside
-            //   beautifulsoup4 instead of lxml, and float math instead of mpmath.
+            //   pycryptodome 1.9, lxml 1.5, mpmath 1.1, regex 0.4. Replacements that
+            //   are already here cover them: re instead of regex, html.parser inside
+            //   beautifulsoup4 instead of lxml, float math instead of mpmath.
+            //
+            // cryptography stays even though it is the largest of the optional ones:
+            // the WebSocket bypass encrypts every frame, and flowseal_tg_ws/_aes.py
+            // falls back to a ctypes wrapper over the system libcrypto when the module
+            // is missing - which Android does not reliably provide. Keeping it is what
+            // makes the bypass fast, and the bypass is the way this build signs in.
             install "requests==2.31.0"
             install "certifi"
             install "httpx[http2]==0.28.1"
@@ -395,6 +400,7 @@ chaquopy {
             install "typing_extensions"
             install "Pillow"
             install "numpy==1.26.2"
+            install "cryptography==42.0.8"
             install "PyYAML"
             install "beautifulsoup4"
             install "soupsieve"

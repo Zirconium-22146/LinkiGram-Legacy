@@ -346,9 +346,13 @@ public final class PipController {
                 
                 "certifi", "charset-normalizer", "idna", "urllib3", "requests",
                 
-                "pillow", "pil", "mpmath", "tinydb", "packaging", "humanize", "typing-extensions",
-                
-                "lxml", "numpy", "cryptography", "pycryptodome", "crypto", "regex",
+                "pillow", "pil", "tinydb", "packaging", "humanize", "typing-extensions",
+                // Kept in step with the pip list in TMessagesProj/build.gradle: a name
+                // listed here is treated as already present and never installed, so it
+                // must really be inside the APK - lxml, pycryptodome and regex were
+                // dropped there and would otherwise fail as an import error inside a
+                // plugin instead of a package the installer can still try to fetch.
+                "numpy", "cryptography",
                 "pyyaml", "yaml", "beautifulsoup4", "bs4", "soupsieve", "markupsafe", "mutagen",
                 
                 "nimarko-blocker");
