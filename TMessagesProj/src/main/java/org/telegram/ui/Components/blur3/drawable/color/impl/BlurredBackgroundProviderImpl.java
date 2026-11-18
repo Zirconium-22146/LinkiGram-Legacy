@@ -123,7 +123,16 @@ public class BlurredBackgroundProviderImpl {
         return new BlurredBackgroundProviderBuilder(resourcesProvider)
                 .setBackgroundColor((r, isDark) -> {
                     if (!LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS)) {
-                        return Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground, r) | 0xFF000000;
+                        // Linkigram Legacy: «жидкое стекло» в клиенте выключено навсегда, но
+                        // простое размытие под меню остаётся. Плотная заливка прятала его
+                        // полностью, поэтому при включённом размытии чата фон меню
+                        // полупрозрачный; без размытия он остаётся плотным, иначе текст
+                        // ляжет на неразмытые сообщения.
+                        if (!checkBlurEnabled(resourcesProvider)) {
+                            return Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground, r) | 0xFF000000;
+                        }
+                        return Theme.multAlpha(Theme.getColor(Theme.key_actionBarDefaultSubmenuBackground, r),
+                                isDark ? 0.55f : 0.62f);
                     }
                     if (ClientTheme.glassEnabled()) {
                         // LinkiGram You + Linki Glass: the menu is a glass panel over the You surface.

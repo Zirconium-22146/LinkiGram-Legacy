@@ -237,6 +237,19 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     @Override
     public View createView(Context context) {
+        // Legacy, temporary: breadcrumbs for the settings crash, see LegacyCrashLog.
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: createView start");
+        try {
+            final View view = createViewImpl(context);
+            app.nimarkogram.messenger.LegacyCrashLog.step("settings: createView done");
+            return view;
+        } catch (Throwable t) {
+            app.nimarkogram.messenger.LegacyCrashLog.logThrowable("SettingsActivity.createView", t);
+            throw t;
+        }
+    }
+
+    private View createViewImpl(Context context) {
         setHasOwnBackground(true);
         contentView = new SizeNotifierFrameLayout(context) {
             @Override
@@ -261,6 +274,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             }
         };
 
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: content view created");
         simpleActionBar.setBackButtonImage(R.drawable.ic_ab_back);
         leftButtonIsBack = true; // the view may be rebuilt (theme, language): checkUi_menuItems swaps it to QR again
         simpleActionBar.setTitle(getString(R.string.Settings));
@@ -322,6 +336,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         search.loadFaqWebPage();
 
         listView = new UniversalRecyclerView(this, this::fillItems, this::onClick, this::onLongClick);
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: list view created");
         listView.setCaptureSectionsDecoratorAllowed(true);
         listView.adapter.setApplyBackground(false);
         listView.setSections();
@@ -457,6 +472,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         subtitleView.setEllipsize(TextUtils.TruncateAt.END);
         topView.addView(subtitleView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 168 - 12, 0, 0));
 
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: avatar ready");
         // Quick actions: the four screens people actually open from the settings list.
         // The list itself keeps every entry, this is only a shortcut placed where the thumb
         // already is after opening settings.
@@ -471,6 +487,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         addQuickAction(context, R.drawable.lg_settings_theme, R.string.SettingsQuickTheme, () -> presentSettingFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_BASIC)));
         addQuickAction(context, R.drawable.lg_settings_data, R.string.SettingsQuickData, () -> presentSettingFragment(new DataSettingsActivity()));
         addQuickAction(context, R.drawable.lg_settings_devices, R.string.SettingsQuickSessions, () -> presentSettingFragment(new SessionsActivity(0)));
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: header and quick actions ready");
 
         versionView = new TextView(context);
         versionView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -496,6 +513,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
         updateActionBarVisible(true, false);
         listView.adapter.update(false);
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: adapter updated");
         setInfo();
         updateColors();
         checkUi_menuItems();
@@ -625,6 +643,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
     @Override
     public void onResume() {
         super.onResume();
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: onResume");
         if (listView.adapter != null) {
             listView.adapter.update(false);
         }
@@ -731,6 +750,17 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     private ArrayList<Integer> accountNumbers = new ArrayList<>();
     private void fillItems(ArrayList<UItem> items, UniversalAdapter adapter) {
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: fillItems start");
+        try {
+            fillItemsImpl(items, adapter);
+            app.nimarkogram.messenger.LegacyCrashLog.step("settings: fillItems done, " + items.size() + " items");
+        } catch (Throwable t) {
+            app.nimarkogram.messenger.LegacyCrashLog.logThrowable("SettingsActivity.fillItems", t);
+            throw t;
+        }
+    }
+
+    private void fillItemsImpl(ArrayList<UItem> items, UniversalAdapter adapter) {
         if (searchItem.isSearchFieldVisible2()) {
             items.add(UItem.asSpace(ActionBar.getCurrentActionBarHeight()));
             search.fillItems(items);

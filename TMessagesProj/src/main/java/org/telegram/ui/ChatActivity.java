@@ -1818,6 +1818,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int view_as_topics = 59;
 
     private final static int search = 40;
+    private final static int scroll_to_begin = 74;
 
     private final static int topic_close = 60;
     private final static int open_forum = 61;
@@ -4139,6 +4140,12 @@ public class ChatActivity extends BaseFragment implements
                     getSendMessagesHelper().sendMessage(SendMessagesHelper.SendMessageParams.of("/settings", dialog_id, null, null, null, false, null, null, null, true, 0, 0, null, false));
                 } else if (id == search) {
                     openSearchWithText(isSupportedTags() ? "" : null);
+                } else if (id == scroll_to_begin) {
+                    // как и кнопка у края списка: в памяти только загруженные сообщения,
+                    // поэтому checkScrollForLoad подтягивает предыдущую страницу по ходу
+                    // прокрутки, и повторное нажатие доходит до самого первого сообщения.
+                    checkScrollForLoad(true);
+                    chatListView.smoothScrollToPosition(0);
                 } else if (id == translate) {
                     getMessagesController().getTranslateController().setHideTranslateDialog(getDialogId(), false, true);
                     if (!getMessagesController().getTranslateController().toggleTranslatingDialog(getDialogId(), true)) {
@@ -4567,6 +4574,9 @@ public class ChatActivity extends BaseFragment implements
             if (searchItem != null) {
                 headerItem.lazilyAddSubItem(search, R.drawable.msg_search, LocaleController.getString(R.string.Search));
             }
+            // Legacy: прыжок в самое начало истории прямо из меню шапки, не только кнопкой
+            // у правого края списка.
+            headerItem.lazilyAddSubItem(scroll_to_begin, R.drawable.msg_go_up, LocaleController.getString(R.string.CG_JumpToBeginning));
             if (ChatObject.isBoostSupported(currentChat) && (getUserConfig().isPremium() || ChatObject.isBoosted(chatInfo) || ChatObject.hasAdminRights(currentChat))) {
                 RLottieDrawable drawable = new RLottieDrawable(R.raw.boosts, dp(24), dp(24));
                 headerItem.lazilyAddSubItem(boost_group, drawable, LocaleController.getString(ChatObject.isChannelAndNotMegaGroup(currentChat) ? R.string.BoostingBoostChannelMenu : R.string.BoostingBoostGroupMenu));

@@ -33,8 +33,13 @@ public final class LegacyCrashLog {
     private static final String TAG = "legacy-crash";
     private static final String FOLDER = "LinkiGram-Legacy-2.6";
     private static final String FILE_NAME = "crash.txt";
+    private static final String STEPS_NAME = "steps.txt";
+
+    /** Steps of the current process, newest last: a native abort leaves no stack trace at all. */
+    private static final StringBuilder steps = new StringBuilder();
 
     private static volatile boolean installed;
+    private static volatile Context appContext;
 
     private LegacyCrashLog() {
     }
@@ -46,9 +51,11 @@ public final class LegacyCrashLog {
         final Context app = context.getApplicationContext() != null
                 ? context.getApplicationContext()
                 : context;
+        appContext = app;
         final Thread.UncaughtExceptionHandler previous = Thread.getDefaultUncaughtExceptionHandler();
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
             try {
+                step("crash in " + (thread != null ? thread.getName() : "?") + ": " + throwable);
                 write(app, thread, throwable);
             } catch (Throwable ignored) {
                 // a crash reporter must never crash itself
@@ -58,9 +65,40 @@ public final class LegacyCrashLog {
             }
         });
         installed = true;
+        step("launch " + BuildVars.BUILD_VERSION_STRING + " (code " + NimarkoConfig.VERSION_CODE + ")");
+    }
+
+    /**
+     * Keeps a breadcrumb of the current process in Download/.../steps.txt. Written eagerly, so the
+     * last written step survives a crash that kills the process without an uncaught exception
+     * (a native abort of the blur engine, for instance).
+     */
+    public static void step(String what) {
+        synchronized (steps) {
+            steps.append(new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date()))
+                 .append("  ").append(what).append('\n');
+            final byte[] bytes = steps.toString().getBytes();
+            final Context context = appContext;
+            if (context != null) {
+                write(context, STEPS_NAME, bytes);
+            }
+        }
+    }
+
+    /** Writes the trace of an exception caught on purpose, where the default handler would not see it. */
+    public static void logThrowable(String where, Throwable t) {
+        final Context context = appContext;
+        if (context == null) {
+            return;
+        }
+        write(context, where + ".txt", t);
     }
 
     private static void write(Context context, Thread thread, Throwable t) {
+        write(context, FILE_NAME, buildReport(thread, t, null));
+    }
+
+    private static byte[] buildReport(Thread thread, Throwable t, String place) {
         final StringWriter buffer = new StringWriter();
         final PrintWriter out = new PrintWriter(buffer);
         out.println("=== LinkiGram Legacy crash ===");
@@ -70,6 +108,9 @@ public final class LegacyCrashLog {
                 + ", Android " + Build.VERSION.RELEASE + " (SDK " + Build.VERSION.SDK_INT + ")");
         out.println("App: " + NimarkoConfig.APP_NAME + " " + BuildVars.BUILD_VERSION_STRING
                 + " (" + NimarkoConfig.VERSION_CODE + ")");
+        if (place != null) {
+            out.println("Place: " + place);
+        }
         out.println();
         if (t != null) {
             t.printStackTrace(out);
@@ -87,20 +128,21 @@ public final class LegacyCrashLog {
         }
         out.flush();
 
-        final byte[] bytes;
-        try {
-            bytes = buffer.toString().getBytes("UTF-8");
-        } catch (Exception e) {
-            return;
-        }
-
-        if (writeWithMediaStore(context, bytes)) {
-            return;
-        }
-        writeWithFile(bytes);
+        return buffer.toString().getBytes();
     }
 
-    private static boolean writeWithMediaStore(Context context, byte[] bytes) {
+    private static void write(Context context, String fileName, Throwable t) {
+        write(context, fileName, buildReport(Thread.currentThread(), t, fileName));
+    }
+
+    private static void write(Context context, String fileName, byte[] bytes) {
+        if (writeWithMediaStore(context, fileName, bytes)) {
+            return;
+        }
+        writeWithFile(fileName, bytes);
+    }
+
+    private static boolean writeWithMediaStore(Context context, String fileName, byte[] bytes) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             return false;
         }
@@ -112,11 +154,11 @@ public final class LegacyCrashLog {
                 resolver.delete(
                         collection,
                         MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " + MediaStore.MediaColumns.RELATIVE_PATH + "=?",
-                        new String[]{FILE_NAME, relativePath});
+                        new String[]{fileName, relativePath});
             } catch (Throwable ignored) {
             }
             final ContentValues values = new ContentValues();
-            values.put(MediaStore.MediaColumns.DISPLAY_NAME, FILE_NAME);
+            values.put(MediaStore.MediaColumns.DISPLAY_NAME, fileName);
             values.put(MediaStore.MediaColumns.MIME_TYPE, "text/plain");
             values.put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath);
             final Uri uri = resolver.insert(collection, values);
@@ -137,14 +179,14 @@ public final class LegacyCrashLog {
         }
     }
 
-    private static void writeWithFile(byte[] bytes) {
+    private static void writeWithFile(String fileName, byte[] bytes) {
         try {
             final File dir = new File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FOLDER);
             if (!dir.exists() && !dir.mkdirs()) {
                 return;
             }
-            final File file = new File(dir, FILE_NAME);
+            final File file = new File(dir, fileName);
             try (FileOutputStream stream = new FileOutputStream(file)) {
                 stream.write(bytes);
             }
