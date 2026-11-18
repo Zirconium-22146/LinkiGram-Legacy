@@ -506,6 +506,13 @@ public class ApplicationLoader extends Application {
 
         super.onCreate();
 
+        // Legacy: keep the last crash where the phone itself can reach it, see LegacyCrashLog.
+        try {
+            app.nimarkogram.messenger.LegacyCrashLog.install(this);
+        } catch (Throwable t) {
+            FileLog.e("legacy-crash: install failed", t);
+        }
+
         try {
             app.nimarkogram.messenger.textanim.NimarkoTextAnim.initIfEnabled();
         } catch (Throwable t) {
