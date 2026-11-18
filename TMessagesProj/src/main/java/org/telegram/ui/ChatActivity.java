@@ -291,7 +291,6 @@ import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorPro
 import org.telegram.ui.Components.blur3.drawable.color.BlurredBackgroundColorProvider;
 import org.telegram.ui.Components.blur3.drawable.color.impl.BlurredBackgroundProviderImpl;
 import org.telegram.utils.glass.source.GlassSourceWrapped;
-import org.telegram.utils.glass.source.GlassSourceCrossfade;
 import org.telegram.utils.twidget.WidgetMedia;
 import org.telegram.ui.Components.blur3.utils.Blur3Utils;
 import org.telegram.ui.Components.chat.ChatActivityBottomViewsVisibilityController;
@@ -2711,29 +2710,6 @@ public class ChatActivity extends BaseFragment implements
         scheduledHintShown = true;
     };
 
-    /**
-     * The menu of the header opens in the overlay of the screen and grows out of the glass of its buttons, as the menus
-     * of the simple headers, on frosted glass crossfaded from the glass of the buttons.
-     */
-    private void setupHeaderMenuOverlay(ViewGroup parentView) {
-        if (headerItem == null || inPreviewMode || isInsideContainer || parentChatActivity != null || !(fragmentView instanceof FrameLayout)) {
-            return;
-        }
-        if (glassBackgroundSourceFrostedRenderNode != null) {
-            final GlassSourceCrossfade menuSource = new GlassSourceCrossfade(
-                glassBackgroundSourceRenderNode != null ? glassBackgroundSourceRenderNode : glassBackgroundSourceFrostedRenderNode,
-                glassBackgroundSourceFrostedRenderNode);
-            final BlurredBackgroundDrawableViewFactory menuFactory = new BlurredBackgroundDrawableViewFactory(menuSource);
-            menuFactory.setLiquidGlassEffectAllowed(true);
-            menuFactory.setGlassEngine(getGlassEngine());
-            menuFactory.setSourceRootView(viewPositionWatcher, parentView);
-            menuFactory.setLinkedViewsRef(glassAttachedViews);
-            actionBar.setMenuGlass(menuFactory, menuSource);
-        }
-        actionBar.setMenuRise(dp(8));
-        headerItem.setSubMenuOverlayProvider(this::getSimpleMenuOverlay);
-    }
-
     public boolean isInsideContainer;
     public boolean reversed;
     private long wallpaperRandomSeed;
@@ -4754,7 +4730,10 @@ public class ChatActivity extends BaseFragment implements
         // скруглённых «пилюль» вокруг названия чата и кнопок, ни их перерисовки
         // через размытие на каждом кадре.
         actionBar.setBackgroundColor(getThemedColor(Theme.key_actionBarDefault));
-        setupHeaderMenuOverlay(parentView);
+        // Legacy: меню «⋮» открывается обычным попапом под шапкой, а не в оверлее экрана.
+        // Оверлей тянет «стекло» кнопки в меню и рисует размытие обоев поверх сплошной шапки,
+        // из-за чего шапка растворялась в блюре. У попапа фон — снимок всего экрана вместе
+        // с шапкой (scrimBlur3Factory), поэтому размытие её больше не игнорирует.
         if (app.nimarkogram.messenger.appearance.AppearanceConfig.newChatHeaderStyle()) {
             actionBar.setDrawGlassTitle(false);
             actionBar.setShadowAlpha(0);
