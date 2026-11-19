@@ -1796,4 +1796,5 @@
     <string name="SettingsQuickSessions">Сессии</string>
     <string name="SettingsSectionGeneral">Основное</string>
     <string name="SettingsSectionPurchases">Покупки</string>
+    <string name="LinkiWallpaperDownloading">Загружаю обои…</string>
 </resources>

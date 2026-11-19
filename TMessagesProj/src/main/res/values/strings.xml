@@ -13295,4 +13295,5 @@
     <string name="SettingsQuickSessions">Sessions</string>
     <string name="SettingsSectionGeneral">General</string>
     <string name="SettingsSectionPurchases">Purchases</string>
+    <string name="LinkiWallpaperDownloading">Downloading the wallpaper…</string>
 </resources>

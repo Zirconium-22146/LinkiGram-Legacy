@@ -123,6 +123,7 @@ import org.telegram.ui.Cells.DialogCell;
 import org.telegram.ui.Cells.HeaderCell;
 import org.telegram.ui.Cells.LoadingCell;
 import org.telegram.ui.Cells.PatternCell;
+import org.telegram.ui.Components.BulletinFactory;
 import org.telegram.ui.Components.AlertsCreator;
 import org.telegram.ui.Components.AnimatedFloat;
 import org.telegram.ui.Components.BackgroundGradientDrawable;
@@ -337,6 +338,12 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
 
     private boolean isMotion;
     private boolean isBlurred;
+
+    // the wallpaper is applied only once its document is on the disk: the preview picture alone
+    // is a thumbnail and would stay blurry in the chat
+    private boolean waitingForWallpaperFile;
+    private boolean waitingForWallpaperBoth;
+    private TLRPC.Document waitingForWallpaperDocument;
 
     private boolean showColor;
 
@@ -2447,6 +2454,54 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         return getMessagesController().groupCustomWallpaperLevelMin;
     }
 
+    /**
+     * The picture on the preview is often still a thumbnail while the document is downloading.
+     * "Apply" in that state used to save the thumbnail as the chat background, which is why
+     * freshly applied wallpapers looked blurry. The apply waits for the document instead.
+     */
+    private void waitForWallpaperFile(TLRPC.TL_wallPaper wallPaper, boolean forBoth) {
+        if (wallPaper == null || wallPaper.document == null) {
+            return;
+        }
+        waitingForWallpaperFile = true;
+        waitingForWallpaperBoth = forBoth;
+        waitingForWallpaperDocument = wallPaper.document;
+        NotificationCenter.getInstance(currentAccount).addWeakObserver(this, NotificationCenter.fileLoaded);
+        NotificationCenter.getInstance(currentAccount).addWeakObserver(this, NotificationCenter.fileLoadFailed);
+        FileLoader.getInstance(currentAccount).loadFile(wallPaper.document, wallPaper, FileLoader.PRIORITY_HIGH, 0);
+        if (getParentLayout() != null) {
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.info, LocaleController.getString(R.string.LinkiWallpaperDownloading)).show();
+        }
+    }
+
+    private void stopWaitingForWallpaperFile() {
+        waitingForWallpaperFile = false;
+        waitingForWallpaperDocument = null;
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileLoaded);
+        NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.fileLoadFailed);
+    }
+
+    /** @return true when the notification belonged to the wallpaper that is being waited for */
+    private boolean onWallpaperFileLoaded(Object[] args, boolean failed) {
+        if (!waitingForWallpaperFile || waitingForWallpaperDocument == null) {
+            return false;
+        }
+        if (!FileLoader.getAttachFileName(waitingForWallpaperDocument).equals(args[0])) {
+            return false;
+        }
+        final boolean forBoth = waitingForWallpaperBoth;
+        stopWaitingForWallpaperFile();
+        if (!failed) {
+            // the loader may still report the file as loading for a moment after the callback
+            AndroidUtilities.runOnUIThread(() -> {
+                if (getParentActivity() != null) {
+                    applyWallpaperBackground(forBoth);
+                }
+            }, 300);
+        }
+        return true;
+    }
+
     private void applyWallpaperBackground(boolean forBoth) {
         if (dialogId < 0) {
             if (boostsStatus != null && boostsStatus.level < getCustomWallpaperLevelMin()) {
@@ -2486,14 +2541,23 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         boolean done;
         boolean sameFile = false;
         Theme.ThemeInfo theme = Theme.getActiveTheme();
-        String originalFileName = theme.generateWallpaperName(null, isBlurred);
-        String fileName = isBlurred ? theme.generateWallpaperName(null, false) : originalFileName;
+        // without a blurred copy there is nothing to save as blurred: the unblurred picture is
+        // used instead of writing an empty file
+        final boolean blurApplied = isBlurred && blurredBitmap != null;
+        String originalFileName = theme.generateWallpaperName(null, blurApplied);
+        String fileName = blurApplied ? theme.generateWallpaperName(null, false) : originalFileName;
         File toFile = new File(ApplicationLoader.getFilesDirFixed(), originalFileName);
         if (currentWallpaper instanceof TLRPC.TL_wallPaper) {
-            if (originalBitmap != null) {
+            TLRPC.TL_wallPaper wallPaper = (TLRPC.TL_wallPaper) currentWallpaper;
+            final ImageReceiver imageReceiver = backgroundImage.getImageReceiver();
+            Bitmap fullBitmap = originalBitmap;
+            if (fullBitmap == null && imageReceiver.hasNotThumb()) {
+                fullBitmap = imageReceiver.getBitmap();
+            }
+            if (fullBitmap != null) {
                 try {
                     FileOutputStream stream = new FileOutputStream(toFile);
-                    originalBitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
+                    fullBitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
                     stream.close();
                     done = true;
                 } catch (Exception e) {
@@ -2501,31 +2565,22 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
                     FileLog.e(e);
                 }
             } else {
-                ImageReceiver imageReceiver = backgroundImage.getImageReceiver();
-                if (imageReceiver.hasNotThumb() || imageReceiver.hasStaticThumb()) {
-                    Bitmap bitmap = imageReceiver.getBitmap();
+                // Still the 100px preview on the screen: saving it would leave the chat with a
+                // blurry background for good, so the real document is used or waited for.
+                final FileLoader fileLoader = FileLoader.getInstance(currentAccount);
+                final File downloaded = fileLoader.getPathToAttach(wallPaper.document, true);
+                done = false;
+                if (downloaded != null && downloaded.exists() && !fileLoader.isLoadingFile(FileLoader.getAttachFileName(wallPaper.document))) {
                     try {
-                        FileOutputStream stream = new FileOutputStream(toFile);
-                        bitmap.compress(Bitmap.CompressFormat.JPEG, 87, stream);
-                        stream.close();
-                        done = true;
+                        done = AndroidUtilities.copyFile(downloaded, toFile);
                     } catch (Exception e) {
                         done = false;
                         FileLog.e(e);
                     }
-                } else {
-                    done = false;
                 }
-            }
-
-            if (!done) {
-                TLRPC.TL_wallPaper wallPaper = (TLRPC.TL_wallPaper) currentWallpaper;
-                File f = FileLoader.getInstance(currentAccount).getPathToAttach(wallPaper.document, true);
-                try {
-                    done = AndroidUtilities.copyFile(f, toFile);
-                } catch (Exception e) {
-                    done = false;
-                    FileLog.e(e);
+                if (!done) {
+                    waitForWallpaperFile(wallPaper, forBoth);
+                    return;
                 }
             }
         } else if (currentWallpaper instanceof WallpapersListActivity.ColorWallpaper) {
@@ -2618,7 +2673,7 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         } else {
             done = false;
         }
-        if (isBlurred) {
+        if (blurApplied) {
             try {
                 File blurredFile = new File(ApplicationLoader.getFilesDirFixed(), fileName);
                 FileOutputStream stream = new FileOutputStream(blurredFile);
@@ -2681,7 +2736,7 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         wallpaperInfo.fileName = fileName;
         wallpaperInfo.originalFileName = originalFileName;
         wallpaperInfo.slug = slug;
-        wallpaperInfo.isBlurred = isBlurred;
+        wallpaperInfo.isBlurred = blurApplied;
         wallpaperInfo.isMotion = isMotion;
         wallpaperInfo.color = color;
         wallpaperInfo.gradientColor1 = gradientColor1;
@@ -3286,6 +3341,7 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
     @Override
     public void onFragmentDestroy() {
         NotificationCenter.getInstance(currentAccount).removeObserver(this, NotificationCenter.chatWasBoostedByUser);
+        stopWaitingForWallpaperFile();
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.emojiLoaded);
         NotificationCenter.getGlobalInstance().removeObserver(this, NotificationCenter.invalidateMotionBackground);
         getNotificationCenter().removeObserver(this, NotificationCenter.wallpaperSettedToUser);
@@ -3535,7 +3591,15 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
     @SuppressWarnings("unchecked")
     @Override
     public void didReceivedNotification(int id, int account, Object... args) {
-        if (id == NotificationCenter.chatWasBoostedByUser) {
+        if (id == NotificationCenter.fileLoaded) {
+            if (!onWallpaperFileLoaded(args, false)) {
+                return;
+            }
+        } else if (id == NotificationCenter.fileLoadFailed) {
+            if (!onWallpaperFileLoaded(args, true)) {
+                return;
+            }
+        } else if (id == NotificationCenter.chatWasBoostedByUser) {
             if (dialogId == (long) args[2]) {
                 this.boostsStatus = (TL_stories.TL_premium_boostsStatus) args[0];
                 updateApplyButton1(true);
@@ -4494,12 +4558,15 @@ public class ThemePreviewActivity extends BaseFragment implements DownloadContro
         } else if (screenType == SCREEN_TYPE_CHANGE_BACKGROUND) {
             if (currentWallpaper instanceof TLRPC.TL_wallPaper) {
                 TLRPC.TL_wallPaper wallPaper = (TLRPC.TL_wallPaper) currentWallpaper;
-                TLRPC.PhotoSize thumb = setThumb ? FileLoader.getClosestPhotoSizeWithSize(wallPaper.document.thumbs, 100) : null;
+                // a bigger and sharp preview while the document downloads: a 100px blurred thumb
+                // made the screen look stuck on "loading the full size" for minutes
+                TLRPC.PhotoSize thumb = FileLoader.getClosestPhotoSizeWithSize(wallPaper.document.thumbs, 400);
                 Drawable thumbDrawable = null;
                 if (thumb instanceof TLRPC.TL_photoStrippedSize) {
                     thumbDrawable = new BitmapDrawable(ImageLoader.getStrippedPhotoBitmap(thumb.bytes, "b"));
+                    thumb = null;
                 }
-                backgroundImage.setImage(ImageLocation.getForDocument(wallPaper.document), imageFilter, ImageLocation.getForDocument(thumb, wallPaper.document), "100_100_b", thumbDrawable, "jpg", wallPaper.document.size, 1, wallPaper);
+                backgroundImage.setImage(ImageLocation.getForDocument(wallPaper.document), imageFilter, thumb != null ? ImageLocation.getForDocument(thumb, wallPaper.document) : null, null, thumbDrawable, "jpg", wallPaper.document.size, 1, wallPaper);
             } else if (currentWallpaper instanceof WallpapersListActivity.ColorWallpaper) {
                 WallpapersListActivity.ColorWallpaper wallPaper = (WallpapersListActivity.ColorWallpaper) currentWallpaper;
                 backgroundRotation = wallPaper.gradientRotation;
