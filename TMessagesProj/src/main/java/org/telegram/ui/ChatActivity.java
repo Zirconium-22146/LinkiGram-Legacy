@@ -1819,7 +1819,7 @@ public class ChatActivity extends BaseFragment implements
 
     private final static int search = 40;
     private final static int scroll_to_begin = 74;
-    private final static int show_crash_log = 75;
+    private final static int show_crash_log = 10082;
 
     private final static int topic_close = 60;
     private final static int open_forum = 61;

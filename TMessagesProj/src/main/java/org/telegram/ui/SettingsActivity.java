@@ -947,7 +947,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         label.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11);
         label.setGravity(Gravity.CENTER);
         label.setSingleLine();
-        label.setText(titleRes);
+        label.setText(LocaleController.getString(titleRes));
         ThemeBind.textColor(label, Theme.key_windowBackgroundWhiteGrayText, getResourceProvider());
         item.addView(label, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL, 0, 4, 0, 0));
 
