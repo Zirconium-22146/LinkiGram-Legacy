@@ -30,11 +30,13 @@ public final class MaterialStyle {
     public static int switchWidth() {
         if (ColorOs17Theme.isEnabled()) return 44;
         if (Material3Theme.isEnabled() || LinkiGramYouTheme.isEnabled()) return 52;
+        if (NimarkoConfig.switchStyle == NimarkoConfig.SWITCH_STYLE_MD3) return 44;
         return 37;
     }
     public static int switchHeight() {
         if (ColorOs17Theme.isEnabled()) return 26;
         if (Material3Theme.isEnabled() || LinkiGramYouTheme.isEnabled()) return 32;
+        if (NimarkoConfig.switchStyle == NimarkoConfig.SWITCH_STYLE_MD3) return 26;
         return 20;
     }
 }

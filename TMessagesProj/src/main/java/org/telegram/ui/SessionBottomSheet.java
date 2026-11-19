@@ -414,19 +414,19 @@ public class SessionBottomSheet extends BottomSheet {
             valueText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
             valueText.setGravity(Gravity.LEFT);
             ThemeBind.textColor(valueText, Theme.key_windowBackgroundWhiteBlackText);
-            linearLayout.addView(valueText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, needSwitch ? 64 : 0, 0));
+            linearLayout.addView(valueText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 0, needSwitch ? 70 : 0, 0));
 
             descriptionText = new TextView(context);
             descriptionText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             descriptionText.setGravity(Gravity.LEFT);
             ThemeBind.textColor(descriptionText, Theme.key_windowBackgroundWhiteGrayText);
-            linearLayout.addView(descriptionText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 4, needSwitch ? 64 : 0, 0));
+            linearLayout.addView(descriptionText, LayoutHelper.createLinear(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, 0, 0, 4, needSwitch ? 70 : 0, 0));
             setPadding(0, dp(4), 0, dp(4));
 
             if (needSwitch) {
                 switchView = new Switch(context);
                 switchView.setDrawIconType(1);
-                addView(switchView, LayoutHelper.createFrame(37, 40, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 21, 0, 21, 0));
+                addView(switchView, LayoutHelper.createFrame(app.nimarkogram.messenger.appearance.MaterialStyle.switchWidth(), 40, Gravity.RIGHT | Gravity.CENTER_VERTICAL, 21, 0, 21, 0));
             }
         }
 

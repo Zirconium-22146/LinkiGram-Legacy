@@ -198,7 +198,7 @@ public class PluginCell extends FrameLayout implements NotificationCenter.Notifi
                 Gravity.START | Gravity.CENTER_VERTICAL));
 
         FrameLayout trailingSlot = new FrameLayout(context);
-        actionsFrame.addView(trailingSlot, LayoutHelper.createFrame(39, 40,
+        actionsFrame.addView(trailingSlot, LayoutHelper.createFrame(app.nimarkogram.messenger.appearance.MaterialStyle.switchWidth(), 40,
                 Gravity.END | Gravity.CENTER_VERTICAL));
 
         checkBox = new Switch(context, resourcesProvider);
@@ -208,7 +208,7 @@ public class PluginCell extends FrameLayout implements NotificationCenter.Notifi
         checkBox.setColors(trackKey, trackCheckedKey, thumbKey, thumbKey);
         checkBox.setFocusable(true);
         checkBox.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
-        trailingSlot.addView(checkBox, LayoutHelper.createFrame(39, 40, Gravity.CENTER));
+        trailingSlot.addView(checkBox, LayoutHelper.createFrame(app.nimarkogram.messenger.appearance.MaterialStyle.switchWidth(), 40, Gravity.CENTER));
 
         loadingSpinner = new ProgressBar(context);
         loadingSpinner.setIndeterminate(true);

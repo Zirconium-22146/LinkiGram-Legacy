@@ -11,6 +11,13 @@ public final class SettingsIconColors {
         int value = NimarkoConfig.getPreferences().getInt("settingsIconColorMode", NEUTRAL);
         return value >= NEUTRAL && value <= CUSTOM ? value : NEUTRAL;
     }
+    /** A flat plate a little darker than the settings list background; no glass, no gradient. */
+    public static int plateColor(int listBackground, boolean dark) {
+        return androidx.core.graphics.ColorUtils.blendARGB(listBackground, 0xFF000000, dark ? 0.30f : 0.12f);
+    }
+    public static int glyphColor(boolean dark) {
+        return dark ? 0xFFF2F2F7 : 0xFF17171A;
+    }
     public static int customColor() {
         return NimarkoConfig.getPreferences().getInt("settingsIconCustomColor", 0xFF7E72DE) | 0xFF000000;
     }

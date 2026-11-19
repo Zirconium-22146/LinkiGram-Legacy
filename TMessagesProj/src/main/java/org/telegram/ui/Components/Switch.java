@@ -475,10 +475,13 @@ public class Switch extends View implements Theme.Colorable {
             paint2.setColor(color);
 
             if (isMd3Style()) {
-                final float trackH = AndroidUtilities.dp(26);
-                rectF.set(-AndroidUtilities.dp(2), ty - trackH / 2f,
-                        getMeasuredWidth() + AndroidUtilities.dp(3), ty + trackH / 2f);
-                canvasToDraw.drawRoundRect(rectF, AndroidUtilities.dpf2(14), AndroidUtilities.dpf2(14), paint);
+                // Keep the track inside the view: drawing past the bounds gets clipped
+                // by the canvas and the rounded ends look cut off.
+                final float trackH = Math.min(AndroidUtilities.dp(26), getMeasuredHeight() - AndroidUtilities.dp(2));
+                final float half = trackH / 2f;
+                rectF.set(AndroidUtilities.dp(1), ty - half,
+                        getMeasuredWidth() - AndroidUtilities.dp(1), ty + half);
+                canvasToDraw.drawRoundRect(rectF, half, half, paint);
             } else {
                 rectF.set(x, y, x + width, y + AndroidUtilities.dpf2(14));
                 canvasToDraw.drawRoundRect(rectF, AndroidUtilities.dpf2(7), AndroidUtilities.dpf2(7), paint);
@@ -532,9 +535,15 @@ public class Switch extends View implements Theme.Colorable {
 
             if (isMd3Style()) {
                 final float p = Math.max(0f, Math.min(1f, progress));
-                final float thumbR = AndroidUtilities.dp(9) - AndroidUtilities.dp(2) * (1f - p) * (1f - p);
-                final float stretch = AndroidUtilities.dpf2(3) * (1f - Math.abs(2f * p - 1f));
-                rectF.set(tx - thumbR - stretch, ty - thumbR, tx + thumbR + stretch, ty + thumbR);
+                final float trackH = Math.min(AndroidUtilities.dp(26), getMeasuredHeight() - AndroidUtilities.dp(2));
+                final float half = trackH / 2f;
+                final float left = AndroidUtilities.dp(1);
+                final float right = getMeasuredWidth() - AndroidUtilities.dp(1);
+                final float thumbR = Math.max(AndroidUtilities.dp(2), Math.min(AndroidUtilities.dp(9), half - AndroidUtilities.dp(3)));
+                final float stretch = Math.min(AndroidUtilities.dpf2(3) * (1f - Math.abs(2f * p - 1f)),
+                        Math.max(0f, (right - left) / 2f - thumbR));
+                final float cx = left + half + (right - left - trackH) * p;
+                rectF.set(cx - thumbR - stretch, ty - thumbR, cx + thumbR + stretch, ty + thumbR);
                 canvasToDraw.drawRoundRect(rectF, thumbR, thumbR, paint);
                 continue;
             }

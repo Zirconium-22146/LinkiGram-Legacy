@@ -480,14 +480,14 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         quickActionsView = new LinearLayout(context);
         quickActionsView.setOrientation(LinearLayout.HORIZONTAL);
         topView.addView(quickActionsView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 12, 190, 12, 0));
-        addQuickAction(context, R.drawable.lg_settings_search, R.string.SettingsQuickSearch, () -> {
+        addQuickAction(context, R.drawable.msg_search, R.string.SettingsQuickSearch, () -> {
             if (searchItem != null) {
                 searchItem.openSearch(true);
             }
         });
-        addQuickAction(context, R.drawable.lg_settings_theme, R.string.SettingsQuickTheme, () -> presentSettingFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_BASIC)));
-        addQuickAction(context, R.drawable.lg_settings_data, R.string.SettingsQuickData, () -> presentSettingFragment(new DataSettingsActivity()));
-        addQuickAction(context, R.drawable.lg_settings_devices, R.string.SettingsQuickSessions, () -> presentSettingFragment(new SessionsActivity(0)));
+        addQuickAction(context, R.drawable.msg_theme, R.string.SettingsQuickTheme, () -> presentSettingFragment(new ThemeActivity(ThemeActivity.THEME_TYPE_BASIC)));
+        addQuickAction(context, R.drawable.settings_data, R.string.SettingsQuickData, () -> presentSettingFragment(new DataSettingsActivity()));
+        addQuickAction(context, R.drawable.settings_devices, R.string.SettingsQuickSessions, () -> presentSettingFragment(new SessionsActivity(0)));
         app.nimarkogram.messenger.LegacyCrashLog.step("settings: header and quick actions ready");
 
         versionView = new TextView(context);
@@ -838,43 +838,43 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         // LinkiGram settings hub. Sits above the standard Telegram entries, as it did
         // before the 12.10.2 update, so the fork features stay one tap away after login.
         // The login screen has its own button for the pre-authorization case.
-        items.add(SettingCell.Factory.of(900, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.lg_settings_legacy, getString(R.string.NimarkoGramSettings), getString(R.string.NimarkoGramSettingsInfo)));
+        items.add(SettingCell.Factory.of(900, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.msg_settings_solar, getString(R.string.NimarkoGramSettings), getString(R.string.NimarkoGramSettingsInfo)));
         items.add(UItem.asShadow(null));
         final boolean walletAbove = getConnectionsManager().getCurrentTime() - 1791538462 < 4 * 7 * 24 * 60 * 60;
         if (walletAbove && getMessagesController().config.walletAvailable.get()) {
             final GramWallet wallet = GramWallet.getInstance(currentAccount);
-            items.add(SettingCell.Factory.of(25, 0, 0, R.drawable.lg_settings_wallet, TextCell.applyNewSpanTimed(getString(R.string.WalletAttachMoney), 1790679020), null, wallet.getBalance() > 0 ? GramWallet.formatGrams(wallet.getBalance()) : null));
+            items.add(SettingCell.Factory.of(25, 0, 0, Theme.isCurrentThemeDark() ? R.drawable.settings_wallet_dark : R.drawable.settings_wallet, TextCell.applyNewSpanTimed(getString(R.string.WalletAttachMoney), 1790679020), null, wallet.getBalance() > 0 ? GramWallet.formatGrams(wallet.getBalance()) : null));
             items.add(UItem.asShadow(null));
         }
 
         // Two plain section headers: the list had grown into one long wall of rows where
         // the account settings, the Telegram purchases and the help links all looked alike.
         items.add(UItem.asHeader(getString(R.string.SettingsSectionGeneral)));
-        items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.lg_settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
-        items.add(SettingCell.Factory.of(2, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.lg_settings_chat, getString(R.string.SettingsChat), getString(R.string.SettingsChatInfo)));
-        items.add(SettingCell.Factory.of(3, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.lg_settings_privacy, getString(R.string.SettingsPrivacySecurity), getString(R.string.SettingsPrivacySecurityInfo)));
-        items.add(SettingCell.Factory.of(5, IconBackgroundColors.RED.top, IconBackgroundColors.RED.bottom, R.drawable.lg_settings_sounds, getString(R.string.SettingsNotifications), getString(R.string.SettingsNotificationsInfo)));
-        items.add(SettingCell.Factory.of(6, IconBackgroundColors.BLUE_DEEP.top, IconBackgroundColors.BLUE_DEEP.bottom, R.drawable.lg_settings_data, getString(R.string.SettingsData), getString(R.string.SettingsDataInfo)));
-        items.add(SettingCell.Factory.of(7, IconBackgroundColors.BLUE_ALT.top, IconBackgroundColors.BLUE_ALT.bottom, R.drawable.lg_settings_folders, getString(R.string.SettingsFolders), getString(R.string.SettingsFoldersInfo)));
-        items.add(SettingCell.Factory.of(8, IconBackgroundColors.CYAN.top, IconBackgroundColors.CYAN.bottom, R.drawable.lg_settings_devices, getString(R.string.SettingsDevices), getString(R.string.SettingsDevicesInfo)));
-        items.add(SettingCell.Factory.of(9, IconBackgroundColors.ORANGE_DEEP.top, IconBackgroundColors.ORANGE_DEEP.bottom, R.drawable.lg_settings_power, getString(R.string.SettingsPowerSaving), getString(R.string.SettingsPowerSavingInfo)));
-        items.add(SettingCell.Factory.of(10, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.lg_settings_language, getString(R.string.SettingsLanguage), LocaleController.getCurrentLanguageName()));
+        items.add(SettingCell.Factory.of(1, IconBackgroundColors.BLUE.top, IconBackgroundColors.BLUE.bottom, R.drawable.settings_account, getString(R.string.SettingsAccount), getString(R.string.SettingsAccountInfo)));
+        items.add(SettingCell.Factory.of(2, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.settings_chat, getString(R.string.SettingsChat), getString(R.string.SettingsChatInfo)));
+        items.add(SettingCell.Factory.of(3, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.settings_privacy, getString(R.string.SettingsPrivacySecurity), getString(R.string.SettingsPrivacySecurityInfo)));
+        items.add(SettingCell.Factory.of(5, IconBackgroundColors.RED.top, IconBackgroundColors.RED.bottom, R.drawable.settings_sounds, getString(R.string.SettingsNotifications), getString(R.string.SettingsNotificationsInfo)));
+        items.add(SettingCell.Factory.of(6, IconBackgroundColors.BLUE_DEEP.top, IconBackgroundColors.BLUE_DEEP.bottom, R.drawable.settings_data, getString(R.string.SettingsData), getString(R.string.SettingsDataInfo)));
+        items.add(SettingCell.Factory.of(7, IconBackgroundColors.BLUE_ALT.top, IconBackgroundColors.BLUE_ALT.bottom, R.drawable.settings_folders, getString(R.string.SettingsFolders), getString(R.string.SettingsFoldersInfo)));
+        items.add(SettingCell.Factory.of(8, IconBackgroundColors.CYAN.top, IconBackgroundColors.CYAN.bottom, R.drawable.settings_devices, getString(R.string.SettingsDevices), getString(R.string.SettingsDevicesInfo)));
+        items.add(SettingCell.Factory.of(9, IconBackgroundColors.ORANGE_DEEP.top, IconBackgroundColors.ORANGE_DEEP.bottom, R.drawable.settings_power, getString(R.string.SettingsPowerSaving), getString(R.string.SettingsPowerSavingInfo)));
+        items.add(SettingCell.Factory.of(10, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.settings_language, getString(R.string.SettingsLanguage), LocaleController.getCurrentLanguageName()));
 
         items.add(UItem.asShadow(null));
         if (!walletAbove && getMessagesController().config.walletAvailable.get()) {
             final GramWallet wallet = GramWallet.getInstance(currentAccount);
-            items.add(SettingCell.Factory.of(25, 0, 0, R.drawable.lg_settings_wallet, TextCell.applyNewSpanTimed(getString(R.string.WalletAttachMoney), 1790679020), null, wallet.getBalance() > 0 ? GramWallet.formatGrams(wallet.getBalance()) : null));
+            items.add(SettingCell.Factory.of(25, 0, 0, Theme.isCurrentThemeDark() ? R.drawable.settings_wallet_dark : R.drawable.settings_wallet, TextCell.applyNewSpanTimed(getString(R.string.WalletAttachMoney), 1790679020), null, wallet.getBalance() > 0 ? GramWallet.formatGrams(wallet.getBalance()) : null));
             items.add(UItem.asShadow(null));
         }
 
         items.add(UItem.asHeader(getString(R.string.SettingsSectionPurchases)));
         if (!getMessagesController().premiumFeaturesBlocked()) {
-            items.add(SettingCell.Factory.of(11, 0xFFB659FF, 0xFF617CFF, R.drawable.lg_settings_premium, getString(R.string.TelegramPremium)));
+            items.add(SettingCell.Factory.of(11, 0xFFB659FF, 0xFF617CFF, R.drawable.settings_premium, getString(R.string.TelegramPremium)));
         }
         if (getMessagesController().starsPurchaseAvailable()) {
             StarsController c = StarsController.getInstance(currentAccount);
             long balance = c.getBalance().amount;
-            items.add(SettingCell.Factory.of(12, 0xFFEFA612, 0xFFE77512, R.drawable.lg_settings_stars, getString(R.string.TelegramStars), null, c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : ""));
+            items.add(SettingCell.Factory.of(12, 0xFFEFA612, 0xFFE77512, R.drawable.settings_stars, getString(R.string.TelegramStars), null, c.balanceAvailable() && balance > 0 ? StarsIntroActivity.formatStarsAmount(c.getBalance(), 0.85f, ' ') : ""));
         }
         StarsController.getInstance(currentAccount, true).getBalance();
         if (ApplicationLoader.isBetaBuild() || ApplicationLoader.isStandaloneBuild() || ApplicationLoader.isHuaweiStoreBuild() || (StarsController.getInstance(currentAccount, true).balanceAvailable() && (StarsController.getInstance(currentAccount, true).hasTransactions() || StarsController.getInstance(currentAccount, true).getBalance().positive()))) {
@@ -884,19 +884,19 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         }
 
         if (!getMessagesController().premiumFeaturesBlocked()) {
-            items.add(SettingCell.Factory.of(15, 0xFFF45255, 0xFFDF3955, R.drawable.lg_settings_business, getString(R.string.TelegramBusiness)));
+            items.add(SettingCell.Factory.of(15, 0xFFF45255, 0xFFDF3955, R.drawable.settings_business, getString(R.string.TelegramBusiness)));
         }
         if (!getMessagesController().premiumPurchaseBlocked()) {
-            items.add(SettingCell.Factory.of(16, 0xFFF38B31, 0xFFE26314, R.drawable.lg_settings_gift, getString(R.string.SendAGift)));
+            items.add(SettingCell.Factory.of(16, 0xFFF38B31, 0xFFE26314, R.drawable.settings_gift, getString(R.string.SendAGift)));
         }
         if (items.get(items.size() - 1).viewType != UniversalAdapter.VIEW_TYPE_SHADOW)
             items.add(UItem.asShadow(null));
 
         items.add(UItem.asHeader(getString(R.string.SettingsHelp)));
-        items.add(SettingCell.Factory.of(17, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.lg_settings_ask, getString(R.string.AskAQuestion)));
-        items.add(SettingCell.Factory.of(18, IconBackgroundColors.BLUE_LIGHT.top, IconBackgroundColors.BLUE_LIGHT.bottom, R.drawable.lg_settings_faq, getString(R.string.TelegramFAQ)));
-        items.add(SettingCell.Factory.of(23, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.lg_settings_features, getString(R.string.TelegramFeatures)));
-        items.add(SettingCell.Factory.of(19, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.lg_settings_policy, getString(R.string.PrivacyPolicy)));
+        items.add(SettingCell.Factory.of(17, IconBackgroundColors.ORANGE.top, IconBackgroundColors.ORANGE.bottom, R.drawable.settings_ask, getString(R.string.AskAQuestion)));
+        items.add(SettingCell.Factory.of(18, IconBackgroundColors.BLUE_LIGHT.top, IconBackgroundColors.BLUE_LIGHT.bottom, R.drawable.settings_faq, getString(R.string.TelegramFAQ)));
+        items.add(SettingCell.Factory.of(23, IconBackgroundColors.PURPLE.top, IconBackgroundColors.PURPLE.bottom, R.drawable.settings_features, getString(R.string.TelegramFeatures)));
+        items.add(SettingCell.Factory.of(19, IconBackgroundColors.GREEN.top, IconBackgroundColors.GREEN.bottom, R.drawable.settings_policy, getString(R.string.PrivacyPolicy)));
 
         if (SharedSettings.experimentalSettingsAllowed.get()) {
             items.add(UItem.asShadow(null));
@@ -930,16 +930,16 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
         ThemeBind.selectorBackground(item, Theme.createSelectorDrawable(getThemedColor(Theme.key_listSelector), Theme.RIPPLE_MASK_ALL), null, ThemeBind.of(Theme.key_listSelector), getResourceProvider());
 
         final FrameLayout plate = new FrameLayout(context);
-        // A tonal plate: the accent at 12%, so it reads as a raised surface in the dark
-        // theme and as a soft tint in the light one without another hard colour.
-        ThemeBind.fillBackground(plate,
-                Theme.createCircleDrawable(dp(44), Theme.multAlpha(getThemedColor(Theme.key_windowBackgroundWhiteBlueText), 0.12f)),
-                ThemeBind.multAlpha(Theme.key_windowBackgroundWhiteBlueText, 0.12f),
-                getResourceProvider());
+        // A solid plate: a shade darker than the settings menu background, no glass.
+        final boolean dark = Theme.isCurrentThemeDark();
+        final int plateColor = app.nimarkogram.messenger.appearance.SettingsIconColors.plateColor(
+                getThemedColor(Theme.key_windowBackgroundGray), dark);
+        final int glyphColor = app.nimarkogram.messenger.appearance.SettingsIconColors.glyphColor(dark);
+        plate.setBackground(Theme.createCircleDrawable(dp(44), plateColor));
         final ImageView icon = new ImageView(context);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         icon.setImageResource(iconRes);
-        ThemeBind.colorFilter(icon, Theme.key_windowBackgroundWhiteBlueText, getResourceProvider(), PorterDuff.Mode.SRC_IN);
+        icon.setColorFilter(new PorterDuffColorFilter(glyphColor, PorterDuff.Mode.SRC_IN));
         plate.addView(icon, LayoutHelper.createFrame(22, 22, Gravity.CENTER));
         item.addView(plate, LayoutHelper.createLinear(44, 44, Gravity.CENTER_HORIZONTAL));
 
@@ -1454,26 +1454,29 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
             if (mode == app.nimarkogram.messenger.appearance.SettingsIconColors.ORIGINAL && hasBackground) {
                 iconBackground.setColor(originalIconColorTop, originalIconColorBottom);
                 glyph = android.graphics.Color.WHITE;
+            } else if (mode == app.nimarkogram.messenger.appearance.SettingsIconColors.ACCENT
+                    || mode == app.nimarkogram.messenger.appearance.SettingsIconColors.CUSTOM) {
+                glyph = mode == app.nimarkogram.messenger.appearance.SettingsIconColors.CUSTOM
+                        ? app.nimarkogram.messenger.appearance.SettingsIconColors.customColor()
+                        : Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourcesProvider);
+                plate = androidx.core.graphics.ColorUtils.blendARGB(
+                        Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), glyph, dark ? 0.22f : 0.12f);
+                iconBackground.setColor(plate, plate);
             } else {
-                if (mode == app.nimarkogram.messenger.appearance.SettingsIconColors.ACCENT
-                        || mode == app.nimarkogram.messenger.appearance.SettingsIconColors.CUSTOM) {
-                    glyph = mode == app.nimarkogram.messenger.appearance.SettingsIconColors.CUSTOM
-                            ? app.nimarkogram.messenger.appearance.SettingsIconColors.customColor()
-                            : Theme.getColor(Theme.key_windowBackgroundWhiteBlueText, resourcesProvider);
-                    plate = androidx.core.graphics.ColorUtils.blendARGB(
-                            Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider), glyph, dark ? 0.22f : 0.12f);
-                }
+                plate = app.nimarkogram.messenger.appearance.SettingsIconColors.plateColor(
+                        Theme.getColor(Theme.key_windowBackgroundGray, resourcesProvider), dark);
+                glyph = app.nimarkogram.messenger.appearance.SettingsIconColors.glyphColor(dark);
                 iconBackground.setColor(plate, plate);
             }
             iconView.setColorFilter(new PorterDuffColorFilter(glyph, PorterDuff.Mode.SRC_IN));
-            iconBackground.setDrawBorder(hasBackground && dark
-                    && mode == app.nimarkogram.messenger.appearance.SettingsIconColors.NEUTRAL);
+            iconBackground.setDrawBorder(false);
         }
         @Override
         public void addColorKeys(HashSet<Integer> colors) {
             colors.add(Theme.key_windowBackgroundWhiteBlackText);
             colors.add(Theme.key_windowBackgroundWhiteGrayText);
             colors.add(Theme.key_windowBackgroundWhiteBlueText);
+            colors.add(Theme.key_windowBackgroundGray);
         }
 
         private boolean twoLines;
