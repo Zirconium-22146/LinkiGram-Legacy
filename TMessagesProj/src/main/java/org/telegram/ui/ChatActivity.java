@@ -4141,11 +4141,7 @@ public class ChatActivity extends BaseFragment implements
                 } else if (id == search) {
                     openSearchWithText(isSupportedTags() ? "" : null);
                 } else if (id == scroll_to_begin) {
-                    // как и кнопка у края списка: в памяти только загруженные сообщения,
-                    // поэтому checkScrollForLoad подтягивает предыдущую страницу по ходу
-                    // прокрутки, и повторное нажатие доходит до самого первого сообщения.
-                    checkScrollForLoad(true);
-                    chatListView.smoothScrollToPosition(0);
+                    jumpToFirstMessage();
                 } else if (id == translate) {
                     getMessagesController().getTranslateController().setHideTranslateDialog(getDialogId(), false, true);
                     if (!getMessagesController().getTranslateController().toggleTranslatingDialog(getDialogId(), true)) {
@@ -18011,6 +18007,56 @@ public class ChatActivity extends BaseFragment implements
         }
         canShowScrollUpButton = show;
         sideControlsButtonsLayout.showButton(ChatActivitySideControlsButtonsLayout.BUTTON_SCROLL_UP, show, animated);
+    }
+
+    /**
+     * Legacy: "To the beginning" lands on the very first message at once instead of crawling
+     * upwards page by page. Only loaded messages live in the adapter, so the history is pulled
+     * back in hidden pages first and the list jumps to the top when the oldest page is in.
+     * The pages come from the local database while the cache lasts, so for most chats this is
+     * a handful of quick queries rather than a network round trip per page.
+     */
+    private boolean jumpingToBeginning;
+
+    private void jumpToFirstMessage() {
+        if (chatListView == null || chatAdapter == null || chatLayoutManager == null || chatAdapter.isFiltered) {
+            return;
+        }
+        if (jumpingToBeginning) {
+            return;
+        }
+        jumpingToBeginning = true;
+        jumpToFirstMessageStep(0);
+    }
+
+    private void jumpToFirstMessageStep(int attempt) {
+        if (!jumpingToBeginning) {
+            return;
+        }
+        if (chatListView == null || chatAdapter == null || chatLayoutManager == null || paused) {
+            jumpingToBeginning = false;
+            return;
+        }
+        final boolean startReached = endReached[0] && (mergeDialogId == 0 || endReached[1]);
+        // 600 steps of a 100 message page is 60000 messages; that is far beyond any chat this
+        // device keeps in memory, and it also keeps a broken load from spinning forever.
+        if (startReached || attempt > 600) {
+            jumpingToBeginning = false;
+            chatListView.scrollToPosition(0);
+            return;
+        }
+        if (loading) {
+            AndroidUtilities.runOnUIThread(() -> jumpToFirstMessageStep(attempt + 1), 40);
+            return;
+        }
+        loading = true;
+        waitingForLoad.add(lastLoadIndex);
+        if (!endReached[0]) {
+            getMessagesController().loadMessages(dialog_id, mergeDialogId, false, 100, maxMessageId[0], 0, !cacheEndReached[0], minDate[0], classGuid, 0, 0, chatMode, threadMessageId, replyMaxReadId, lastLoadIndex++, isTopic);
+        } else if (mergeDialogId != 0 && !endReached[1]) {
+            getMessagesController().loadMessages(mergeDialogId, 0, false, 100, maxMessageId[1], 0, !cacheEndReached[1], minDate[1], classGuid, 0, 0, chatMode, threadMessageId, replyMaxReadId, lastLoadIndex++, isTopic);
+        }
+        AndroidUtilities.runOnUIThread(() -> jumpToFirstMessageStep(attempt + 1), 40);
     }
 
     private void updateSearchUpDownButtonVisibility(boolean animated) {
@@ -48181,11 +48227,8 @@ public class ChatActivity extends BaseFragment implements
                 }
             });
         } else if (buttonId == ChatActivitySideControlsButtonsLayout.BUTTON_SCROLL_UP) {
-            // Only loaded messages exist in the adapter, so this is the oldest message in
-            // memory; checkScrollForLoad pulls the previous page in as the animation runs,
-            // which is what lets repeated taps walk all the way back.
-            checkScrollForLoad(true);
-            chatListView.smoothScrollToPosition(0);
+            // Legacy: the button and the menu item behave the same - straight to the first message.
+            jumpToFirstMessage();
         } else if (buttonId == ChatActivitySideControlsButtonsLayout.BUTTON_SEARCH_UP) {
             goToNextOrPrevSearchMessage(true);
         } else if (buttonId == ChatActivitySideControlsButtonsLayout.BUTTON_SEARCH_DOWN) {

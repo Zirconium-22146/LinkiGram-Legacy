@@ -204,6 +204,7 @@ public class SettingsActivity extends BaseFragment implements NotificationCenter
 
     @Override
     public boolean onFragmentCreate() {
+        app.nimarkogram.messenger.LegacyCrashLog.step("settings: onFragmentCreate");
         if (observersGroup != null) {
             observersGroup.removeAllObservers();
             observersGroup = null;

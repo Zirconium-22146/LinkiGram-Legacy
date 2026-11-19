@@ -65,7 +65,8 @@ public final class LegacyCrashLog {
             }
         });
         installed = true;
-        step("launch " + BuildVars.BUILD_VERSION_STRING + " (code " + NimarkoConfig.VERSION_CODE + ")");
+        step("launch " + BuildVars.BUILD_VERSION_STRING + " (code " + NimarkoConfig.VERSION_CODE + ")"
+                + " diag=3 targets=media,download,internal");
     }
 
     /**
@@ -136,10 +137,53 @@ public final class LegacyCrashLog {
     }
 
     private static void write(Context context, String fileName, byte[] bytes) {
-        if (writeWithMediaStore(context, fileName, bytes)) {
-            return;
+        // The app media folder needs no permission and no MediaStore at all: on Android 10+ it is
+        // the only external place the app may always write to, so it goes first. The Download
+        // copy is kept for the file manager, the internal one as the last resort.
+        final boolean media = writeToMediaDir(context, fileName, bytes);
+        boolean download = writeWithMediaStore(context, fileName, bytes);
+        if (!download) {
+            download = writeWithFile(fileName, bytes);
         }
-        writeWithFile(fileName, bytes);
+        final boolean internal = writeToInternalDir(context, fileName, bytes);
+        if (!media && !download && !internal) {
+            Log.e(TAG, "nowhere to write " + fileName);
+        }
+    }
+
+    private static boolean writeToMediaDir(Context context, String fileName, byte[] bytes) {
+        try {
+            final File[] dirs = context.getExternalMediaDirs();
+            if (dirs == null || dirs.length == 0 || dirs[0] == null) {
+                return false;
+            }
+            final File dir = new File(dirs[0], "diagnostics");
+            if (!dir.exists() && !dir.mkdirs()) {
+                return false;
+            }
+            final File file = new File(dir, fileName);
+            try (FileOutputStream stream = new FileOutputStream(file)) {
+                stream.write(bytes);
+            }
+            Log.e(TAG, "written " + file);
+            return true;
+        } catch (Throwable e) {
+            Log.e(TAG, "media dir write failed", e);
+            return false;
+        }
+    }
+
+    private static boolean writeToInternalDir(Context context, String fileName, byte[] bytes) {
+        try {
+            final File file = new File(context.getFilesDir(), fileName);
+            try (FileOutputStream stream = new FileOutputStream(file)) {
+                stream.write(bytes);
+            }
+            return true;
+        } catch (Throwable e) {
+            Log.e(TAG, "internal write failed", e);
+            return false;
+        }
     }
 
     private static boolean writeWithMediaStore(Context context, String fileName, byte[] bytes) {
@@ -179,20 +223,22 @@ public final class LegacyCrashLog {
         }
     }
 
-    private static void writeWithFile(String fileName, byte[] bytes) {
+    private static boolean writeWithFile(String fileName, byte[] bytes) {
         try {
             final File dir = new File(
                     Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), FOLDER);
             if (!dir.exists() && !dir.mkdirs()) {
-                return;
+                return false;
             }
             final File file = new File(dir, fileName);
             try (FileOutputStream stream = new FileOutputStream(file)) {
                 stream.write(bytes);
             }
-            Log.e(TAG, "crash written to " + file);
+            Log.e(TAG, "written " + file);
+            return true;
         } catch (Throwable e) {
             Log.e(TAG, "file write failed", e);
+            return false;
         }
     }
 }
