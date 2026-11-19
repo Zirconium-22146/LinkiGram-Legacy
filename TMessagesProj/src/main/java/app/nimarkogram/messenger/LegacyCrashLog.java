@@ -1,5 +1,7 @@
 package app.nimarkogram.messenger;
 
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
@@ -12,10 +14,12 @@ import android.util.Log;
 import org.telegram.messenger.BuildVars;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -82,6 +86,7 @@ public final class LegacyCrashLog {
             final Context context = appContext;
             if (context != null) {
                 write(context, STEPS_NAME, bytes);
+                copy(context, "LinkiGram steps", steps.toString());
             }
         }
     }
@@ -96,7 +101,64 @@ public final class LegacyCrashLog {
     }
 
     private static void write(Context context, Thread thread, Throwable t) {
-        write(context, FILE_NAME, buildReport(thread, t, null));
+        final byte[] report = buildReport(thread, t, null);
+        write(context, FILE_NAME, report);
+        // The app folder is off limits to every other app on Android 11+, and the Download copy
+        // does not always get written, so the clipboard is the channel that always works.
+        copy(context, "LinkiGram crash", new String(report, StandardCharsets.UTF_8));
+    }
+
+    /** The last crash report, for the diagnostics dialog of the chat. */
+    public static String readLastCrash() {
+        final Context context = appContext;
+        if (context == null) {
+            return "";
+        }
+        try {
+            final File[] dirs = context.getExternalMediaDirs();
+            if (dirs == null || dirs.length == 0 || dirs[0] == null) {
+                return "";
+            }
+            return readFile(new File(new File(dirs[0], "diagnostics"), FILE_NAME));
+        } catch (Throwable e) {
+            return "";
+        }
+    }
+
+    public static void copyToClipboard(String text) {
+        final Context context = appContext;
+        if (context != null) {
+            copy(context, "LinkiGram", text);
+        }
+    }
+
+    private static String readFile(File file) {
+        try (FileInputStream in = new FileInputStream(file)) {
+            final long length = file.length();
+            final byte[] buffer = new byte[(int) length];
+            int read = 0;
+            while (read < buffer.length) {
+                final int part = in.read(buffer, read, buffer.length - read);
+                if (part <= 0) {
+                    break;
+                }
+                read += part;
+            }
+            return new String(buffer, 0, read, StandardCharsets.UTF_8);
+        } catch (Throwable e) {
+            return "";
+        }
+    }
+
+    private static void copy(Context context, String label, String text) {
+        try {
+            final ClipboardManager manager = (ClipboardManager) context.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (manager != null) {
+                manager.setPrimaryClip(ClipData.newPlainText(label, text));
+            }
+        } catch (Throwable e) {
+            Log.e(TAG, "clipboard failed", e);
+        }
     }
 
     private static byte[] buildReport(Thread thread, Throwable t, String place) {
@@ -133,7 +195,9 @@ public final class LegacyCrashLog {
     }
 
     private static void write(Context context, String fileName, Throwable t) {
-        write(context, fileName, buildReport(Thread.currentThread(), t, fileName));
+        final byte[] report = buildReport(Thread.currentThread(), t, fileName);
+        write(context, fileName, report);
+        copy(context, "LinkiGram " + fileName, new String(report, StandardCharsets.UTF_8));
     }
 
     private static void write(Context context, String fileName, byte[] bytes) {

@@ -1819,6 +1819,7 @@ public class ChatActivity extends BaseFragment implements
 
     private final static int search = 40;
     private final static int scroll_to_begin = 74;
+    private final static int show_crash_log = 75;
 
     private final static int topic_close = 60;
     private final static int open_forum = 61;
@@ -4142,6 +4143,8 @@ public class ChatActivity extends BaseFragment implements
                     openSearchWithText(isSupportedTags() ? "" : null);
                 } else if (id == scroll_to_begin) {
                     jumpToFirstMessage();
+                } else if (id == show_crash_log) {
+                    showCrashLog();
                 } else if (id == translate) {
                     getMessagesController().getTranslateController().setHideTranslateDialog(getDialogId(), false, true);
                     if (!getMessagesController().getTranslateController().toggleTranslatingDialog(getDialogId(), true)) {
@@ -4573,6 +4576,8 @@ public class ChatActivity extends BaseFragment implements
             // Legacy: прыжок в самое начало истории прямо из меню шапки, не только кнопкой
             // у правого края списка.
             headerItem.lazilyAddSubItem(scroll_to_begin, R.drawable.msg_go_up, LocaleController.getString(R.string.CG_JumpToBeginning));
+            // Temporary: the crash report of the previous run, "Лог".
+            headerItem.lazilyAddSubItem(show_crash_log, R.drawable.msg_info, "\u041B\u043E\u0433");
             if (ChatObject.isBoostSupported(currentChat) && (getUserConfig().isPremium() || ChatObject.isBoosted(chatInfo) || ChatObject.hasAdminRights(currentChat))) {
                 RLottieDrawable drawable = new RLottieDrawable(R.raw.boosts, dp(24), dp(24));
                 headerItem.lazilyAddSubItem(boost_group, drawable, LocaleController.getString(ChatObject.isChannelAndNotMegaGroup(currentChat) ? R.string.BoostingBoostChannelMenu : R.string.BoostingBoostGroupMenu));
@@ -18057,6 +18062,28 @@ public class ChatActivity extends BaseFragment implements
             getMessagesController().loadMessages(mergeDialogId, 0, false, 100, maxMessageId[1], 0, !cacheEndReached[1], minDate[1], classGuid, 0, 0, chatMode, threadMessageId, replyMaxReadId, lastLoadIndex++, isTopic);
         }
         AndroidUtilities.runOnUIThread(() -> jumpToFirstMessageStep(attempt + 1), 40);
+    }
+
+    /**
+     * Legacy, temporary: the report of the last crash, copied to the clipboard and shown on the
+     * screen. Other apps cannot read the folder of this app on Android 11+, so this is how the
+     * report leaves the phone while the settings screen is being repaired.
+     */
+    private void showCrashLog() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        final String text = app.nimarkogram.messenger.LegacyCrashLog.readLastCrash();
+        if (text.isEmpty()) {
+            android.widget.Toast.makeText(getParentActivity(), "LinkiGram: no crash log", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        app.nimarkogram.messenger.LegacyCrashLog.copyToClipboard(text);
+        final AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
+        builder.setTitle("LinkiGram: \u043B\u043E\u0433");
+        builder.setMessage(text);
+        builder.setPositiveButton(LocaleController.getString(R.string.OK), null);
+        showDialog(builder.create());
     }
 
     private void updateSearchUpDownButtonVisibility(boolean animated) {
