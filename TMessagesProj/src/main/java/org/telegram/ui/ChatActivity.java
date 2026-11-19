@@ -1839,7 +1839,9 @@ public class ChatActivity extends BaseFragment implements
     private final static int charge_fee = 72;
 
     private final static int chat_menu_topic_create = 73;
-    private final static int chat_menu_topics_panel = 75;
+    // 75 is taken by auto_clean_timer in the header menu: a shared id made the topics
+    // button open the auto-clean timer instead of the panel.
+    private final static int chat_menu_topics_panel = 10083;
 
     private final static int id_chat_compose_panel = 1000;
 
@@ -18015,13 +18017,19 @@ public class ChatActivity extends BaseFragment implements
     }
 
     /**
-     * Legacy: "To the beginning" lands on the very first message at once instead of crawling
-     * upwards page by page. Only loaded messages live in the adapter, so the history is pulled
-     * back in hidden pages first and the list jumps to the top when the oldest page is in.
-     * The pages come from the local database while the cache lasts, so for most chats this is
-     * a handful of quick queries rather than a network round trip per page.
+     * Legacy: "To the beginning" lands on the very first message instead of crawling up one
+     * loaded page at a time. The chat list is reversed - the newest message is row 0 at the
+     * bottom and the oldest one is the last row - so the jump target is the last row of the
+     * adapter, not row 0 (row 0 is the bottom of the chat, which is why the button used to look
+     * dead).
+     *
+     * Only loaded messages live in the adapter, so the history is pulled back page by page in
+     * the background while the list stays parked on the oldest loaded message, and every page
+     * moves the park one page further up. checkScrollForLoad does the loading itself, which
+     * keeps the loading flag and the cache/end flags consistent with the rest of the screen.
      */
     private boolean jumpingToBeginning;
+    private long jumpingToBeginningStarted;
 
     private void jumpToFirstMessage() {
         if (chatListView == null || chatAdapter == null || chatLayoutManager == null || chatAdapter.isFiltered) {
@@ -18031,37 +18039,40 @@ public class ChatActivity extends BaseFragment implements
             return;
         }
         jumpingToBeginning = true;
-        jumpToFirstMessageStep(0);
+        jumpingToBeginningStarted = SystemClock.elapsedRealtime();
+        jumpToFirstMessageStep();
     }
 
-    private void jumpToFirstMessageStep(int attempt) {
+    /** Adapter row of the oldest message in memory, honouring the reversed (RTL) layout. */
+    private int oldestLoadedMessagePosition() {
+        if (messages.isEmpty() || chatAdapter.messagesStartRow < 0) {
+            return -1;
+        }
+        return chatAdapter.messagesStartRow + (reversed ? 0 : messages.size() - 1);
+    }
+
+    private void jumpToFirstMessageStep() {
         if (!jumpingToBeginning) {
             return;
         }
-        if (chatListView == null || chatAdapter == null || chatLayoutManager == null || paused) {
+        if (chatListView == null || chatAdapter == null || chatLayoutManager == null || chatAdapter.isFiltered || paused) {
             jumpingToBeginning = false;
             return;
+        }
+        final int position = oldestLoadedMessagePosition();
+        if (position >= 0) {
+            chatListView.stopScroll();
+            chatScrollHelper.scrollToPosition(position, 0, false, false);
         }
         final boolean startReached = endReached[0] && (mergeDialogId == 0 || endReached[1]);
-        // 600 steps of a 100 message page is 60000 messages; that is far beyond any chat this
-        // device keeps in memory, and it also keeps a broken load from spinning forever.
-        if (startReached || attempt > 600) {
+        // A chat that keeps handing out pages forever would pin the screen to the top, so the
+        // walk stops after five minutes and leaves the list on the oldest page it made it to.
+        if (startReached || SystemClock.elapsedRealtime() - jumpingToBeginningStarted > 5 * 60 * 1000L) {
             jumpingToBeginning = false;
-            chatListView.scrollToPosition(0);
             return;
         }
-        if (loading) {
-            AndroidUtilities.runOnUIThread(() -> jumpToFirstMessageStep(attempt + 1), 40);
-            return;
-        }
-        loading = true;
-        waitingForLoad.add(lastLoadIndex);
-        if (!endReached[0]) {
-            getMessagesController().loadMessages(dialog_id, mergeDialogId, false, 100, maxMessageId[0], 0, !cacheEndReached[0], minDate[0], classGuid, 0, 0, chatMode, threadMessageId, replyMaxReadId, lastLoadIndex++, isTopic);
-        } else if (mergeDialogId != 0 && !endReached[1]) {
-            getMessagesController().loadMessages(mergeDialogId, 0, false, 100, maxMessageId[1], 0, !cacheEndReached[1], minDate[1], classGuid, 0, 0, chatMode, threadMessageId, replyMaxReadId, lastLoadIndex++, isTopic);
-        }
-        AndroidUtilities.runOnUIThread(() -> jumpToFirstMessageStep(attempt + 1), 40);
+        checkScrollForLoad(true);
+        AndroidUtilities.runOnUIThread(this::jumpToFirstMessageStep, 80);
     }
 
     /**
