@@ -79,15 +79,12 @@ public final class LegacyCrashLog {
      * (a native abort of the blur engine, for instance).
      */
     public static void step(String what) {
+        // Breadcrumbs stay in memory only: the old eager write cost a MediaStore insert,
+        // a public Download write and a clipboard update per step, which made the settings
+        // screen open noticeably slower.
         synchronized (steps) {
             steps.append(new SimpleDateFormat("HH:mm:ss.SSS", Locale.US).format(new Date()))
                  .append("  ").append(what).append('\n');
-            final byte[] bytes = steps.toString().getBytes();
-            final Context context = appContext;
-            if (context != null) {
-                write(context, STEPS_NAME, bytes);
-                copy(context, "LinkiGram steps", steps.toString());
-            }
         }
     }
 
