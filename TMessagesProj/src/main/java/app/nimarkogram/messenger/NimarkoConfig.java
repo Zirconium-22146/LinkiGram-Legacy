@@ -23,7 +23,7 @@ public final class NimarkoConfig {
     public static final String APP_NAME = "Linkigram Legacy";
     
     public static final String VERSION_NAME = org.telegram.messenger.BuildVars.BUILD_VERSION_STRING;
-    public static final int VERSION_CODE = 13; // Updated for version 1.3
+    public static final int VERSION_CODE = 10; // Updated for version 1.0
 
     public static final long[] TRUSTED_AUTHOR_IDS = new long[0];
 
@@ -151,7 +151,7 @@ public final class NimarkoConfig {
     }
 
     public static String fullVersionString() {
-        return APP_NAME + " v" + VERSION_NAME + " (1.3)";
+        return APP_NAME + " v" + VERSION_NAME;
     }
 
     // Ported from exteraless/exteraless: whether profile music shows as a card

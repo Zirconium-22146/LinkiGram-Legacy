@@ -121,7 +121,8 @@ android {
                 // is not registered there. A suffix would break
                 // :processAfatStandaloneGoogleServices with
                 // "No matching client found for package name".
-                versionNameSuffix "-lite"
+                // Release 1.0 ships without the "-lite" suffix: the version in
+                // Android settings should read plain "1.0".
             }
             sourceSets.standalone {
                 manifest.srcFile '../TMessagesProj/config/release/AndroidManifest_standalone.xml'
