@@ -309,6 +309,21 @@ public final class NimarkoConfig {
         getEditor().putBoolean("ghostReadReceipts", ghostReadReceipts).apply();
     }
 
+    /**
+     * "Unread mode": the chat is read locally as usual, but the read receipt is never
+     * sent, so the other person keeps the single "sent" check mark. It does not touch
+     * the online status or the typing indicator, unlike the ghost preset.
+     */
+    public static volatile boolean keepChatsUnread = getPreferences().getBoolean("keepChatsUnread", true);
+    public static void toggleKeepChatsUnread() {
+        setKeepChatsUnread(!keepChatsUnread);
+    }
+    public static void setKeepChatsUnread(boolean value) {
+        keepChatsUnread = value;
+        getEditor().putBoolean("keepChatsUnread", value).apply();
+    }
+
+
     // Ghost mode extras (port of AyuGram/exteraless ghost options)
     public static volatile boolean ghostStories = getPreferences().getBoolean("ghostStories", false);
     public static void toggleGhostStories() {
@@ -316,7 +331,7 @@ public final class NimarkoConfig {
         getEditor().putBoolean("ghostStories", ghostStories).apply();
     }
 
-    public static volatile boolean ghostReadAfterSend = getPreferences().getBoolean("ghostReadAfterSend", true);
+    public static volatile boolean ghostReadAfterSend = getPreferences().getBoolean("ghostReadAfterSend", false);
     public static void toggleGhostReadAfterSend() {
         ghostReadAfterSend = !ghostReadAfterSend;
         getEditor().putBoolean("ghostReadAfterSend", ghostReadAfterSend).apply();
@@ -348,8 +363,11 @@ public final class NimarkoConfig {
         ghostOnline = hiding;
         ghostReadReceipts = hiding;
         ghostStories = hiding;
-        ghostReadAfterSend = !hiding || preset != PRESET_PARANOIA;
+        // Read-after-send sends a real read receipt, so a hiding preset must not turn
+        // it on: it is an explicit opt-in only.
+        ghostReadAfterSend = !hiding;
         ghostOfflineAfterSend = preset == PRESET_PARANOIA;
+        keepChatsUnread = hiding;
         getEditor()
             .putInt("privacyPreset", preset)
             .putBoolean("ghostTyping", ghostTyping)
@@ -359,6 +377,7 @@ public final class NimarkoConfig {
             .putBoolean("ghostStories", ghostStories)
             .putBoolean("ghostReadAfterSend", ghostReadAfterSend)
             .putBoolean("ghostOfflineAfterSend", ghostOfflineAfterSend)
+            .putBoolean("keepChatsUnread", keepChatsUnread)
             .apply();
         if (hiding) {
             try {
@@ -2756,5 +2775,25 @@ public final class NimarkoConfig {
         java.util.List<String> list = editHistory.get(dialogId + ":" + messageId);
         if (list == null) return Collections.emptyList();
         return new ArrayList<>(list);
+    }
+
+    /**
+     * Older builds defaulted "read after send" to on, and the privacy presets turned it
+     * on as well. That sent a real read receipt every time a message was sent, which is
+     * exactly what ghost mode promises not to do. Clear it once for existing installs;
+     * afterwards the switch is whatever the user picked.
+     */
+    static {
+        try {
+            if (getPreferences().getInt("privacyModelVersion", 0) < 1) {
+                ghostReadAfterSend = false;
+                getEditor()
+                        .putBoolean("ghostReadAfterSend", false)
+                        .putInt("privacyModelVersion", 1)
+                        .apply();
+            }
+        } catch (Throwable t) {
+            org.telegram.messenger.FileLog.e("nimarko: privacy migration failed", t);
+        }
     }
 }

@@ -1422,6 +1422,9 @@ public class ChatActivity extends BaseFragment implements
         boolean typingExcluded = com.radolyn.ayugram.utils.AyuGhostPreferences.isTypingExcluded(currentAccount, getDialogId());
         java.util.ArrayList<String> hidden = new java.util.ArrayList<>();
         if (NimarkoConfig.ghostReadReceipts && !readExcluded) hidden.add(LocaleController.getString(R.string.NM_GhostReadReceipts));
+        else if (com.radolyn.ayugram.utils.AyuUnreadPreferences.shouldSuppressRead(getDialogId())) {
+            hidden.add(LocaleController.getString(R.string.NM_UnreadReadReceiptsHidden));
+        }
         if (NimarkoConfig.ghostTyping && !typingExcluded) hidden.add(LocaleController.getString(R.string.NM_GhostTyping));
         if (NimarkoConfig.ghostRecording && !typingExcluded) hidden.add(LocaleController.getString(R.string.NM_GhostRecording));
         if (com.radolyn.ayugram.utils.AyuGhostUtils.storyGhostSession
@@ -1490,6 +1493,34 @@ public class ChatActivity extends BaseFragment implements
         });
         builder.setNegativeButton(LocaleController.getString(R.string.Cancel), null);
         showDialog(builder.create());
+    }
+
+    private void toggleUnreadChat() {
+        final long dialogId = getDialogId();
+        if (!org.telegram.messenger.DialogObject.isUserDialog(dialogId)
+                && !org.telegram.messenger.DialogObject.isEncryptedDialog(dialogId)) {
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.info,
+                    LocaleController.getString(R.string.NM_UnreadPrivateOnly)).show();
+            return;
+        }
+        final boolean suppressed = com.radolyn.ayugram.utils.AyuUnreadPreferences.shouldSuppressRead(dialogId);
+        com.radolyn.ayugram.utils.AyuUnreadPreferences.setChatOverride(dialogId, !suppressed);
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.done, LocaleController.getString(suppressed
+                ? R.string.NM_UnreadReceiptsOn
+                : R.string.NM_UnreadReceiptsOff)).show();
+    }
+
+    private void markChatAsReadNow() {
+        final long dialogId = getDialogId();
+        final TLRPC.Dialog dialog = getMessagesController().getDialog(dialogId);
+        if (dialog == null || dialog.top_message == 0) {
+            return;
+        }
+        com.radolyn.ayugram.utils.AyuUnreadPreferences.forceReadOnce(dialogId);
+        getMessagesController().markDialogAsRead(dialogId, dialog.top_message, dialog.top_message,
+                getConnectionsManager().getCurrentTime(), false, 0, 0, true, 0);
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.done,
+                LocaleController.getString(R.string.NM_UnreadMarkedRead)).show();
     }
 
     private void toggleSaveDeletedChat() {
@@ -1813,6 +1844,8 @@ public class ChatActivity extends BaseFragment implements
     private final static int ghost_chat_toggle = 76;
     private final static int ghost_chat_status = 77;
     private final static int save_deleted_chat_toggle = 78;
+    private final static int unread_chat_toggle = 79;
+    private final static int unread_chat_mark_read = 80;
     private final static int linkigram_chat_statistics = 10081;
 
     private final static int bot_help = 30;
@@ -4017,6 +4050,16 @@ public class ChatActivity extends BaseFragment implements
                         return;
                     }
                     toggleSaveDeletedChat();
+                } else if (id == unread_chat_toggle) {
+                    if (getParentActivity() == null) {
+                        return;
+                    }
+                    toggleUnreadChat();
+                } else if (id == unread_chat_mark_read) {
+                    if (getParentActivity() == null) {
+                        return;
+                    }
+                    markChatAsReadNow();
                 } else if (id == clear_history || id == delete_chat || id == auto_delete_timer) {
                     if (getParentActivity() == null) {
                         return;
@@ -4630,6 +4673,12 @@ public class ChatActivity extends BaseFragment implements
                     if (NimarkoConfig.saveDeletedMessages) {
                         headerItem.lazilyAddSubItem(save_deleted_chat_toggle, R.drawable.msg_archive_solar,
                             LocaleController.getString(R.string.NM_Ayu_SaveDeletedInChat));
+                    }
+                    headerItem.lazilyAddSubItem(unread_chat_toggle, R.drawable.msg_markunread,
+                        LocaleController.getString(R.string.NM_UnreadChatToggle));
+                    if (com.radolyn.ayugram.utils.AyuUnreadPreferences.shouldSuppressRead(getDialogId())) {
+                        headerItem.lazilyAddSubItem(unread_chat_mark_read, R.drawable.msg_markread_solar,
+                            LocaleController.getString(R.string.NM_UnreadMarkRead));
                     }
                 }
             }

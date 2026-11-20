@@ -11980,14 +11980,14 @@
 <string name="NM_GhostMaster">Enable ghost mode</string>
 <string name="NM_GhostMaster_Desc">Turn all ghost options on or off at once</string>
 <string name="NM_PrivacyPreset">Privacy preset</string>
-<string name="NM_PrivacyPreset_Desc">Set all ghost-mode options at once</string>
+<string name="NM_PrivacyPreset_Desc">One tap: \'Invisible\' hides online, typing, views and read receipts, \'Paranoia\' also goes offline after sending</string>
 <string name="NM_PresetNormal">Normal</string>
 <string name="NM_PresetGhost">Invisible</string>
 <string name="NM_PresetParanoia">Paranoia</string>
 <string name="NM_GhostStories">Hide story views</string>
 <string name="NM_GhostStories_Desc">Don\'t mark stories as viewed</string>
 <string name="NM_GhostReadAfterSend">Mark as read after sending</string>
-<string name="NM_GhostReadAfterSend_Desc">When read receipts are hidden, mark the chat as read after you send a message in it</string>
+<string name="NM_GhostReadAfterSend_Desc">Sends the other side a real read receipt after every message you send. Leave it off unless you need that: otherwise receipts never go out</string>
 <string name="NM_GhostOfflineAfterSend">Go offline after sending</string>
 <string name="NM_GhostOfflineAfterSend_Desc">Send an offline status shortly after each outgoing message</string>
 <string name="NM_GhostTyping">Hide typing status</string>
@@ -13305,4 +13305,15 @@
     <string name="NM_Ayu_StorageCleared">Saved files deleted</string>
     <string name="NM_Ayu_SaveDeletedInChatOn">Deleted messages are saved in this chat</string>
     <string name="NM_Ayu_SaveDeletedInChatOff">Deleted messages are not saved in this chat</string>
+    <string name="NM_UnreadMode">Don\'t send read receipts</string>
+    <string name="NM_UnreadMode_Desc">Opened chats stay unread for the other person: they see a single check mark instead of two. Online status and typing are not affected.</string>
+    <string name="NM_UnreadChatToggle">Don\'t send read receipts in this chat</string>
+    <string name="NM_UnreadReceiptsOn">Read receipts are sent in this chat again</string>
+    <string name="NM_UnreadReceiptsOff">Read receipts are no longer sent in this chat</string>
+    <string name="NM_UnreadMarkRead">Mark as read</string>
+    <string name="NM_UnreadMarkedRead">Chat marked as read</string>
+    <string name="NM_UnreadReset">Reset per-chat choices</string>
+    <string name="NM_UnreadResetDone">Per-chat choices reset</string>
+    <string name="NM_UnreadReadReceiptsHidden">read receipts are not sent</string>
+    <string name="NM_UnreadPrivateOnly">Read receipts only exist in private chats</string>
 </resources>

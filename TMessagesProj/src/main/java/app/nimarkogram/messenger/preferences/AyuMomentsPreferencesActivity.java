@@ -78,6 +78,8 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
     private static final int ROW_GHOST_OFFLINE_AFTER = 167;
     private static final int ROW_GHOST_RECORDING = 169;
     private static final int ROW_LAST_SEEN_CACHE     = 168;
+    private static final int ROW_UNREAD_MODE         = 170;
+    private static final int ROW_UNREAD_RESET        = 171;
 
     private static final int DATABASE_IMPORT_REQUEST_CODE = 6110;
 
@@ -125,6 +127,15 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
                         LocaleController.getString(R.string.NM_GhostOfflineAfterSend),
                         LocaleController.getString(R.string.NM_GhostOfflineAfterSend_Desc))
                 .setChecked(NimarkoConfig.ghostOfflineAfterSend));
+        items.add(SettingsHelper.asSwitchCG(ROW_UNREAD_MODE,
+                        LocaleController.getString(R.string.NM_UnreadMode),
+                        LocaleController.getString(R.string.NM_UnreadMode_Desc))
+                .setChecked(NimarkoConfig.keepChatsUnread));
+        if (com.radolyn.ayugram.utils.AyuUnreadPreferences.anyChatOverrides()) {
+            items.add(UItem.asButton(ROW_UNREAD_RESET,
+                    R.drawable.msg_clear_solar,
+                    LocaleController.getString(R.string.NM_UnreadReset)));
+        }
         items.add(UItem.asShadow(null));
 
         // ===== Saving of deleted messages =====
@@ -284,6 +295,17 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
             case ROW_LAST_SEEN_CACHE:
                 NimarkoConfig.toggleLastSeenCacheEnabled();
                 updateCheckState(view, NimarkoConfig.lastSeenCacheEnabled);
+                break;
+            case ROW_UNREAD_MODE:
+                NimarkoConfig.toggleKeepChatsUnread();
+                updateCheckState(view, NimarkoConfig.keepChatsUnread);
+                reloadMainInfo();
+                break;
+            case ROW_UNREAD_RESET:
+                com.radolyn.ayugram.utils.AyuUnreadPreferences.clearChatOverrides();
+                reloadMainInfo();
+                BulletinFactory.of(this).createSimpleBulletin(R.raw.done,
+                        LocaleController.getString(R.string.NM_UnreadResetDone)).show();
                 break;
             case ROW_SAVE_DELETED_MASTER:
                 NimarkoConfig.toggleSaveDeletedMessages();

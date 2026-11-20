@@ -73,7 +73,7 @@ public class MainPreferencesActivity extends BasePreferencesActivity {
     private int easterEggClicks = 0;
     private long easterEggLastClickTime = 0;
 
-    private static final String SOURCE_REPOSITORY_URL = "https://github.com/timaa130704/LinkiGram";
+    private static final String SOURCE_REPOSITORY_URL = "https://github.com/Zirconium-22146/LinkiGram-Legacy";
     private static final String CHERRYGRAM_URL = "https://github.com/arslan4k1390/Cherrygram";
 
     private View aboutHeader;

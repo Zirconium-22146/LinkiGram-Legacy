@@ -10644,7 +10644,16 @@ public class MessagesController extends BaseController implements NotificationCe
         checkReadTasks();
 
         if (getUserConfig().isClientActivated()) {
-            if (!ignoreSetOnline && getConnectionsManager().getPauseTime() == 0 && ApplicationLoader.isScreenOn && !ApplicationLoader.mainInterfacePausedStageQueue) {
+            if (app.nimarkogram.messenger.NimarkoConfig.ghostOnline) {
+                // Ghost mode: presence is never announced. Pretend the update just went
+                // through, otherwise the online branch would retry forever, and leave
+                // offlineSent clear so the "going offline" branch below can still send a
+                // single offline update. Turning ghost off sends the online update on the
+                // next tick, because offlineSent is set by then.
+                statusSettingState = 0;
+                lastStatusUpdateTime = currentTime;
+                offlineSent = false;
+            } else if (!ignoreSetOnline && getConnectionsManager().getPauseTime() == 0 && ApplicationLoader.isScreenOn && !ApplicationLoader.mainInterfacePausedStageQueue) {
                 if (ApplicationLoader.mainInterfacePausedStageQueueTime != 0 && Math.abs(ApplicationLoader.mainInterfacePausedStageQueueTime - System.currentTimeMillis()) > 1000) {
                     if (statusSettingState != 1 && (lastStatusUpdateTime == 0 || Math.abs(System.currentTimeMillis() - lastStatusUpdateTime) >= 55000 || offlineSent)) {
                         statusSettingState = 1;
