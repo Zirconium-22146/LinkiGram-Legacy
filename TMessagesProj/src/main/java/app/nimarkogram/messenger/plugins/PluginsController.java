@@ -2667,6 +2667,9 @@ public class PluginsController implements PluginsHooks {
     }
 
     private void showInstallDialog(final BaseFragment baseFragment, InstallPluginBottomSheet.PluginInstallParams pluginInstallParams) {
+        // The engine may have been skipped at launch because the folder was empty.
+        // Installing a plugin is exactly the moment it has to be running.
+        init();
         if (baseFragment == null || !AndroidUtilities.isActivityRunning(baseFragment.getParentActivity()) || TextUtils.isEmpty(pluginInstallParams.filePath)) {
             return;
         }
