@@ -94,7 +94,10 @@ public class AyuGhostUtils {
             req = request;
         }
 
-        AyuState.setAllowReadPacket(true, 1);
+        // Explicit bypass instead of the old global one-shot flag: with one flag per
+        // process another chat's read request could consume the permission first and
+        // let its own receipt through.
+        bypass(req);
         getConnectionsManager().sendRequest(req, (response, error) -> {
             if (error == null) {
                 if (response instanceof TLRPC.TL_messages_affectedMessages res) {
@@ -146,7 +149,10 @@ public class AyuGhostUtils {
             req = request;
         }
 
-        AyuState.setAllowReadPacket(true, 1);
+        // Explicit bypass instead of the old global one-shot flag: with one flag per
+        // process another chat's read request could consume the permission first and
+        // let its own receipt through.
+        bypass(req);
         getConnectionsManager().sendRequest(req, (response, error) -> {
             if (error == null) {
                 if (response instanceof TLRPC.TL_messages_affectedMessages res) {
@@ -238,7 +244,10 @@ public class AyuGhostUtils {
                 views.increment = false;
             }
         } else if (app.nimarkogram.messenger.NimarkoConfig.ghostReadReceipts && (isReadMessageRequest(object))) {
-            if (!AyuState.getAllowReadPacket() && !readExcluded) {
+            // Everything is blocked, including the requests the client sends by itself.
+            // Only explicitly bypassed ones go out: "mark as read" and, when the user
+            // turns it on, read-after-send.
+            if (!readExcluded && !AyuUnreadPreferences.isForced(unreadDialogId)) {
                 FileLog.d("GhostMode: Blocking read status request and sending fake response.");
                 sendFakeReadResponse(onCompleteOrig);
                 return InterceptResult.Blocked(onCompleteOrig);
@@ -253,6 +262,9 @@ public class AyuGhostUtils {
 
         // Force offline if online status sending disabled
         if (app.nimarkogram.messenger.NimarkoConfig.ghostOnline && object instanceof TL_account.updateStatus updateStatus) {
+            // Last line of defence: updateTimerProc already stops announcing presence
+            // while ghost is on, but anything that still sends this request goes out as
+            // "offline" instead of "online".
             FileLog.d("GhostMode: Forcing offline status in updateStatus request.");
             updateStatus.offline = true;
         }
@@ -285,7 +297,8 @@ public class AyuGhostUtils {
 
             if (peer != null) {
                 var dialogId = AyuGhostUtils.getDialogId(peer);
-                if (AyuGhostPreferences.isReadExcluded(account, dialogId)) {
+                if (AyuGhostPreferences.isReadExcluded(account, dialogId)
+                        || AyuUnreadPreferences.shouldSuppressRead(dialogId == null ? 0 : dialogId)) {
                     return;
                 }
                 getMessagesStorage().getStorageQueue().postRunnable(() ->
@@ -348,6 +361,8 @@ public class AyuGhostUtils {
             return getDialogId(obj.channel);
         } else if (object instanceof TLRPC.TL_messages_getMessagesViews obj) {
             return getDialogId(obj.peer);
+        } else if (object instanceof TLRPC.TL_messages_readSavedHistory obj) {
+            return getDialogId(obj.parent_peer);
         }
         return null;
     }
@@ -385,6 +400,7 @@ public class AyuGhostUtils {
                 object instanceof TLRPC.TL_messages_readMessageContents ||
                 object instanceof TLRPC.TL_channels_readMessageContents ||
                 object instanceof TLRPC.TL_channels_readHistory ||
+                object instanceof TLRPC.TL_messages_readSavedHistory ||
                 object instanceof TLRPC.TL_messages_getMessagesViews obj && obj.increment;
     }
 
@@ -395,7 +411,8 @@ public class AyuGhostUtils {
                 object instanceof TLRPC.TL_messages_readDiscussion ||
                 object instanceof TLRPC.TL_messages_readMessageContents ||
                 object instanceof TLRPC.TL_channels_readMessageContents ||
-                object instanceof TLRPC.TL_channels_readHistory;
+                object instanceof TLRPC.TL_channels_readHistory ||
+                object instanceof TLRPC.TL_messages_readSavedHistory;
     }
 
     private static boolean isReadStoriesRequest(TLObject object) {

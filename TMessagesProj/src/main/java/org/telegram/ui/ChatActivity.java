@@ -1422,6 +1422,9 @@ public class ChatActivity extends BaseFragment implements
         boolean typingExcluded = com.radolyn.ayugram.utils.AyuGhostPreferences.isTypingExcluded(currentAccount, getDialogId());
         java.util.ArrayList<String> hidden = new java.util.ArrayList<>();
         if (NimarkoConfig.ghostReadReceipts && !readExcluded) hidden.add(LocaleController.getString(R.string.NM_GhostReadReceipts));
+        else if (com.radolyn.ayugram.utils.AyuUnreadPreferences.shouldSuppressRead(getDialogId())) {
+            hidden.add(LocaleController.getString(R.string.NM_UnreadReadReceiptsHidden));
+        }
         if (NimarkoConfig.ghostTyping && !typingExcluded) hidden.add(LocaleController.getString(R.string.NM_GhostTyping));
         if (NimarkoConfig.ghostRecording && !typingExcluded) hidden.add(LocaleController.getString(R.string.NM_GhostRecording));
         if (com.radolyn.ayugram.utils.AyuGhostUtils.storyGhostSession
