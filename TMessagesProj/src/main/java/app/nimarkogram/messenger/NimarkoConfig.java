@@ -418,10 +418,27 @@ public final class NimarkoConfig {
         getEditor().putBoolean("saveReadDate", saveReadDate).apply();
     }
 
-    public static volatile boolean saveMediaFiles = getPreferences().getBoolean("saveMediaFiles", false);
+    private static final String SAVE_MEDIA_KEY = "saveMediaFilesV2";
+    public static volatile boolean saveMediaFiles = readSaveMediaDefault();
+
+    private static boolean readSaveMediaDefault() {
+        // Older builds defaulted to off, so almost nobody turned it on. Copying the files
+        // is what keeps deleted photos in the chat after a restart, so it is on by default
+        // now; an explicit old choice is still respected.
+        SharedPreferences preferences = getPreferences();
+        if (preferences.contains(SAVE_MEDIA_KEY)) {
+            return preferences.getBoolean(SAVE_MEDIA_KEY, true);
+        }
+        return preferences.getBoolean("saveMediaFiles", true);
+    }
+
+    public static void setSaveMediaFiles(boolean value) {
+        saveMediaFiles = value;
+        getEditor().putBoolean(SAVE_MEDIA_KEY, value).apply();
+    }
+
     public static void toggleSaveMediaFiles() {
-        saveMediaFiles = !saveMediaFiles;
-        getEditor().putBoolean("saveMediaFiles", saveMediaFiles).apply();
+        setSaveMediaFiles(!saveMediaFiles);
     }
 
     public static volatile boolean saveMediaInPrivateChats = getPreferences().getBoolean("saveMediaInPrivateChats", true);

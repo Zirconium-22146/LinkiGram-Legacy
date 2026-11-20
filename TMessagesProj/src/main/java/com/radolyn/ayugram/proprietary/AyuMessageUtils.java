@@ -368,8 +368,19 @@ public abstract class AyuMessageUtils {
                 if (TextUtils.isEmpty(mediaPath)) {
                     return;
                 }
-                target.attachPath = mediaPath;
                 File file = new File(mediaPath);
+                if (!file.exists() || file.length() == 0) {
+                    // The file may live in the attachments folder under the same name even
+                    // when the database still points at an old path.
+                    File repaired = findExistingFileByBaseNameFast(file.getName());
+                    if (repaired == null) {
+                        FileLog.d("mapMedia: saved media file is gone: " + mediaPath);
+                        return;
+                    }
+                    mediaPath = repaired.getAbsolutePath();
+                    file = repaired;
+                }
+                target.attachPath = mediaPath;
                 if (documentType == AyuConstants.DOCUMENT_TYPE_PHOTO) {
                     Pair<Integer, Integer> sizePair = AyuUtils.extractImageSizeFromName(file.getName());
                     if (sizePair == null) {

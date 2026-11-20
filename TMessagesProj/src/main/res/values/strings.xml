@@ -13296,4 +13296,13 @@
     <string name="SettingsSectionGeneral">General</string>
     <string name="SettingsSectionPurchases">Purchases</string>
     <string name="LinkiWallpaperDownloading">Downloading the wallpaper…</string>
+    <string name="NM_Ayu_MediaMissing">Media was not saved</string>
+    <string name="NM_Ayu_SaveDeletedInChat">Save deleted messages in this chat</string>
+    <string name="NM_Ayu_StorageTitle">Saved attachments</string>
+    <string name="NM_Ayu_StorageUsed">%1$s on disk</string>
+    <string name="NM_Ayu_StorageEmpty">No saved files yet</string>
+    <string name="NM_Ayu_StorageClear">Delete saved files</string>
+    <string name="NM_Ayu_StorageCleared">Saved files deleted</string>
+    <string name="NM_Ayu_SaveDeletedInChatOn">Deleted messages are saved in this chat</string>
+    <string name="NM_Ayu_SaveDeletedInChatOff">Deleted messages are not saved in this chat</string>
 </resources>

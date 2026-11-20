@@ -12,6 +12,8 @@ import com.radolyn.ayugram.messages.AyuMessagesController;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
+import org.telegram.messenger.LocaleController;
+import org.telegram.messenger.R;
 import org.telegram.messenger.MessageObject;
 import org.telegram.messenger.MessagesController;
 import org.telegram.messenger.MessagesStorage;
@@ -269,6 +271,15 @@ public abstract class AyuHistoryHook {
         }
         tlMessage.ayuDeleted = true;
         AyuMessageUtils.mapMedia(deletedMessageFull.message, tlMessage, accountId);
+        if ((tlMessage.flags & TLRPC.MESSAGE_FLAG_HAS_MEDIA) != 0 && tlMessage.media == null) {
+            // The media was never downloaded, or an older build failed to copy it before
+            // the message disappeared. Keep the text and say plainly that the file is gone
+            // instead of drawing an empty bubble.
+            tlMessage.flags &= ~TLRPC.MESSAGE_FLAG_HAS_MEDIA;
+            if (TextUtils.isEmpty(tlMessage.message)) {
+                tlMessage.message = LocaleController.getString(R.string.NM_Ayu_MediaMissing);
+            }
+        }
         return tlMessage;
     }
 

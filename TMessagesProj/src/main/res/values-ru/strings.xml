@@ -1797,4 +1797,13 @@
     <string name="SettingsSectionGeneral">Основное</string>
     <string name="SettingsSectionPurchases">Покупки</string>
     <string name="LinkiWallpaperDownloading">Загружаю обои…</string>
+    <string name="NM_Ayu_MediaMissing">Медиа не сохранилось</string>
+    <string name="NM_Ayu_SaveDeletedInChat">Сохранять удалённые сообщения в этом чате</string>
+    <string name="NM_Ayu_StorageTitle">Сохранённые вложения</string>
+    <string name="NM_Ayu_StorageUsed">Занято %1$s</string>
+    <string name="NM_Ayu_StorageEmpty">Пока ничего не сохранено</string>
+    <string name="NM_Ayu_StorageClear">Удалить сохранённые файлы</string>
+    <string name="NM_Ayu_StorageCleared">Сохранённые файлы удалены</string>
+    <string name="NM_Ayu_SaveDeletedInChatOn">Удалённые сообщения в этом чате сохраняются</string>
+    <string name="NM_Ayu_SaveDeletedInChatOff">Удалённые сообщения в этом чате не сохраняются</string>
 </resources>
