@@ -57,7 +57,7 @@ import java.util.regex.Pattern;
  */
 public class LinkiUpdateSheet extends BottomSheet implements NimarkoUpdater.DownloadUiOwner {
 
-    private static final String RELEASES_URL = "https://github.com/timaa130704/LinkiGram/releases";
+    private static final String RELEASES_URL = "https://github.com/Zirconium-22146/LinkiGram-Legacy/releases";
 
     private static final Pattern LINK = Pattern.compile("\\[([^\\]]+)]\\((https?://[^)\\s]+)\\)");
     private static final Pattern ISO_DATE = Pattern.compile("(\\d{4})-(\\d{2})-(\\d{2})");

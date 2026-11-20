@@ -43,7 +43,9 @@ import java.util.Locale;
 
 public class NimarkoUpdater {
 
-    private static final String GITHUB_REPO = "timaa130704/LinkiGram";
+    // Releases of this fork, the ones this build may install. Pointing at upstream would
+    // offer timaa130704/LinkiGram builds, which are a different app with a different key.
+    private static final String GITHUB_REPO = "Zirconium-22146/LinkiGram-Legacy";
     private static final String ENDPOINT = "https://api.github.com/repos/" + GITHUB_REPO + "/releases/latest";
 
     public static final DispatchQueue otaQueue = new DispatchQueue("nimarkoOtaQueue");
@@ -219,7 +221,7 @@ public class NimarkoUpdater {
     public static File otaPath, versionPath, apkFile;
 
     public static long id = 1L;
-    private static final long updateCheckInterval = 3600000L; 
+    private static final long updateCheckInterval = 10 * 60 * 1000L;
     private static volatile boolean updateDownloaded = false;
     private static volatile boolean checkingForUpdates = false;
 
@@ -291,12 +293,14 @@ public class NimarkoUpdater {
     public interface OnCheckFailed { void run(); }
 
     public static void checkOnLaunch(BaseFragment fragment) {
-        // Linkigram Legacy: do not poll timaa130704/LinkiGram on every launch. This fork
-        // ships its own releases and must not be told to install the upstream builds.
+        // Once per process, then the shared interval below keeps repeat launches quiet.
         if (launchChecked || !NimarkoUpdateConfig.getAutoOTA()) return;
         launchChecked = true;
-
-        FileLog.d("NimarkoUpdater: auto update check disabled on launch");
+        if (fragment == null || fragment.getContext() == null) return;
+        // Every cold start asks GitHub, as promised in the update settings. The shared
+        // interval still throttles the in-app repeats.
+        NimarkoUpdateConfig.setUpdateScheduleTimestamp(0L);
+        checkUpdates(fragment, false);
     }
 
     public static void checkUpdates(BaseFragment fragment, boolean manual, OnUpdateNotFound onUpdateNotFound, Runnable onUpdateFound) {
@@ -336,6 +340,8 @@ public class NimarkoUpdater {
         
         otaQueue.postRunnable(() -> {
             NimarkoUpdateConfig.setLastUpdateCheckTime(System.currentTimeMillis());
+            // Without this the throttle above never engages and every launch hits the API.
+            NimarkoUpdateConfig.setUpdateScheduleTimestamp(System.currentTimeMillis());
             try {
                 JSONObject obj = findRelease(NimarkoUpdateConfig.getBetaUpdates());
                 if (obj == null) {
