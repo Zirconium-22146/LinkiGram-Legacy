@@ -1118,6 +1118,9 @@ public class PluginsActivity extends BasePreferencesActivity implements Notifica
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.pluginsUpdated);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.reloadInterface);
         NotificationCenter.getGlobalInstance().addObserver(this, NotificationCenter.pluginIsNotResponding);
+        // The engine is not started at launch while the plugins folder is empty.
+        // Opening this screen is the point where the user actually needs it.
+        PluginsController.getInstance().init();
         return true;
     }
 

@@ -485,7 +485,16 @@ public class ApplicationLoader extends Application {
             }
         }
         try {
-            app.nimarkogram.messenger.plugins.PluginsController.getInstance().init();
+            app.nimarkogram.messenger.plugins.PluginsController plugins =
+                    app.nimarkogram.messenger.plugins.PluginsController.getInstance();
+            if (plugins.hasInstalledPluginsOnDisk()) {
+                plugins.init();
+            } else {
+                // No plugins: skip Python entirely. The interpreter costs tens of MB
+                // of RSS and delays the launch for nothing; the settings screen starts
+                // the engine when the user opens it or installs the first plugin.
+                FileLog.d("nimarko: no plugins on disk, plugin engine not started");
+            }
         } catch (Throwable failure) {
             android.util.Log.e("LinkiPluginEngine", "Unable to start plugin engine", failure);
         }
