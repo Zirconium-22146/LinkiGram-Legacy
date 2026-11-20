@@ -13305,9 +13305,9 @@
     <string name="NM_Ayu_StorageCleared">Saved files deleted</string>
     <string name="NM_Ayu_SaveDeletedInChatOn">Deleted messages are saved in this chat</string>
     <string name="NM_Ayu_SaveDeletedInChatOff">Deleted messages are not saved in this chat</string>
-    <string name="NM_UnreadMode">Don't send read receipts</string>
+    <string name="NM_UnreadMode">Don\'t send read receipts</string>
     <string name="NM_UnreadMode_Desc">Opened chats stay unread for the other person: they see a single check mark instead of two. Online status and typing are not affected.</string>
-    <string name="NM_UnreadChatToggle">Don't send read receipts in this chat</string>
+    <string name="NM_UnreadChatToggle">Don\'t send read receipts in this chat</string>
     <string name="NM_UnreadReceiptsOn">Read receipts are sent in this chat again</string>
     <string name="NM_UnreadReceiptsOff">Read receipts are no longer sent in this chat</string>
     <string name="NM_UnreadMarkRead">Mark as read</string>
