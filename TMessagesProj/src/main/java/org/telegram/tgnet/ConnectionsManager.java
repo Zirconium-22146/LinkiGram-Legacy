@@ -491,10 +491,11 @@ public class ConnectionsManager extends BaseController {
         try {
             // Send the object the hooks produced, not the original: privacy changes and
             // plugin replacements are applied to hookedObject, and sending "object" here
-            // silently dropped them.
-            NativeByteBuffer buffer = new NativeByteBuffer(hookedObject.getObjectSize());
-            hookedObject.serializeToStream(buffer);
-            hookedObject.freeResources();
+            // silently dropped them. A final alias is needed for the response callback.
+            final TLObject wireObject = hookedObject;
+            NativeByteBuffer buffer = new NativeByteBuffer(wireObject.getObjectSize());
+            wireObject.serializeToStream(buffer);
+            wireObject.freeResources();
 
             long startRequestTime = 0;
             if (BuildVars.DEBUG_PRIVATE_VERSION && BuildVars.LOGS_ENABLED || (connectionType & ConnectionTypeDownload) != 0) {
@@ -513,7 +514,7 @@ public class ConnectionsManager extends BaseController {
                         responseSize = buff.limit();
                         try {
                             int magic = buff.readInt32(true);
-                            resp = hookedObject.deserializeResponse(buff, magic, true);
+                            resp = wireObject.deserializeResponse(buff, magic, true);
                         } catch (Exception e2) {
                             boolean downloadConn = (connectionType & ConnectionTypeDownload) != 0;
                             if (BuildVars.DEBUG_PRIVATE_VERSION && !downloadConn) {
