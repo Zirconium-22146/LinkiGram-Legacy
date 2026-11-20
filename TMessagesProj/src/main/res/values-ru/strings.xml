@@ -1816,4 +1816,5 @@
     <string name="NM_UnreadReset">Сбросить настройки чатов</string>
     <string name="NM_UnreadResetDone">Настройки чатов сброшены</string>
     <string name="NM_UnreadReadReceiptsHidden">«прочитано» не отправляется</string>
+    <string name="NM_UnreadPrivateOnly">«Прочитано» видно только в личных чатах</string>
 </resources>

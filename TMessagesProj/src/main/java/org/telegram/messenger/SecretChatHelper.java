@@ -166,6 +166,19 @@ public class SecretChatHelper extends BaseController {
         if (!(encryptedChat instanceof TLRPC.TL_encryptedChat)) {
             return;
         }
+        // Secret chats acknowledge reads with an encrypted service message, so the plain
+        // read-receipt block in AyuGhostUtils never sees it. Drop it here instead.
+        final long readDialogId = DialogObject.makeEncryptedDialogId(encryptedChat.id);
+        if (com.radolyn.ayugram.utils.AyuUnreadPreferences.shouldSuppressRead(readDialogId)
+                && !com.radolyn.ayugram.utils.AyuUnreadPreferences.isForced(readDialogId)) {
+            org.telegram.messenger.FileLog.d("UnreadMode: not acknowledging a read in a secret chat.");
+            return;
+        }
+        if (app.nimarkogram.messenger.NimarkoConfig.ghostReadReceipts
+                && !com.radolyn.ayugram.utils.AyuGhostPreferences.isReadExcluded(currentAccount, readDialogId)) {
+            org.telegram.messenger.FileLog.d("GhostMode: not acknowledging a read in a secret chat.");
+            return;
+        }
         TLRPC.TL_decryptedMessageService reqSend = new TLRPC.TL_decryptedMessageService();
         TLRPC.Message message;
 

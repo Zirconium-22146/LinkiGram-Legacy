@@ -1497,6 +1497,12 @@ public class ChatActivity extends BaseFragment implements
 
     private void toggleUnreadChat() {
         final long dialogId = getDialogId();
+        if (!org.telegram.messenger.DialogObject.isUserDialog(dialogId)
+                && !org.telegram.messenger.DialogObject.isEncryptedDialog(dialogId)) {
+            BulletinFactory.of(this).createSimpleBulletin(R.raw.info,
+                    LocaleController.getString(R.string.NM_UnreadPrivateOnly)).show();
+            return;
+        }
         final boolean suppressed = com.radolyn.ayugram.utils.AyuUnreadPreferences.shouldSuppressRead(dialogId);
         com.radolyn.ayugram.utils.AyuUnreadPreferences.setChatOverride(dialogId, !suppressed);
         BulletinFactory.of(this).createSimpleBulletin(R.raw.done, LocaleController.getString(suppressed

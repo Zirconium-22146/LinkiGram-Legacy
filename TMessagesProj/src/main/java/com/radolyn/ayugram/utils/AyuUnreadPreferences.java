@@ -71,6 +71,13 @@ public final class AyuUnreadPreferences {
         if (dialogId == 0) {
             return isEnabled();
         }
+        // Read receipts are a two-person thing. In groups and channels nobody sees the
+        // tick, and blocking their read position would only make unread counters differ
+        // between devices, so unread mode stays out of them.
+        if (!org.telegram.messenger.DialogObject.isUserDialog(dialogId)
+                && !org.telegram.messenger.DialogObject.isEncryptedDialog(dialogId)) {
+            return false;
+        }
         if (!isEnabled() && !anyChatOverrides()) {
             return false;
         }

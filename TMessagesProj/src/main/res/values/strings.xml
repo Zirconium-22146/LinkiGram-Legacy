@@ -13315,4 +13315,5 @@
     <string name="NM_UnreadReset">Reset per-chat choices</string>
     <string name="NM_UnreadResetDone">Per-chat choices reset</string>
     <string name="NM_UnreadReadReceiptsHidden">read receipts are not sent</string>
+    <string name="NM_UnreadPrivateOnly">Read receipts only exist in private chats</string>
 </resources>
