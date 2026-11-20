@@ -154,6 +154,14 @@ public class AyuSavePreferences {
         app.nimarkogram.messenger.NimarkoConfig.getPreferences().edit().putBoolean(saveExclusionPrefix + Math.abs(chatId), value).apply();
     }
 
+    public static void clearSaveDeletedExclusion(long chatId) {
+        long key = Math.abs(chatId);
+        saveDeletedExclusions.remove(key);
+        app.nimarkogram.messenger.NimarkoConfig.getPreferences().edit()
+                .remove(saveExclusionPrefix + key)
+                .apply();
+    }
+
     public static boolean getSaveDeletedExclusion(long chatId) {
         if (isSaveDeletedExclusionsLoaded) {
             return Boolean.TRUE.equals(saveDeletedExclusions.getOrDefault(Math.abs(chatId), false));

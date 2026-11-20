@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Map;
 
 import org.telegram.messenger.AndroidUtilities;
 import org.telegram.messenger.FileLog;
@@ -66,6 +67,8 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
     private static final int ROW_DB_IMPORT               = 151;
     private static final int ROW_DB_CLEAR                = 152;
     private static final int ROW_STORAGE_CLEAR           = 153;
+    private static final int ROW_STORAGE_WARNING         = 154;
+    private static final int ROW_EXCEPTION_BASE          = 5000;
 
     // Ghost mode (moved here from "General")
     private static final int ROW_GHOST_PRESET        = 160;
@@ -224,6 +227,18 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
                 .setChecked(NimarkoConfig.translucentDeletedMessages));
         items.add(UItem.asShadow(LocaleController.getString(R.string.NM_Ayu_ShadowView)));
 
+        // ===== Per-chat exceptions =====
+        collectChatExceptions();
+        if (!chatExceptions.isEmpty()) {
+            items.add(UItem.asHeader(LocaleController.getString(R.string.NM_Ayu_ExceptionsHeader)));
+            for (int i = 0; i < chatExceptions.size(); i++) {
+                ChatException exception = chatExceptions.get(i);
+                items.add(UItem.asButton(ROW_EXCEPTION_BASE + i, R.drawable.msg_secret,
+                        dialogName(exception.dialogId), exception.subtitle));
+            }
+            items.add(UItem.asShadow(LocaleController.getString(R.string.NM_Ayu_ExceptionsShadow)));
+        }
+
         // ===== Database =====
         items.add(UItem.asHeader(LocaleController.getString(R.string.NM_Ayu_HeaderDb)));
         items.add(UItem.asButton(ROW_DB_EXPORT,
@@ -234,17 +249,30 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
                 LocaleController.getString(R.string.NM_Ayu_DbImport)));
         items.add(UItem.asButton(ROW_DB_CLEAR,
                 R.drawable.msg_clear_solar,
-                LocaleController.getString(R.string.NM_Ayu_DbClear)));
+                LocaleController.getString(R.string.NM_Ayu_DbClear),
+                getDatabaseSummary()));
         items.add(UItem.asButton(ROW_STORAGE_CLEAR,
                 R.drawable.msg_archive_solar,
                 LocaleController.getString(R.string.NM_Ayu_StorageTitle),
                 getStorageSummary()));
+        if (!com.radolyn.ayugram.messages.AyuMessagesController.isAttachmentsStorageReady()) {
+            items.add(UItem.asButton(ROW_STORAGE_WARNING,
+                    R.drawable.msg_info_solar,
+                    LocaleController.getString(R.string.NM_Ayu_StorageBroken)));
+        }
         items.add(UItem.asShadow(LocaleController.getString(R.string.NM_Ayu_ShadowDb)));
     }
 
     @Override
     public void onClick(UItem uItem, View view, int position, float x, float y) {
         if (uItem == null) return;
+        if (uItem.id >= ROW_EXCEPTION_BASE) {
+            final int index = uItem.id - ROW_EXCEPTION_BASE;
+            if (getParentActivity() != null && index >= 0 && index < chatExceptions.size()) {
+                showChatExceptionDialog(chatExceptions.get(index));
+            }
+            return;
+        }
         switch (uItem.id) {
             case ROW_GHOST_PRESET: {
                 ArrayList<String> presets = new ArrayList<>();
@@ -389,6 +417,15 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
             case ROW_STORAGE_CLEAR:
                 showClearAttachmentsDialog();
                 break;
+            case ROW_STORAGE_WARNING:
+                if (getParentActivity() != null) {
+                    new AlertDialog.Builder(getParentActivity(), getResourceProvider())
+                            .setTitle(LocaleController.getString(R.string.NM_Ayu_StorageBroken))
+                            .setMessage(LocaleController.getString(R.string.NM_Ayu_StorageBroken_Desc))
+                            .setPositiveButton(LocaleController.getString(R.string.OK), null)
+                            .show();
+                }
+                break;
         }
     }
 
@@ -438,6 +475,130 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
                 });
             }
         });
+    }
+
+    private static final int EXCEPTION_SAVE = 0;
+    private static final int EXCEPTION_GHOST = 1;
+    private static final int EXCEPTION_UNREAD = 2;
+
+    private static final class ChatException {
+        final int type;
+        final long dialogId;
+        final String subtitle;
+
+        ChatException(int type, long dialogId, String subtitle) {
+            this.type = type;
+            this.dialogId = dialogId;
+            this.subtitle = subtitle;
+        }
+    }
+
+    private final ArrayList<ChatException> chatExceptions = new ArrayList<>();
+
+    private void collectChatExceptions() {
+        chatExceptions.clear();
+        final android.content.SharedPreferences preferences = NimarkoConfig.getPreferences();
+        for (Map.Entry<String, ?> entry : preferences.getAll().entrySet()) {
+            final String key = entry.getKey();
+            final Object value = entry.getValue();
+            try {
+                if (key.startsWith("unreadModeChat_")) {
+                    if (!(value instanceof Boolean)) continue;
+                    final long dialogId = Long.parseLong(key.substring("unreadModeChat_".length()));
+                    chatExceptions.add(new ChatException(EXCEPTION_UNREAD, dialogId,
+                            LocaleController.getString((Boolean) value
+                                    ? R.string.NM_Ayu_ExceptionUnreadOff
+                                    : R.string.NM_Ayu_ExceptionUnreadOn)));
+                    continue;
+                }
+                if (!(value instanceof Boolean) || !((Boolean) value)) {
+                    continue;
+                }
+                if (key.startsWith(com.radolyn.ayugram.messages.AyuSavePreferences.saveExclusionPrefix)) {
+                    final long dialogId = Long.parseLong(key.substring(
+                            com.radolyn.ayugram.messages.AyuSavePreferences.saveExclusionPrefix.length()));
+                    chatExceptions.add(new ChatException(EXCEPTION_SAVE, dialogId,
+                            LocaleController.getString(R.string.NM_Ayu_ExceptionSave)));
+                } else if (key.startsWith("ghostNormalChat_")) {
+                    final long dialogId = Long.parseLong(key.substring(key.lastIndexOf('_') + 1));
+                    chatExceptions.add(new ChatException(EXCEPTION_GHOST, dialogId,
+                            LocaleController.getString(R.string.NM_Ayu_ExceptionGhost)));
+                }
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    private String dialogName(long dialogId) {
+        try {
+            final int account = org.telegram.messenger.UserConfig.selectedAccount;
+            final org.telegram.messenger.MessagesController controller =
+                    org.telegram.messenger.MessagesController.getInstance(account);
+            if (dialogId > 0) {
+                org.telegram.tgnet.TLRPC.User user = controller.getUser(dialogId);
+                if (user != null) {
+                    return org.telegram.messenger.ContactsController.formatName(user.first_name, user.last_name);
+                }
+            } else {
+                org.telegram.tgnet.TLRPC.Chat chat = controller.getChat(-dialogId);
+                if (chat != null && chat.title != null && !chat.title.isEmpty()) {
+                    return chat.title;
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return LocaleController.formatString(R.string.NM_Ayu_ExceptionUnknownChat,
+                String.valueOf(Math.abs(dialogId)));
+    }
+
+    private void showChatExceptionDialog(ChatException exception) {
+        new AlertDialog.Builder(getParentActivity(), getResourceProvider())
+                .setTitle(dialogName(exception.dialogId))
+                .setMessage(LocaleController.getString(R.string.NM_Ayu_ExceptionReset))
+                .setPositiveButton(LocaleController.getString(R.string.Reset), (dialog, which) -> {
+                    switch (exception.type) {
+                        case EXCEPTION_SAVE:
+                            com.radolyn.ayugram.messages.AyuSavePreferences
+                                    .clearSaveDeletedExclusion(exception.dialogId);
+                            break;
+                        case EXCEPTION_GHOST:
+                            com.radolyn.ayugram.utils.AyuGhostPreferences.clearNormalChat(
+                                    org.telegram.messenger.UserConfig.selectedAccount, exception.dialogId);
+                            break;
+                        case EXCEPTION_UNREAD:
+                            com.radolyn.ayugram.utils.AyuUnreadPreferences
+                                    .clearChatOverride(exception.dialogId);
+                            break;
+                    }
+                    reloadMainInfo();
+                    BulletinFactory.of(this).createSimpleBulletin(R.raw.done,
+                            LocaleController.getString(R.string.NM_Ayu_ExceptionResetDone)).show();
+                })
+                .setNegativeButton(LocaleController.getString(R.string.Cancel), null)
+                .show();
+    }
+
+    private String databaseSummary;
+    private boolean databaseSummaryLoading;
+
+    private String getDatabaseSummary() {
+        if (databaseSummary != null) {
+            return databaseSummary;
+        }
+        if (!databaseSummaryLoading) {
+            databaseSummaryLoading = true;
+            Utilities.globalQueue.postRunnable(() -> {
+                final long size = com.radolyn.ayugram.database.AyuData.getDatabaseSize();
+                AndroidUtilities.runOnUIThread(() -> {
+                    databaseSummary = size <= 0
+                            ? ""
+                            : LocaleController.formatString(R.string.NM_Ayu_StorageUsed, AndroidUtilities.formatFileSize(size));
+                    databaseSummaryLoading = false;
+                    reloadMainInfo();
+                });
+            });
+        }
+        return "";
     }
 
     private String storageSummary;
@@ -507,6 +668,7 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
                     Utilities.globalQueue.postRunnable(() -> {
                         try {
                             com.radolyn.ayugram.messages.AyuMessagesController.getInstance().clean();
+                            databaseSummary = null;
                         } catch (Throwable t) {
                             FileLog.e("nimarko: ayu clean failed", t);
                         }

@@ -1817,4 +1817,15 @@
     <string name="NM_UnreadResetDone">Настройки чатов сброшены</string>
     <string name="NM_UnreadReadReceiptsHidden">«прочитано» не отправляется</string>
     <string name="NM_UnreadPrivateOnly">«Прочитано» видно только в личных чатах</string>
+    <string name="NM_Ayu_ExceptionsHeader">Исключения по чатам</string>
+    <string name="NM_Ayu_ExceptionsShadow">Нажми на чат, чтобы вернуть настройку по умолчанию.</string>
+    <string name="NM_Ayu_ExceptionSave">удалённые сообщения не сохраняются</string>
+    <string name="NM_Ayu_ExceptionGhost">обычный чат, призрак выключен</string>
+    <string name="NM_Ayu_ExceptionUnreadOff">«прочитано» не отправляется</string>
+    <string name="NM_Ayu_ExceptionUnreadOn">«прочитано» отправляется</string>
+    <string name="NM_Ayu_ExceptionReset">Вернуть для этого чата настройки по умолчанию?</string>
+    <string name="NM_Ayu_ExceptionResetDone">Для чата вернулись настройки по умолчанию</string>
+    <string name="NM_Ayu_ExceptionUnknownChat">Чат %1$s</string>
+    <string name="NM_Ayu_StorageBroken">Папка вложений недоступна</string>
+    <string name="NM_Ayu_StorageBroken_Desc">Сейчас медиа не сохраняется. Проверь свободное место и попробуй снова.</string>
 </resources>

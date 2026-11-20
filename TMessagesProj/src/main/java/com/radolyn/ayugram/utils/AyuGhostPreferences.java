@@ -44,6 +44,10 @@ public class AyuGhostPreferences {
         return NimarkoConfig.getPreferences().getBoolean(normalChatKey(account, dialogId), false);
     }
 
+    public static void clearNormalChat(int account, long dialogId) {
+        NimarkoConfig.getPreferences().edit().remove(normalChatKey(account, dialogId)).apply();
+    }
+
     public static void setNormalChat(int account, long dialogId, boolean value) {
         NimarkoConfig.getPreferences().edit().putBoolean(normalChatKey(account, dialogId), value).apply();
     }

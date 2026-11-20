@@ -13316,4 +13316,15 @@
     <string name="NM_UnreadResetDone">Per-chat choices reset</string>
     <string name="NM_UnreadReadReceiptsHidden">read receipts are not sent</string>
     <string name="NM_UnreadPrivateOnly">Read receipts only exist in private chats</string>
+    <string name="NM_Ayu_ExceptionsHeader">Per-chat exceptions</string>
+    <string name="NM_Ayu_ExceptionsShadow">Tap a chat to reset it to the default.</string>
+    <string name="NM_Ayu_ExceptionSave">deleted messages are not saved</string>
+    <string name="NM_Ayu_ExceptionGhost">normal chat, ghost mode is off</string>
+    <string name="NM_Ayu_ExceptionUnreadOff">read receipts are not sent</string>
+    <string name="NM_Ayu_ExceptionUnreadOn">read receipts are sent</string>
+    <string name="NM_Ayu_ExceptionReset">Reset this chat to the default?</string>
+    <string name="NM_Ayu_ExceptionResetDone">Chat reset to default</string>
+    <string name="NM_Ayu_ExceptionUnknownChat">Chat %1$s</string>
+    <string name="NM_Ayu_StorageBroken">The attachments folder is not available</string>
+    <string name="NM_Ayu_StorageBroken_Desc">Media cannot be saved right now. Check free space and try again.</string>
 </resources>

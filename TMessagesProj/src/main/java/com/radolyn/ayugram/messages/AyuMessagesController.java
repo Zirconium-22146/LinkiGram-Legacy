@@ -170,6 +170,15 @@ public class AyuMessagesController {
         }
     }
 
+    /** False when the attachments folder cannot be written to (unmounted storage, no space). */
+    public static boolean isAttachmentsStorageReady() {
+        try {
+            return attachmentsPath.isDirectory() && attachmentsPath.canWrite();
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
     /** Attachments folder size in bytes. */
     public static long getAttachmentsSize() {
         return directorySize(attachmentsPath);

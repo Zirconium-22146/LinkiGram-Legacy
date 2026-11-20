@@ -53,6 +53,14 @@ public final class AyuUnreadPreferences {
                 .apply();
     }
 
+    public static void clearChatOverride(long dialogId) {
+        chatOverrides.remove(dialogId);
+        NimarkoConfig.getPreferences().edit()
+                .remove(CHAT_OVERRIDE_PREFIX + dialogId)
+                .apply();
+        hasOverrides = null;
+    }
+
     public static void clearChatOverrides() {
         SharedPreferences preferences = NimarkoConfig.getPreferences();
         SharedPreferences.Editor editor = preferences.edit();
