@@ -193,7 +193,9 @@ public class AyuGhostUtils {
         // exit comes first: with no ghost switch on there is nothing below that could
         // change the outcome, and the instanceof chain plus the per-chat preference
         // reads are pure overhead on the hottest path in the app.
-        if (!hasActiveGhostFeatures()) {
+        if (!hasActiveGhostFeatures()
+                && !app.nimarkogram.messenger.NimarkoConfig.keepChatsUnread
+                && !AyuUnreadPreferences.anyChatOverrides()) {
             return InterceptResult.Proceed(onCompleteOrig);
         }
         if (dialogId == null) dialogId = extractDialogId(object);
@@ -218,6 +220,16 @@ public class AyuGhostUtils {
                 }
                 return InterceptResult.Blocked(onCompleteOrig);
             }
+        }
+
+        // Unread mode: never tell the other side that the chat was read.
+        final long unreadDialogId = dialogId == null ? 0 : dialogId;
+        if (isReadReceiptRequest(object)
+                && AyuUnreadPreferences.shouldSuppressRead(unreadDialogId)
+                && !AyuUnreadPreferences.isForced(unreadDialogId)) {
+            FileLog.d("UnreadMode: blocking read receipt and sending fake response.");
+            sendFakeReadResponse(onCompleteOrig);
+            return InterceptResult.Blocked(onCompleteOrig);
         }
 
         // Block read receipts if disabled
@@ -374,6 +386,16 @@ public class AyuGhostUtils {
                 object instanceof TLRPC.TL_channels_readMessageContents ||
                 object instanceof TLRPC.TL_channels_readHistory ||
                 object instanceof TLRPC.TL_messages_getMessagesViews obj && obj.increment;
+    }
+
+    /** Read receipts only; message views are a different thing and stay untouched. */
+    private static boolean isReadReceiptRequest(TLObject object) {
+        return object instanceof TLRPC.TL_messages_readHistory ||
+                object instanceof TLRPC.TL_messages_readEncryptedHistory ||
+                object instanceof TLRPC.TL_messages_readDiscussion ||
+                object instanceof TLRPC.TL_messages_readMessageContents ||
+                object instanceof TLRPC.TL_channels_readMessageContents ||
+                object instanceof TLRPC.TL_channels_readHistory;
     }
 
     private static boolean isReadStoriesRequest(TLObject object) {

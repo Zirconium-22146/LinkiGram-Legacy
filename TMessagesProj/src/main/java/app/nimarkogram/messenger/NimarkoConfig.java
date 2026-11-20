@@ -309,6 +309,20 @@ public final class NimarkoConfig {
         getEditor().putBoolean("ghostReadReceipts", ghostReadReceipts).apply();
     }
 
+    /**
+     * "Unread mode": the chat is read locally as usual, but the read receipt is never
+     * sent, so the other person keeps the single "sent" check mark. It does not touch
+     * the online status or the typing indicator, unlike the ghost preset.
+     */
+    public static volatile boolean keepChatsUnread = getPreferences().getBoolean("keepChatsUnread", false);
+    public static void toggleKeepChatsUnread() {
+        setKeepChatsUnread(!keepChatsUnread);
+    }
+    public static void setKeepChatsUnread(boolean value) {
+        keepChatsUnread = value;
+        getEditor().putBoolean("keepChatsUnread", value).apply();
+    }
+
     // Ghost mode extras (port of AyuGram/exteraless ghost options)
     public static volatile boolean ghostStories = getPreferences().getBoolean("ghostStories", false);
     public static void toggleGhostStories() {

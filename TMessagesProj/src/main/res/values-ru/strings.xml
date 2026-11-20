@@ -1806,4 +1806,13 @@
     <string name="NM_Ayu_StorageCleared">Сохранённые файлы удалены</string>
     <string name="NM_Ayu_SaveDeletedInChatOn">Удалённые сообщения в этом чате сохраняются</string>
     <string name="NM_Ayu_SaveDeletedInChatOff">Удалённые сообщения в этом чате не сохраняются</string>
+    <string name="NM_UnreadMode">Не отправлять «прочитано»</string>
+    <string name="NM_UnreadMode_Desc">Открытые чаты не отмечаются прочитанными у собеседника: он видит одну галочку вместо двух. Онлайн и «печатает» это не затрагивает.</string>
+    <string name="NM_UnreadChatToggle">Не отправлять «прочитано» в этом чате</string>
+    <string name="NM_UnreadReceiptsOn">В этом чате «прочитано» снова отправляется</string>
+    <string name="NM_UnreadReceiptsOff">В этом чате «прочитано» больше не отправляется</string>
+    <string name="NM_UnreadMarkRead">Отметить прочитанным</string>
+    <string name="NM_UnreadMarkedRead">Чат отмечен прочитанным</string>
+    <string name="NM_UnreadReset">Сбросить настройки чатов</string>
+    <string name="NM_UnreadResetDone">Настройки чатов сброшены</string>
 </resources>
