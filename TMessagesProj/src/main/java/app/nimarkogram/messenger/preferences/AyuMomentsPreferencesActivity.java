@@ -65,6 +65,7 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
     private static final int ROW_DB_EXPORT               = 150;
     private static final int ROW_DB_IMPORT               = 151;
     private static final int ROW_DB_CLEAR                = 152;
+    private static final int ROW_STORAGE_CLEAR           = 153;
 
     // Ghost mode (moved here from "General")
     private static final int ROW_GHOST_PRESET        = 160;
@@ -223,6 +224,10 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
         items.add(UItem.asButton(ROW_DB_CLEAR,
                 R.drawable.msg_clear_solar,
                 LocaleController.getString(R.string.NM_Ayu_DbClear)));
+        items.add(UItem.asButton(ROW_STORAGE_CLEAR,
+                R.drawable.msg_archive_solar,
+                LocaleController.getString(R.string.NM_Ayu_StorageTitle),
+                getStorageSummary()));
         items.add(UItem.asShadow(LocaleController.getString(R.string.NM_Ayu_ShadowDb)));
     }
 
@@ -359,6 +364,9 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
             case ROW_DB_CLEAR:
                 showClearAyuDatabaseDialog();
                 break;
+            case ROW_STORAGE_CLEAR:
+                showClearAttachmentsDialog();
+                break;
         }
     }
 
@@ -408,6 +416,59 @@ public class AyuMomentsPreferencesActivity extends BasePreferencesActivity {
                 });
             }
         });
+    }
+
+    private String storageSummary;
+    private boolean storageSummaryLoading;
+
+    private String getStorageSummary() {
+        if (storageSummary != null) {
+            return storageSummary;
+        }
+        if (!storageSummaryLoading) {
+            storageSummaryLoading = true;
+            Utilities.globalQueue.postRunnable(() -> {
+                final long size = com.radolyn.ayugram.messages.AyuMessagesController.getAttachmentsSize();
+                AndroidUtilities.runOnUIThread(() -> {
+                    storageSummary = size <= 0
+                            ? LocaleController.getString(R.string.NM_Ayu_StorageEmpty)
+                            : LocaleController.formatString(R.string.NM_Ayu_StorageUsed, AndroidUtilities.formatFileSize(size));
+                    storageSummaryLoading = false;
+                    reloadMainInfo();
+                });
+            });
+        }
+        return "";
+    }
+
+    private void showClearAttachmentsDialog() {
+        if (getParentActivity() == null) {
+            return;
+        }
+        new AlertDialog.Builder(getParentActivity(), getResourceProvider())
+                .setTitle(LocaleController.getString(R.string.NM_Ayu_StorageClear))
+                .setMessage(LocaleController.getString(R.string.AreYouSure))
+                .setPositiveButton(LocaleController.getString(R.string.Clear), (dialog, which) -> {
+                    AlertDialog progressDialog = new AlertDialog(getParentActivity(), AlertDialog.ALERT_TYPE_SPINNER);
+                    progressDialog.setCanCancel(false);
+                    progressDialog.show();
+                    Utilities.globalQueue.postRunnable(() -> {
+                        try {
+                            com.radolyn.ayugram.messages.AyuMessagesController.getInstance().clearAttachments();
+                        } catch (Throwable t) {
+                            FileLog.e("nimarko: clear attachments failed", t);
+                        }
+                        AndroidUtilities.runOnUIThread(() -> {
+                            progressDialog.dismiss();
+                            storageSummary = null;
+                            reloadMainInfo();
+                            BulletinFactory.of(this).createSimpleBulletin(R.raw.done,
+                                    LocaleController.getString(R.string.NM_Ayu_StorageCleared)).show();
+                        });
+                    });
+                })
+                .setNegativeButton(LocaleController.getString(R.string.Cancel), (d, w) -> d.dismiss())
+                .show();
     }
 
     private void showClearAyuDatabaseDialog() {

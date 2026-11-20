@@ -1492,6 +1492,15 @@ public class ChatActivity extends BaseFragment implements
         showDialog(builder.create());
     }
 
+    private void toggleSaveDeletedChat() {
+        final long dialogId = getDialogId();
+        final boolean excluded = com.radolyn.ayugram.messages.AyuSavePreferences.getSaveDeletedExclusion(dialogId);
+        com.radolyn.ayugram.messages.AyuSavePreferences.setSaveDeletedExclusion(dialogId, !excluded);
+        BulletinFactory.of(this).createSimpleBulletin(R.raw.done, LocaleController.getString(excluded
+                ? R.string.NM_Ayu_SaveDeletedInChatOn
+                : R.string.NM_Ayu_SaveDeletedInChatOff)).show();
+    }
+
     public void deleteHistory(int dateSelectedStart, int dateSelectedEnd, boolean forAll) {
         chatAdapter.frozenMessages.clear();
         for (int i = 0; i < messages.size(); i++) {
@@ -1803,6 +1812,7 @@ public class ChatActivity extends BaseFragment implements
     private final static int auto_clean_timer = 75;
     private final static int ghost_chat_toggle = 76;
     private final static int ghost_chat_status = 77;
+    private final static int save_deleted_chat_toggle = 78;
     private final static int linkigram_chat_statistics = 10081;
 
     private final static int bot_help = 30;
@@ -4002,6 +4012,11 @@ public class ChatActivity extends BaseFragment implements
                         return;
                     }
                     toggleGhostChat();
+                } else if (id == save_deleted_chat_toggle) {
+                    if (getParentActivity() == null) {
+                        return;
+                    }
+                    toggleSaveDeletedChat();
                 } else if (id == clear_history || id == delete_chat || id == auto_delete_timer) {
                     if (getParentActivity() == null) {
                         return;
@@ -4612,6 +4627,10 @@ public class ChatActivity extends BaseFragment implements
                 if (!(currentUser != null && currentUser.self) && getDialogId() != UserObject.VERIFY) {
                     headerItem.lazilyAddSubItem(ghost_chat_toggle, R.drawable.msg_secret,
                         LocaleController.getString(R.string.NM_GhostChat));
+                    if (NimarkoConfig.saveDeletedMessages) {
+                        headerItem.lazilyAddSubItem(save_deleted_chat_toggle, R.drawable.msg_archive_solar,
+                            LocaleController.getString(R.string.NM_Ayu_SaveDeletedInChat));
+                    }
                 }
             }
             boolean addedSettings = false;

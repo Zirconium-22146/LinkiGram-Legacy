@@ -44,4 +44,10 @@ public interface EditedMessageDao {
 
     @Insert
     void insert(EditedMessage revision);
+
+    @Query("UPDATE editedmessage SET mediaPath = NULL, hqThumbPath = NULL WHERE mediaPath IS NOT NULL OR hqThumbPath IS NOT NULL")
+    void clearAllMediaPaths();
+
+    @Query("UPDATE editedmessage SET mediaPath = :newPrefix || SUBSTR(mediaPath, LENGTH(:oldPrefix) + 1) WHERE mediaPath LIKE :oldPrefix || '/%'")
+    void rewriteMediaPaths(String oldPrefix, String newPrefix);
 }

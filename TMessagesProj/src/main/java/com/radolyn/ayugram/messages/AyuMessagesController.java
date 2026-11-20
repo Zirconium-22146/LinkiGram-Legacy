@@ -24,6 +24,7 @@ import com.radolyn.ayugram.database.entities.EditedMessage;
 import com.radolyn.ayugram.proprietary.AyuMessageUtils;
 
 import org.telegram.messenger.AndroidUtilities;
+import org.telegram.messenger.ApplicationLoader;
 import org.telegram.messenger.FileLog;
 import org.telegram.messenger.NotificationCenter;
 import org.telegram.messenger.Utilities;
@@ -37,7 +38,37 @@ import java.util.concurrent.Callable;
 
 public class AyuMessagesController {
     public static final String attachmentsSubfolder = "Saved Attachments";
-    public static final File attachmentsPath = new File(new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), AyuConstants.APP_NAME), attachmentsSubfolder);
+
+    /**
+     * Saved media used to live in Download/LinkiGram/Saved Attachments. On Android 11+
+     * the app cannot create files there without MANAGE_EXTERNAL_STORAGE, so every copy
+     * silently failed and deleted media vanished after a restart. Keep the files in the
+     * app's own external directory instead: it is always writable, survives restarts and
+     * is out of the gallery.
+     */
+    public static final File attachmentsPath = resolveAttachmentsPath();
+
+    private static File resolveAttachmentsPath() {
+        File base = null;
+        try {
+            if (ApplicationLoader.applicationContext != null) {
+                base = ApplicationLoader.applicationContext.getExternalFilesDir(null);
+                if (base == null) {
+                    base = ApplicationLoader.applicationContext.getFilesDir();
+                }
+            }
+        } catch (Throwable t) {
+            FileLog.e("resolveAttachmentsPath", t);
+        }
+        if (base == null) {
+            base = new File(Environment.getExternalStorageDirectory(), "Android/data");
+        }
+        return new File(base, attachmentsSubfolder);
+    }
+
+    private static File legacyAttachmentsPath() {
+        return new File(new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), AyuConstants.APP_NAME), attachmentsSubfolder);
+    }
     private static AyuMessagesController instance;
     private EditedMessageDao editedMessageDao;
     private DeletedMessageDao deletedMessageDao;
@@ -96,6 +127,90 @@ public class AyuMessagesController {
         } catch (Exception e) {
             FileLog.e("initializeAttachmentsFolder", e);
         }
+        migrateLegacyAttachments();
+    }
+
+    /**
+     * Files saved by older builds live in Download/LinkiGram/Saved Attachments. That folder
+     * is unreadable without all-files access on modern Android, but the ones saved on older
+     * devices are still worth keeping: pull them into the new folder once.
+     */
+    private static void migrateLegacyAttachments() {
+        try {
+            File legacy = legacyAttachmentsPath();
+            if (legacy == null || legacy.equals(attachmentsPath) || !legacy.isDirectory()) {
+                return;
+            }
+            File[] files = legacy.listFiles();
+            if (files == null || files.length == 0) {
+                return;
+            }
+            int moved = 0;
+            for (File file : files) {
+                if (file == null || !file.isFile() || ".nomedia".equals(file.getName())) {
+                    continue;
+                }
+                File target = new File(attachmentsPath, file.getName());
+                if (!target.exists() && AyuUtils.moveOrCopyFile(file, target)) {
+                    moved++;
+                }
+            }
+            if (moved > 0) {
+                FileLog.d("migrated " + moved + " saved attachments");
+                AndroidUtilities.runOnUIThread(() -> {
+                    try {
+                        AyuMessagesController.getInstance().updateMediaPathsForAttachments();
+                    } catch (Throwable t) {
+                        FileLog.e("migrateLegacyAttachments", t);
+                    }
+                });
+            }
+        } catch (Throwable t) {
+            FileLog.e("migrateLegacyAttachments", t);
+        }
+    }
+
+    /** Attachments folder size in bytes. */
+    public static long getAttachmentsSize() {
+        return directorySize(attachmentsPath);
+    }
+
+    private static long directorySize(File dir) {
+        if (dir == null || !dir.isDirectory()) {
+            return 0;
+        }
+        long total = 0;
+        File[] files = dir.listFiles();
+        if (files != null) {
+            for (File file : files) {
+                if (file == null) continue;
+                total += file.isDirectory() ? directorySize(file) : file.length();
+            }
+        }
+        return total;
+    }
+
+    /** Deletes every saved attachment and clears the paths in the database. */
+    public void clearAttachments() {
+        deleteDirectory(attachmentsPath);
+        initializeAttachmentsFolder();
+        withDaoRetry("clearAttachments", () -> {
+            deletedMessageDao.clearAllMediaPaths();
+            editedMessageDao.clearAllMediaPaths();
+            return null;
+        });
+    }
+
+    /** Points database rows at files that were moved into the new attachments folder. */
+    public void updateMediaPathsForAttachments() {
+        if (deletedMessageDao == null) {
+            return;
+        }
+        withDaoRetry("updateMediaPathsForAttachments", () -> {
+            deletedMessageDao.rewriteMediaPaths(legacyAttachmentsPath().getAbsolutePath(), attachmentsPath.getAbsolutePath());
+            editedMessageDao.rewriteMediaPaths(legacyAttachmentsPath().getAbsolutePath(), attachmentsPath.getAbsolutePath());
+            return null;
+        });
     }
 
     public static AyuMessagesController getInstance() {
