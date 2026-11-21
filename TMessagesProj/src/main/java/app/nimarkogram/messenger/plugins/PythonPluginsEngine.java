@@ -1978,6 +1978,15 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         }
     }
 
+    /**
+     * Same as {@link #initNativeHooks()}, but for the path where no plugin is going to
+     * run: the exemptions go in right away and libpine loads in the background, so the
+     * launch does not wait for a native library that nothing needs yet.
+     */
+    private void scheduleNativeHooks() {
+        ApplicationLoader.warmUpPineInBackground();
+    }
+
     private void initPython() {
         synchronized (PYTHON_START_LOCK) {
             if (this.python != null
@@ -2075,8 +2084,8 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 // load Pine on their own find a working runtime.
                 if (!getPluginsController().hasInstalledPluginsOnDisk()
                         && !NimarkoConfig.pluginsDevMode) {
-                    FileLog.d("nimarko: no plugins installed, Python runtime not started");
-                    initNativeHooks();
+                        FileLog.d("nimarko: no plugins installed, Python runtime not started");
+                    scheduleNativeHooks();
                     getPluginsController().notifyPluginsChanged();
                     if (runnable != null) {
                         AndroidUtilities.runOnUIThread(runnable);

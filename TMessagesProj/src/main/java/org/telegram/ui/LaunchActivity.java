@@ -404,6 +404,7 @@ public class LaunchActivity extends BasePermissionsActivity implements INavigati
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        app.nimarkogram.messenger.utils.StartupTrace.mark("launch onCreate");
         isActive = true;
         activeInstanceCount++;
         if (BuildVars.DEBUG_VERSION) {
