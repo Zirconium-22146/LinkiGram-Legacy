@@ -156,25 +156,54 @@ public class ApplicationLoader extends Application {
         return pineInitializationAttempted;
     }
 
+    private static final Object pineInitLock = new Object();
+    private static volatile boolean pineWarmUpScheduled;
+
     public static void ensurePineInited() {
+        synchronized (pineInitLock) {
+            if (pineInitializationAttempted) return;
+            pineInitializationAttempted = true;
+            try {
+                // Pine's static initializer trips over hidden-API restrictions when it is
+                // loaded without them lifted: the process dies inside libpine. The plugin
+                // engine lifts them before touching Pine, so do the same here for the
+                // callers that reach Pine on their own.
+                try {
+                    org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("L");
+                } catch (Throwable ignore) {
+                }
+                Class.forName("top.canyie.pine.Pine");
+                pineAvailable = true;
+                pineReady = true;
+                pineUnavailableReason = null;
+            } catch (Throwable e) {
+                pineAvailable = false;
+                pineReady = false;
+            }
+        }
+    }
+
+    /**
+     * Startup warm-up. The exemptions have to be in place before Pine is loaded, but
+     * loading libpine takes a few hundred milliseconds and has no business delaying the
+     * first frame. So apply the exemptions here (cheap) and let the library load in the
+     * background; whoever needs hooks checks {@link #isPineAvailable()} first.
+     */
+    public static void warmUpPineInBackground() {
         if (pineInitializationAttempted) return;
-        pineInitializationAttempted = true;
-        try {
-            // Pine's static initializer trips over hidden-API restrictions when it is
-            // loaded without them lifted: the process dies inside libpine. The plugin
-            // engine lifts them before touching Pine, so do the same here for the
-            // callers that reach Pine on their own.
+        synchronized (pineInitLock) {
+            if (pineInitializationAttempted || pineWarmUpScheduled) return;
+            pineWarmUpScheduled = true;
             try {
                 org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("L");
             } catch (Throwable ignore) {
             }
-            Class.forName("top.canyie.pine.Pine");
-            pineAvailable = true;
-            pineReady = true;
-            pineUnavailableReason = null;
-        } catch (Throwable e) {
-            pineAvailable = false;
-            pineReady = false;
+        }
+        try {
+            Thread worker = new Thread(ApplicationLoader::ensurePineInited, "pine-warmup");
+            worker.setDaemon(true);
+            worker.start();
+        } catch (Throwable ignore) {
         }
     }
 
@@ -346,13 +375,16 @@ public class ApplicationLoader extends Application {
             return;
         }
         applicationInited = true;
+        app.nimarkogram.messenger.utils.StartupTrace.mark("postInit start");
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
+        app.nimarkogram.messenger.utils.StartupTrace.mark("native libs");
 
         try {
             LocaleController.getInstance(); //TODO improve
         } catch (Exception e) {
             e.printStackTrace();
         }
+        app.nimarkogram.messenger.utils.StartupTrace.mark("locale");
 
         try {
             connectivityManager = (ConnectivityManager) ApplicationLoader.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -401,6 +433,7 @@ public class ApplicationLoader extends Application {
 
         SharedConfig.loadConfig();
         SharedPrefsHelper.init(applicationContext);
+        app.nimarkogram.messenger.utils.StartupTrace.mark("prefs");
 
         // LinkiGram bypass relay startup.
         //
@@ -419,6 +452,7 @@ public class ApplicationLoader extends Application {
                         app.nimarkogram.messenger.wsbypass.WsBypassCore.LOCAL_PROXY_HOST);
             }
         } catch (Throwable ignored) {}
+        app.nimarkogram.messenger.utils.StartupTrace.mark("bypass");
 
         // Re-arm the sleep timer. AlarmManager does not survive a reboot, so a
         // timer set before one would otherwise never fire and the row would keep
@@ -441,8 +475,20 @@ public class ApplicationLoader extends Application {
             }
         } catch (Throwable ignored) {}
 
-        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
+        // There are fifteen slots and most phones use one. Building a MessagesController
+        // and a ConnectionsManager for every empty slot was the most expensive thing in
+        // the launch (1.6 s measured over fifteen accounts), so the slots that nobody is
+        // signed in to stay lazy: whoever needs them first creates them, exactly as the
+        // old build did anyway a moment after start. Account 0 is always built, because
+        // the push registration below needs it and the UI falls back to it.
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
             UserConfig.getInstance(a).loadConfig();
+        }
+        app.nimarkogram.messenger.utils.StartupTrace.mark("account config");
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (a != 0 && !UserConfig.getInstance(a).isClientActivated()) {
+                continue;
+            }
             MessagesController.getInstance(a);
             if (a == 0) {
                 SharedConfig.pushStringStatus = "__FIREBASE_GENERATING_SINCE_" + ConnectionsManager.getInstance(a).getCurrentTime() + "__";
@@ -455,8 +501,9 @@ public class ApplicationLoader extends Application {
                 SendMessagesHelper.getInstance(a).checkUnsentMessages();
             }
         }
-
+        app.nimarkogram.messenger.utils.StartupTrace.mark("account init");
         initPluginEngine();
+        app.nimarkogram.messenger.utils.StartupTrace.mark("plugin engine");
 
         // A VPN and the bypass relay both bind local listeners; let the VPN win
         // instead of leaving a stale 127.0.0.1 entry that would break the next
@@ -474,13 +521,21 @@ public class ApplicationLoader extends Application {
             FileLog.d("app initied");
         }
 
-        MediaController.getInstance();
-        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
-            ContactsController.getInstance(a).checkAppAccount();
-            DownloadController.getInstance(a);
-        }
-        BillingController.getInstance().startConnection();
-        app.nimarkogram.messenger.automation.RepeatingMessages.restore();
+        app.nimarkogram.messenger.utils.StartupTrace.mark("postInit end");
+
+        // None of this is needed for the first frame: it is bookkeeping (billing, download
+        // queues, contact account checks) and an alarm that only matters later. Let the
+        // window come up first and run it right after, where the delay costs nothing.
+        AndroidUtilities.runOnUIThread(() -> {
+            MediaController.getInstance();
+            for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
+                ContactsController.getInstance(a).checkAppAccount();
+                DownloadController.getInstance(a);
+            }
+            BillingController.getInstance().startConnection();
+            app.nimarkogram.messenger.automation.RepeatingMessages.restore();
+            app.nimarkogram.messenger.utils.StartupTrace.mark("postInit deferred");
+        }, 300);
     }
 
     private static void initPluginEngine() {
