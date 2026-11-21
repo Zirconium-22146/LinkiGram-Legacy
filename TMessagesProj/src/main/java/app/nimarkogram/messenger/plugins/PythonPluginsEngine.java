@@ -1955,6 +1955,29 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
         }
     }
 
+    /**
+     * The native half of the runtime: hidden-API exemptions and Pine. Other features
+     * (smooth text cursor) load Pine on their own, and that path crashes inside
+     * libpine when it runs without these exemptions, so it stays here and runs even
+     * when Python itself is skipped.
+     */
+    private void initNativeHooks() {
+        try {
+            org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("L");
+        } catch (Throwable bypassError) {
+            FileLog.w("nimarko: HiddenApiBypass unavailable before Python.start: " + bypassError);
+        }
+        try {
+            if (!ensurePineReady()) {
+                FileLog.w("nimarko: Pine unavailable; Python starts with method hooks disabled");
+            } else {
+                PluginDexTracking.install();
+            }
+        } catch (Throwable pineError) {
+            FileLog.e("nimarko: optional Pine initialization failed; continuing without hooks", pineError);
+        }
+    }
+
     private void initPython() {
         synchronized (PYTHON_START_LOCK) {
             if (this.python != null
@@ -1963,22 +1986,7 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
             }
             try {
                 android.util.Log.i("LinkiPluginEngine", "Initializing Python plugin runtime");
-                
-                try {
-                    org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("L");
-                } catch (Throwable bypassError) {
-                    FileLog.w("nimarko: HiddenApiBypass unavailable before Python.start: " + bypassError);
-                }
-                try {
-                    if (!ensurePineReady()) {
-                        FileLog.w("nimarko: Pine unavailable; Python starts with method hooks disabled");
-                    } else {
-                        PluginDexTracking.install();
-                    }
-                } catch (Throwable pineError) {
-                    
-                    FileLog.e("nimarko: optional Pine initialization failed; continuing without hooks", pineError);
-                }
+                initNativeHooks();
                 final Python candidate;
                 
                 synchronized (Python.class) {
@@ -2057,6 +2065,19 @@ public class PythonPluginsEngine implements PluginsController.PluginsEngine {
                 if (NimarkoConfig.pluginsSafeMode) {
                     FileLog.d("nimarko: safe mode active, skipping Python engine init");
                     
+                    if (runnable != null) {
+                        AndroidUtilities.runOnUIThread(runnable);
+                    }
+                    return;
+                }
+                // Nothing to run: skip Python (interpreter, stdlib, wheels) but keep the
+                // native hooks set up exactly as a normal start would, so features that
+                // load Pine on their own find a working runtime.
+                if (!getPluginsController().hasInstalledPluginsOnDisk()
+                        && !NimarkoConfig.pluginsDevMode) {
+                    FileLog.d("nimarko: no plugins installed, Python runtime not started");
+                    initNativeHooks();
+                    getPluginsController().notifyPluginsChanged();
                     if (runnable != null) {
                         AndroidUtilities.runOnUIThread(runnable);
                     }

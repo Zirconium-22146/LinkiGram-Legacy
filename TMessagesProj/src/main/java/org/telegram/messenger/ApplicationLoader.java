@@ -160,6 +160,14 @@ public class ApplicationLoader extends Application {
         if (pineInitializationAttempted) return;
         pineInitializationAttempted = true;
         try {
+            // Pine's static initializer trips over hidden-API restrictions when it is
+            // loaded without them lifted: the process dies inside libpine. The plugin
+            // engine lifts them before touching Pine, so do the same here for the
+            // callers that reach Pine on their own.
+            try {
+                org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("L");
+            } catch (Throwable ignore) {
+            }
             Class.forName("top.canyie.pine.Pine");
             pineAvailable = true;
             pineReady = true;
@@ -485,16 +493,7 @@ public class ApplicationLoader extends Application {
             }
         }
         try {
-            app.nimarkogram.messenger.plugins.PluginsController plugins =
-                    app.nimarkogram.messenger.plugins.PluginsController.getInstance();
-            if (plugins.hasInstalledPluginsOnDisk()) {
-                plugins.init();
-            } else {
-                // No plugins: skip Python entirely. The interpreter costs tens of MB
-                // of RSS and delays the launch for nothing; the settings screen starts
-                // the engine when the user opens it or installs the first plugin.
-                FileLog.d("nimarko: no plugins on disk, plugin engine not started");
-            }
+            app.nimarkogram.messenger.plugins.PluginsController.getInstance().init();
         } catch (Throwable failure) {
             android.util.Log.e("LinkiPluginEngine", "Unable to start plugin engine", failure);
         }
