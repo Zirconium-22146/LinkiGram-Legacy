@@ -1207,6 +1207,32 @@ public class PluginsController implements PluginsHooks {
         }
     }
 
+    /**
+     * True when the plugins folder holds at least one plugin (file or bundle).
+     * Used at startup to keep the Python runtime out of memory when there is
+     * nothing to run: the interpreter plus its wheels cost tens of megabytes
+     * of RAM and a noticeable slice of the launch time.
+     */
+    public boolean hasInstalledPluginsOnDisk() {
+        try {
+            File dir = getPluginsDir();
+            File[] files = dir == null ? null : dir.listFiles();
+            if (files == null) {
+                return false;
+            }
+            for (File file : files) {
+                if (file != null && !file.getName().startsWith(".")) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (Throwable failure) {
+            // Never let a probed folder disable the engine: start it as before.
+            FileLog.e("nimarko: hasInstalledPluginsOnDisk failed", failure);
+            return true;
+        }
+    }
+
     public File getPluginsDir() {
         if (pluginsDir == null) {
             File file = new File(ApplicationLoader.getFilesDirFixed(), PluginsConstants.PLUGINS);
@@ -2641,6 +2667,9 @@ public class PluginsController implements PluginsHooks {
     }
 
     private void showInstallDialog(final BaseFragment baseFragment, InstallPluginBottomSheet.PluginInstallParams pluginInstallParams) {
+        // The engine may have been skipped at launch because the folder was empty.
+        // Installing a plugin is exactly the moment it has to be running.
+        init();
         if (baseFragment == null || !AndroidUtilities.isActivityRunning(baseFragment.getParentActivity()) || TextUtils.isEmpty(pluginInstallParams.filePath)) {
             return;
         }

@@ -160,6 +160,14 @@ public class ApplicationLoader extends Application {
         if (pineInitializationAttempted) return;
         pineInitializationAttempted = true;
         try {
+            // Pine's static initializer trips over hidden-API restrictions when it is
+            // loaded without them lifted: the process dies inside libpine. The plugin
+            // engine lifts them before touching Pine, so do the same here for the
+            // callers that reach Pine on their own.
+            try {
+                org.lsposed.hiddenapibypass.HiddenApiBypass.addHiddenApiExemptions("L");
+            } catch (Throwable ignore) {
+            }
             Class.forName("top.canyie.pine.Pine");
             pineAvailable = true;
             pineReady = true;
