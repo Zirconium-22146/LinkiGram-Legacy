@@ -375,13 +375,16 @@ public class ApplicationLoader extends Application {
             return;
         }
         applicationInited = true;
+        app.nimarkogram.messenger.utils.StartupTrace.mark("postInit start");
         NativeLoader.initNativeLibs(ApplicationLoader.applicationContext);
+        app.nimarkogram.messenger.utils.StartupTrace.mark("native libs");
 
         try {
             LocaleController.getInstance(); //TODO improve
         } catch (Exception e) {
             e.printStackTrace();
         }
+        app.nimarkogram.messenger.utils.StartupTrace.mark("locale");
 
         try {
             connectivityManager = (ConnectivityManager) ApplicationLoader.applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE);
@@ -430,6 +433,7 @@ public class ApplicationLoader extends Application {
 
         SharedConfig.loadConfig();
         SharedPrefsHelper.init(applicationContext);
+        app.nimarkogram.messenger.utils.StartupTrace.mark("prefs");
 
         // LinkiGram bypass relay startup.
         //
@@ -485,7 +489,9 @@ public class ApplicationLoader extends Application {
             }
         }
 
+        app.nimarkogram.messenger.utils.StartupTrace.mark("accounts");
         initPluginEngine();
+        app.nimarkogram.messenger.utils.StartupTrace.mark("plugin engine");
 
         // A VPN and the bypass relay both bind local listeners; let the VPN win
         // instead of leaving a stale 127.0.0.1 entry that would break the next
@@ -503,13 +509,21 @@ public class ApplicationLoader extends Application {
             FileLog.d("app initied");
         }
 
-        MediaController.getInstance();
-        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
-            ContactsController.getInstance(a).checkAppAccount();
-            DownloadController.getInstance(a);
-        }
-        BillingController.getInstance().startConnection();
-        app.nimarkogram.messenger.automation.RepeatingMessages.restore();
+        app.nimarkogram.messenger.utils.StartupTrace.mark("postInit end");
+
+        // None of this is needed for the first frame: it is bookkeeping (billing, download
+        // queues, contact account checks) and an alarm that only matters later. Let the
+        // window come up first and run it right after, where the delay costs nothing.
+        AndroidUtilities.runOnUIThread(() -> {
+            MediaController.getInstance();
+            for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
+                ContactsController.getInstance(a).checkAppAccount();
+                DownloadController.getInstance(a);
+            }
+            BillingController.getInstance().startConnection();
+            app.nimarkogram.messenger.automation.RepeatingMessages.restore();
+            app.nimarkogram.messenger.utils.StartupTrace.mark("postInit deferred");
+        }, 300);
     }
 
     private static void initPluginEngine() {
