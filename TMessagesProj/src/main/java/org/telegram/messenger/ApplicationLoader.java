@@ -452,6 +452,7 @@ public class ApplicationLoader extends Application {
                         app.nimarkogram.messenger.wsbypass.WsBypassCore.LOCAL_PROXY_HOST);
             }
         } catch (Throwable ignored) {}
+        app.nimarkogram.messenger.utils.StartupTrace.mark("bypass");
 
         // Re-arm the sleep timer. AlarmManager does not survive a reboot, so a
         // timer set before one would otherwise never fire and the row would keep
@@ -474,8 +475,20 @@ public class ApplicationLoader extends Application {
             }
         } catch (Throwable ignored) {}
 
-        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) { //TODO improve account
+        // There are fifteen slots and most phones use one. Building a MessagesController
+        // and a ConnectionsManager for every empty slot was the most expensive thing in
+        // the launch (1.6 s measured over fifteen accounts), so the slots that nobody is
+        // signed in to stay lazy: whoever needs them first creates them, exactly as the
+        // old build did anyway a moment after start. Account 0 is always built, because
+        // the push registration below needs it and the UI falls back to it.
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
             UserConfig.getInstance(a).loadConfig();
+        }
+        app.nimarkogram.messenger.utils.StartupTrace.mark("account config");
+        for (int a = 0; a < UserConfig.MAX_ACCOUNT_COUNT; a++) {
+            if (a != 0 && !UserConfig.getInstance(a).isClientActivated()) {
+                continue;
+            }
             MessagesController.getInstance(a);
             if (a == 0) {
                 SharedConfig.pushStringStatus = "__FIREBASE_GENERATING_SINCE_" + ConnectionsManager.getInstance(a).getCurrentTime() + "__";
@@ -488,8 +501,7 @@ public class ApplicationLoader extends Application {
                 SendMessagesHelper.getInstance(a).checkUnsentMessages();
             }
         }
-
-        app.nimarkogram.messenger.utils.StartupTrace.mark("accounts");
+        app.nimarkogram.messenger.utils.StartupTrace.mark("account init");
         initPluginEngine();
         app.nimarkogram.messenger.utils.StartupTrace.mark("plugin engine");
 
