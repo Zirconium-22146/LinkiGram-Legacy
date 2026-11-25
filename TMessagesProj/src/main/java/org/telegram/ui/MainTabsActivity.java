@@ -1087,37 +1087,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     public GlassTabView[] tabs;
 
     private void applyYouTabsConfiguration() {
-        if (tabsView == null || tabs == null || youSearchTab == null || youXcfgTab == null) return;
-        java.util.List<app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab> configured =
-                app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE.getAllTabs();
-        int current = viewPager != null ? viewPager.getCurrentPosition() : chatsPosition();
-        boolean currentVisible = false;
-        tabsView.removeAllViews();
-        for (app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab item : configured) {
-            if (!item.enabled) continue;
-            GlassTabView tab;
-            int position = -1;
-            switch (item.getType()) {
-                case CHATS: tab = tabs[INDEX_CHATS]; position = chatsPosition(); break;
-                case CONTACTS: tab = tabs[INDEX_CONTACTS]; position = contactsPosition(); break;
-                case SETTINGS: tab = tabs[INDEX_CHANNELS]; position = POSITION_CALLS; break;
-                case CALLS: tab = tabs[INDEX_CALLS]; position = POSITION_CALLS; break;
-                case PROFILE: tab = tabs[INDEX_CALLS]; position = POSITION_CALLS; break;
-                case SEARCH: tab = youSearchTab; break;
-                case XCFG: tab = youXcfgTab; break;
-                default: continue;
-            }
-            tab.setTitleVisible(app.nimarkogram.messenger.NimarkoConfig.showMainTabsTitle);
-            tabsView.addView(tab);
-            tabsView.setViewVisible(tab, true, false);
-            if (position == current) currentVisible = true;
-        }
-        if (!currentVisible && viewPager != null) {
-            viewPager.scrollToPosition(chatsPosition());
-            current = chatsPosition();
-        }
-        selectTab(current, false);
-        tabsView.requestLayout();
+        // Legacy You tabs config removed; fixed 4-tab layout is used.
     }
 
     private void openYouTabsSearch() {
@@ -1150,19 +1120,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     private boolean isYouPageEnabled(int position) {
-        for (app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab item :
-                app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE.getAllTabs()) {
-            if (!item.enabled) continue;
-            switch (item.getType()) {
-                case CHATS: if (position == chatsPosition()) return true; break;
-                case CONTACTS: if (position == contactsPosition()) return true; break;
-                case SETTINGS: if (position == POSITION_CALLS) return true; break;
-                case PROFILE: if (position == POSITION_CALLS) return true; break;
-                case CALLS: if (position == POSITION_CALLS) return true; break;
-                default: break;
-            }
-        }
-        return false;
+        return position >= 0 && position < TABS_COUNT;
     }
 
     public void selectTab(int position, boolean animated) {
