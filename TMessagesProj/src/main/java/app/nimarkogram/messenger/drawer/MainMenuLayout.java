@@ -47,6 +47,7 @@ public final class MainMenuLayout {
         }
         layout.add(MainMenuItem.SAVED.getId());
         layout.add(MainMenuItem.BOTS.getId());
+        layout.add(MainMenuItem.XCFG.getId());
         if (bottomBarHidden) {
             layout.add(MainMenuItem.SETTINGS.getId());
         }
