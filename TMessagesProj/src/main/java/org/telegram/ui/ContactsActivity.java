@@ -223,8 +223,8 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         getContactsController().reloadContactsStatusesMaybe(false);
 
         // Верхние вкладки не занимают низ экрана.
-        additionNavigationBarHeight = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
-        additionFloatingButtonOffset = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
+        additionNavigationBarHeight = hasMainTabs && !MainTabsLayout.isTopTabs() ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
+        additionFloatingButtonOffset = hasMainTabs && !MainTabsLayout.isTopTabs() ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
 
         return true;
     }
@@ -403,7 +403,8 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
             @Override
             protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
                 measureChildWithMargins(simpleActionBar, widthMeasureSpec, 0, heightMeasureSpec, 0);
-                ((MarginLayoutParams) emptyView.getLayoutParams()).topMargin = simpleActionBar.getMeasuredHeight();
+                ((MarginLayoutParams) emptyView.getLayoutParams()).topMargin = simpleActionBar.getMeasuredHeight()
+                        + dp(MainTabsLayout.topTabsHeight());
                 super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             }
 
@@ -1372,7 +1373,8 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
     private int statusBarInset;
 
     private void checkUi_listViewPadding() {
-        BaseFragmentSimpleGlass.setListViewParams(listView, statusBarInset, navigationBarHeight, ActionBar.getCurrentActionBarHeight(), additionNavigationBarHeight);
+        BaseFragmentSimpleGlass.setListViewParams(listView, statusBarInset, navigationBarHeight,
+                ActionBar.getCurrentActionBarHeight() + dp(MainTabsLayout.topTabsHeight()), additionNavigationBarHeight);
     }
 
     private boolean lastIsEmpty;
@@ -1430,7 +1432,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
     @Override
     public boolean drawEdgeNavigationBar() {
-        return !hasMainTabs || MainTabsLayout.TOP_TABS;
+        return !hasMainTabs || MainTabsLayout.isTopTabs();
     }
 
     @Override

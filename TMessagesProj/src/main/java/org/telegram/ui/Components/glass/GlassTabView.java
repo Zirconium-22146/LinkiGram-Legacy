@@ -145,9 +145,9 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         colorOsMainTab = false;
         stackedMainTab = true;
         setSkipDrawSelector(true);
-        imageView.setLayoutParams(LayoutHelper.createFrame(22, 22, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 8, 0, 0));
+        imageView.setLayoutParams(LayoutHelper.createFrame(20, 20, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 5, 0, 0));
         if (backupImageView != null) {
-            backupImageView.setLayoutParams(LayoutHelper.createFrame(20, 20, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 9, 0, 0));
+            backupImageView.setLayoutParams(LayoutHelper.createFrame(20, 20, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 5, 0, 0));
         }
         textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11f);
         textView.setTypeface(AndroidUtilities.bold());
@@ -155,7 +155,7 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         textView.setLetterSpacing(0f);
         textView.setGravity(Gravity.CENTER);
         textView.setAlpha(1f);
-        textView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 14, Gravity.TOP, 2, 32, 2, 0));
+        textView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 14, Gravity.TOP, 2, 25, 2, 0));
         defaultTextPaint.setTextSize(dp(11));
         imageView.setColorFilter(new PorterDuffColorFilter(colorDefault, PorterDuff.Mode.SRC_IN));
         updateNavigationColors();
@@ -789,7 +789,9 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
                     Theme.getColor(Theme.key_glass_tabUnselected, resourcesProvider), PorterDuff.Mode.SRC_IN));
         } catch (Exception ignore) {
         }
-        addView(iv, materialMainTab
+        addView(iv, stackedMainTab
+                ? LayoutHelper.createFrame(20, 20, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 5, 0, 0)
+                : materialMainTab
                 ? mainIconLayout(24)
                 : LayoutHelper.createFrame(24, 24, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 4, 0, 0));
     }

@@ -138,6 +138,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         items.add(UItem.asButton(2002, getString(R.string.LF_Menu)));
         items.add(UItem.asButton(iconPackRow, getString(R.string.AP_IconReplacements), getIconPackValueText()));
         items.add(UItem.asButton(SETTINGS_ICON_COLORS, getString(R.string.LinkiSettingsIconColors), getSettingsIconColorValue()));
+        items.add(UItem.asButton(bottomTabsRow, getString(R.string.NM_TP_Title), getMainTabsPanelValue()));
         items.add(UItem.asButton(oneUISwitchesRow, getString(R.string.NM_SwitchStyle), getSwitchStyleValueText()).setEnabled(!linkiYou));
         items.add(UItem.asButton(MATERIAL_GROUP, getString(R.string.NM_Style_Material),
                 styleCount(AppearanceConfig.MATERIAL_KEYS) + "/" + AppearanceConfig.MATERIAL_KEYS.length));
@@ -488,7 +489,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         } else if (item.id == foldersRow) {
             presentFragment(new FoldersPreferencesActivity());
         } else if (item.id == bottomTabsRow) {
-            presentFragment(new BottomTabsPreferencesActivity());
+            presentFragment(new MainTabsPanelPreferencesActivity());
         } else if (item.id == appBackgroundRow) {
             presentFragment(new BackgroundPreferencesActivity());
         } else if (item.id == messagesAndProfilesRow) {
@@ -509,6 +510,11 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
             case NimarkoConfig.ICON_REPLACE_PLUMPY -> getString(R.string.NM_IconPack_PlumpyTitle);
             default -> getString(R.string.Default);
         };
+    }
+
+    private String getMainTabsPanelValue() {
+        return getString(NimarkoConfig.mainTabsPosition == NimarkoConfig.MAIN_TABS_POSITION_TOP
+                ? R.string.NM_TP_PositionValueTop : R.string.NM_TP_PositionValueBottom);
     }
 
     private String getSwitchStyleValueText() {

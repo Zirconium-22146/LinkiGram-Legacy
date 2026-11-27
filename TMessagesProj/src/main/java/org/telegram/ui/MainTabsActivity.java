@@ -56,6 +56,7 @@ import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.EdgeToEdgeSupportMode;
@@ -98,8 +99,6 @@ import me.vkryl.android.animator.FactorAnimator;
 public class MainTabsActivity extends ViewPagerActivity implements NotificationCenter.NotificationCenterDelegate, FactorAnimator.Target {
 
     public static final int TABS_COUNT = 4;
-    /** Высота верхней полосы вкладок в dp (иконка над подписью). */
-    private static final int TOP_TABS_HEIGHT = 52;
     private static final int POSITION_CHATS = 0;
     private static final int POSITION_CONTACTS = 1;
     private static final int POSITION_CHANNELS = 2;
@@ -160,7 +159,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         Bulletin.Delegate delegate = new Bulletin.Delegate() {
             @Override
             public int getBottomOffset(int tag) {
-                if (MainTabsLayout.TOP_TABS) {
+                if (MainTabsLayout.isTopTabs()) {
                     return navigationBarHeight;
                 }
                 return navigationBarHeight + dp(app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle()
@@ -309,7 +308,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
      */
     private void applyTabsWrapperBackground() {
         if (tabsViewWrapper == null) return;
-        if (MainTabsLayout.TOP_TABS) {
+        if (MainTabsLayout.isTopTabs()) {
             // Полоса идёт под статус-бар: красим и её, иначе сверху будет дыра.
             tabsViewWrapper.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
             setTabsNavStripVisible(false);
@@ -434,7 +433,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 || material3Nav)
                 && MainTabsLayout.getBottomNavigationMode() == MainTabsLayout.BOTTOM_NAVIGATION_MODE_SHOW;
         tabsDocked = dockedTabs;
-        final boolean topTabs = MainTabsLayout.TOP_TABS;
+        final boolean topTabs = MainTabsLayout.isTopTabs();
         final boolean fullWidthTabs = topTabs || colorOsNav || dockedTabs || !md3Nav && iosNav;
         final int tabsPad = topTabs ? 0 : (colorOsNav || md3Nav && dockedTabs ? 0 : md3Nav ? 8 : (dockedTabs ? 0 : DialogsActivity.MAIN_TABS_MARGIN) + 4);
         tabsView.setPadding(dp(tabsPad), dp(topTabs || colorOsNav ? 0 : tabsPad), dp(tabsPad), dp(topTabs || colorOsNav ? 0 : tabsPad));
@@ -479,7 +478,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             tabsView.setViewVisible(view, true, false);
         }
 
-        checkUi_callTabVisible(getUserConfig().showCallsTab, false);
+        // LinkiGram Legacy 1.4: состав полосы вкладок берём из настроек.
+        applyTabsConfig(context);
+        applyTabsVisibility(false);
 
         selectTab(viewPager.getCurrentPosition(), false);
 
@@ -558,7 +559,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsNavStrip.setVisibility(View.GONE);
         tabsViewWrapper.addView(tabsNavStrip, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 0, Gravity.BOTTOM));
         tabsViewWrapper.addView(tabsView, LayoutHelper.createFrame(topTabs || colorOsNav || !md3Nav || dockedTabs ? LayoutHelper.MATCH_PARENT : LayoutHelper.WRAP_CONTENT,
-                topTabs ? TOP_TABS_HEIGHT
+                topTabs ? MainTabsLayout.TOP_TABS_HEIGHT_DP
                         : colorOsNav ? 64 : md3Nav ? 64 : dockedTabs ? DialogsActivity.MAIN_TABS_HEIGHT : DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS,
                 (topTabs ? Gravity.TOP : Gravity.BOTTOM) | Gravity.CENTER_HORIZONTAL, 0, 0, 0,
                 topTabs || colorOsNav || dockedTabs ? 0 : md3Nav ? 8 : 0));
@@ -1135,29 +1136,35 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private int insetRight;
 
     /**
-     * Верхние вкладки: полоса встаёт под статус-бар, а ViewPager начинается под ней.
-     * Фрагментам верхний инсет уже не нужен — его забрали вкладки.
+     * Верхние вкладки: пейджер занимает весь экран, шапка вкладки сама уходит под
+     * статус-бар, а полоса вкладок рисуется отдельным слоем ровно под этой шапкой.
      */
     @NonNull
     private WindowInsetsCompat applyTopTabsInsets(@NonNull View v, @NonNull WindowInsetsCompat insets, @NonNull Insets systemInsets) {
-        final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
         updateLayoutWrapper.setPadding(0, 0, 0, navigationBarHeight);
 
         ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) viewPager.getLayoutParams();
-        final int topMargin = systemInsets.top + dp(TOP_TABS_HEIGHT);
-        if (lp.topMargin != topMargin || lp.leftMargin != 0 || lp.rightMargin != 0 || lp.bottomMargin != 0) {
-            lp.topMargin = topMargin;
-            lp.leftMargin = 0;
-            lp.rightMargin = 0;
+        if (lp.topMargin != 0 || lp.leftMargin != systemInsets.left || lp.rightMargin != systemInsets.right || lp.bottomMargin != 0) {
+            lp.topMargin = 0;
+            lp.leftMargin = systemInsets.left;
+            lp.rightMargin = systemInsets.right;
             lp.bottomMargin = 0;
             viewPager.setLayoutParams(lp);
         }
 
-        tabsViewWrapper.setPadding(systemInsets.left, systemInsets.top, systemInsets.right, 0);
+        // Полоса встаёт ровно под шапкой: статус-бар + высота ActionBar.
+        final int tabsTop = systemInsets.top + ActionBar.getCurrentActionBarHeight();
+        ViewGroup.MarginLayoutParams wrapperLp = (ViewGroup.MarginLayoutParams) tabsViewWrapper.getLayoutParams();
+        if (wrapperLp.topMargin != tabsTop || wrapperLp.bottomMargin != 0) {
+            wrapperLp.topMargin = tabsTop;
+            wrapperLp.bottomMargin = 0;
+            tabsViewWrapper.setLayoutParams(wrapperLp);
+        }
+        tabsViewWrapper.setPadding(systemInsets.left, 0, systemInsets.right, 0);
         setTabsNavStripHeight(0);
 
         ViewGroup.LayoutParams tabsParams = tabsView.getLayoutParams();
-        final int tabsHeight = dp(TOP_TABS_HEIGHT);
+        final int tabsHeight = dp(MainTabsLayout.TOP_TABS_HEIGHT_DP);
         if (tabsParams.height != tabsHeight) {
             tabsParams.height = tabsHeight;
             tabsView.setLayoutParams(tabsParams);
@@ -1176,9 +1183,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         checkUi_tabsPosition();
         checkUi_fadeView();
 
-        final WindowInsetsCompat forFragments = systemInsets.top > 0
-                ? insets.inset(0, systemInsets.top, 0, 0) : insets;
-        return super.onApplyWindowInsets(v, forFragments);
+        // Фрагментам отдаём полные инсеты: шапка снова занимает статус-бар,
+        // а контент вкладки отступает под полосу вкладок сам (42dp).
+        return super.onApplyWindowInsets(v, insets);
     }
 
     @NonNull
@@ -1190,7 +1197,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         insetRight = systemInsets.right;
 
         navigationBarHeight = systemInsets.bottom;
-        if (MainTabsLayout.TOP_TABS) {
+        if (MainTabsLayout.isTopTabs()) {
             return applyTopTabsInsets(v, insets, systemInsets);
         }
         final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
@@ -1372,7 +1379,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         final float animatedPosition = viewPager.getPositionAnimated();
         float alpha = animatorTabsVisible.getFloatValue();
-        if (MainTabsLayout.TOP_TABS) {
+        if (MainTabsLayout.isTopTabs()) {
             alpha = 0f;
         }
         if (tabletLayout || MainTabsLayout.isBottomNavigationHidden()) {
@@ -1386,7 +1393,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     private void checkUi_tabsPosition() {
         checkUi_miniPlayer();
-        if (MainTabsLayout.TOP_TABS) {
+        if (MainTabsLayout.isTopTabs()) {
             // Верхние вкладки не прячутся при прокрутке и не сдвигаются вниз.
             tabsViewWrapper.setTranslationY(0);
             tabsView.setClickable(true);
@@ -1419,20 +1426,55 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         }
         final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
         final int updateLayoutHeight = isUpdateLayoutVisible ? dp(UpdateLayoutWrapper.HEIGHT) : 0;
-        final int tabsHeight = MainTabsLayout.TOP_TABS || !MainTabsLayout.isBottomNavigationVisible() ? 0
+        final int tabsHeight = MainTabsLayout.isTopTabs() || !MainTabsLayout.isBottomNavigationVisible() ? 0
                 : app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled() ? dp(64)
                 : app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle() ? dp(72)
                 : dp(MainTabsLayout.isBottomNavigationFloating()
                         ? DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS : DialogsActivity.MAIN_TABS_HEIGHT);
-        final float factor = MainTabsLayout.TOP_TABS ? 1f : animatorTabsVisible.getFloatValue();
+        final float factor = MainTabsLayout.isTopTabs() ? 1f : animatorTabsVisible.getFloatValue();
         miniPlayer.setHostPosition(-(navigationBarHeight + updateLayoutHeight + tabsHeight), factor);
     }
 
     private void checkUi_callTabVisible(boolean callTabsVisible, boolean animated) {
-        // Вкладка звонков в LinkiGram Legacy показывается всегда.
-        if (tabsView != null && tabs != null && INDEX_CALLS < tabs.length) {
-            tabsView.setViewVisible(tabs[INDEX_CALLS], true, animated);
+        // В LinkiGram Legacy видимость вкладок задаётся настройками панели,
+        // а не флагом showCallsTab у аккаунта.
+        applyTabsVisibility(animated);
+    }
+
+    /** Третья вкладка: «Каналы» либо кнопка X-CFG (обход). */
+    private void applyTabsConfig(Context context) {
+        if (tabs == null || tabs.length <= INDEX_CHANNELS) {
+            return;
         }
+        final boolean xcfg = app.nimarkogram.messenger.NimarkoConfig.mainTabsThirdXcfg;
+        final GlassTabView third = tabs[INDEX_CHANNELS];
+        if (!xcfg) {
+            return;
+        }
+        third.setText("X-CFG");
+        third.setTabIcon(app.nimarkogram.messenger.xcfg.XcfgController.tabIcon(context));
+        third.setOnClickListener(v -> {
+            if (viewPager.isManualScrolling() || viewPager.isTouch()) {
+                return;
+            }
+            app.nimarkogram.messenger.xcfg.XcfgController.openMain(currentAccount);
+        });
+        third.setOnLongClickListener(null);
+    }
+
+    /** Видимость вкладок: чаты всегда, остальные — по настройкам панели. */
+    private void applyTabsVisibility(boolean animated) {
+        if (tabsView == null || tabs == null || tabs.length < TABS_COUNT) {
+            return;
+        }
+        tabsView.setViewVisible(tabs[INDEX_CHATS], true, animated);
+        tabsView.setViewVisible(tabs[INDEX_CONTACTS],
+                app.nimarkogram.messenger.NimarkoConfig.mainTabsShowContacts, animated);
+        tabsView.setViewVisible(tabs[INDEX_CHANNELS],
+                app.nimarkogram.messenger.NimarkoConfig.mainTabsThirdXcfg
+                        || app.nimarkogram.messenger.NimarkoConfig.mainTabsShowChannels, animated);
+        tabsView.setViewVisible(tabs[INDEX_CALLS],
+                app.nimarkogram.messenger.NimarkoConfig.mainTabsShowCalls, animated);
     }
 
     @Override
@@ -1587,7 +1629,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         if (tabsView == null || contentView == null) {
             return;
         }
-        if (MainTabsLayout.TOP_TABS) {
+        if (MainTabsLayout.isTopTabs()) {
             tabsViewBackground = null;
             if (tabsView != null) {
                 tabsView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
@@ -1646,7 +1688,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             fadeView.invalidate();
         }
         if (tabsView != null) {
-            if (MainTabsLayout.TOP_TABS) {
+            if (MainTabsLayout.isTopTabs()) {
                 tabsView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
                 applyTabsWrapperBackground();
             } else if (app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) {

@@ -1134,9 +1134,51 @@ public final class NimarkoConfig {
         getEditor().putBoolean("showMainTabs", showMainTabs).putBoolean("bottomNavigationFloating", bottomNavigationFloating).apply();
     }
 
-    public static boolean isBottomNavigationHidden() { return !showMainTabs; }
-    public static boolean isBottomNavigationVisible() { return showMainTabs; }
-    public static boolean isBottomNavigationFloating() { return showMainTabs && bottomNavigationFloating; }
+    public static boolean isBottomNavigationHidden() { return !showMainTabs || isMainTabsOnTop(); }
+    public static boolean isBottomNavigationVisible() { return showMainTabs && !isMainTabsOnTop(); }
+    public static boolean isBottomNavigationFloating() { return showMainTabs && !isMainTabsOnTop() && bottomNavigationFloating; }
+
+    private static boolean isMainTabsOnTop() {
+        return mainTabsPosition == MAIN_TABS_POSITION_TOP;
+    }
+
+    // --- LinkiGram Legacy 1.4: панель вкладок (положение и состав) ---
+
+    /** 0 — вкладки сверху, под шапкой; 1 — снизу, над системной навигацией. */
+    public static final int MAIN_TABS_POSITION_TOP = 0;
+    public static final int MAIN_TABS_POSITION_BOTTOM = 1;
+
+    public static int mainTabsPosition = getPreferences().getInt("mainTabsPosition", MAIN_TABS_POSITION_TOP);
+    public static boolean mainTabsShowContacts = getPreferences().getBoolean("mainTabsShowContacts", true);
+    public static boolean mainTabsShowChannels = getPreferences().getBoolean("mainTabsShowChannels", true);
+    public static boolean mainTabsShowCalls = getPreferences().getBoolean("mainTabsShowCalls", true);
+    /** Третья вкладка — X-CFG (обход) вместо «Каналов». */
+    public static boolean mainTabsThirdXcfg = getPreferences().getBoolean("mainTabsThirdXcfg", false);
+
+    public static void setMainTabsPosition(int position) {
+        mainTabsPosition = position;
+        getEditor().putInt("mainTabsPosition", position).apply();
+    }
+
+    public static void setMainTabsShowContacts(boolean v) {
+        mainTabsShowContacts = v;
+        getEditor().putBoolean("mainTabsShowContacts", v).apply();
+    }
+
+    public static void setMainTabsShowChannels(boolean v) {
+        mainTabsShowChannels = v;
+        getEditor().putBoolean("mainTabsShowChannels", v).apply();
+    }
+
+    public static void setMainTabsShowCalls(boolean v) {
+        mainTabsShowCalls = v;
+        getEditor().putBoolean("mainTabsShowCalls", v).apply();
+    }
+
+    public static void setMainTabsThirdXcfg(boolean v) {
+        mainTabsThirdXcfg = v;
+        getEditor().putBoolean("mainTabsThirdXcfg", v).apply();
+    }
 
     /** Боковое меню (шторка) вместо пунктов в шапке списка чатов. */
     // Linkigram Legacy: навигация идёт через шторку, поэтому она включена всегда.

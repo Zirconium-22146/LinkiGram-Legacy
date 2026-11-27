@@ -704,8 +704,8 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 		}
 
 		// Верхние вкладки не занимают низ экрана.
-		additionNavigationBarHeight = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
-		additionFloatingButtonOffset = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
+		additionNavigationBarHeight = hasMainTabs && !MainTabsLayout.isTopTabs() ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
+		additionFloatingButtonOffset = hasMainTabs && !MainTabsLayout.isTopTabs() ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
 
 		return true;
 	}
@@ -1049,7 +1049,8 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			hideCallTabsHintView.setText(AndroidUtilities.replaceTags(getString(R.string.TapToHideCallsTab)));
 			// hideCallTabsHintView.setRounding(dp(12));
 			contentView.addView(hideCallTabsHintView, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 80, Gravity.TOP));
-			hideCallTabsHintView.setTranslationY(AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight() - dp(16));
+			hideCallTabsHintView.setTranslationY(AndroidUtilities.statusBarHeight + ActionBar.getCurrentActionBarHeight()
+				+ dp(MainTabsLayout.topTabsHeight()) - dp(16));
 			hideCallTabsHintView.show();
 			hideCallTabsHintWasShown = true;
 
@@ -1415,15 +1416,18 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 
 	private void checkUi_listViewPadding() {
 		BaseFragmentSimpleGlass.setListViewParams(listView, mSystemInsets.top, mSystemInsets.bottom,
-			ActionBar.getCurrentActionBarHeight() + (int) topPanelLayout.getAnimatedHeightWithPadding(dp(7)), additionNavigationBarHeight);
+			ActionBar.getCurrentActionBarHeight() + dp(MainTabsLayout.topTabsHeight())
+				+ (int) topPanelLayout.getAnimatedHeightWithPadding(dp(7)), additionNavigationBarHeight);
 
 		actionBarBackground.getLayoutParams().height = mSystemInsets.top
 			+ ActionBar.getCurrentActionBarHeight() + simpleActionBar.getExtraHeight()
 			+ (int) topPanelLayout.getAnimatedHeightWithPadding(dp(7));
 
 		// its glass 7dp under the header's buttons
-		((ViewGroup.MarginLayoutParams) topPanelLayout.getLayoutParams()).topMargin = BaseFragmentSimpleGlass.getPillGlassTop(mSystemInsets.top) - dp(14) - dp(7);
-		((ViewGroup.MarginLayoutParams) emptyView.getLayoutParams()).topMargin = mSystemInsets.top + ActionBar.getCurrentActionBarHeight();
+		((ViewGroup.MarginLayoutParams) topPanelLayout.getLayoutParams()).topMargin = BaseFragmentSimpleGlass.getPillGlassTop(mSystemInsets.top)
+			+ dp(MainTabsLayout.topTabsHeight()) - dp(14) - dp(7);
+		((ViewGroup.MarginLayoutParams) emptyView.getLayoutParams()).topMargin = mSystemInsets.top
+			+ ActionBar.getCurrentActionBarHeight() + dp(MainTabsLayout.topTabsHeight());
 
 		emptyView.setPadding(0, 0, 0, navigationBarHeight + additionNavigationBarHeight);
 	}

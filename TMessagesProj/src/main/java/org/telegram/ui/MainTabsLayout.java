@@ -48,11 +48,22 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         updateSelectorColor();
     }
 
+    /** Высота полосы вкладок в dp: заметно ниже шапки (56dp). */
+    public static final int TOP_TABS_HEIGHT_DP = 42;
+
+    /** Сколько полоса вкладок занимает сверху (0, если вкладки снизу). */
+    public static int topTabsHeight() {
+        return isTopTabs() ? TOP_TABS_HEIGHT_DP : 0;
+    }
+
     /**
      * LinkiGram Legacy 1.4: классические вкладки сверху (Чаты · Контакты · Каналы · Звонки).
-     * Панель живёт в MainTabsActivity над ViewPager, а не над системной навигацией.
+     * Панель живёт в MainTabsActivity под шапкой, над содержимым вкладки.
      */
-    public static final boolean TOP_TABS = true;
+    public static boolean isTopTabs() {
+        return app.nimarkogram.messenger.NimarkoConfig.mainTabsPosition
+                == app.nimarkogram.messenger.NimarkoConfig.MAIN_TABS_POSITION_TOP;
+    }
 
     private static final float[] PASS_TEXT_SIZES_DP = {12f, 12f, 10f};
     private static final int[] PASS_PADDINGS_DP = {16, 8, 4};
@@ -125,7 +136,7 @@ public class MainTabsLayout extends AnimatedLinearLayout {
             }
         }
 
-        if (TOP_TABS) {
+        if (isTopTabs()) {
             // Классика: вкладки делят ширину экрана поровну.
             final int visibleCount = Math.max(1, visibleChildCount);
             final int slotWidth = maxTotalWidthForTabs / visibleCount;
@@ -491,12 +502,9 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         super.draw(canvas);
     }
 
-    private final Paint dividerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
     private void updateSelectorColor() {
-        if (TOP_TABS) {
+        if (isTopTabs()) {
             selectorPaint.setColor(Theme.getColor(Theme.key_glass_tabSelected, resourcesProvider));
-            dividerPaint.setColor(Theme.multAlpha(Theme.getColor(Theme.key_glass_tabUnselected, resourcesProvider), 0.16f));
             return;
         }
         final int background = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
@@ -506,18 +514,18 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
-        if (TOP_TABS) {
-            final int barBottom = getHeight();
+        if (isTopTabs()) {
+            // Только полоска под активной вкладкой: разделителя между вкладками и списком нет.
             if (selectorInitialized) {
+                final int barBottom = getHeight();
                 final float x = animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX;
                 final float sWidth = getInterpolatedWidthByX(x, this);
-                final float barWidth = Math.max(dp(16), Math.min(dp(28), sWidth * 0.55f));
+                final float barWidth = Math.max(dp(16), Math.min(dp(26), sWidth * 0.55f));
                 final float barHeight = dp(2.5f);
                 selectorRect.set(x - barWidth / 2f, barBottom - barHeight,
                         x + barWidth / 2f, barBottom);
                 canvas.drawRoundRect(selectorRect, barHeight / 2f, barHeight / 2f, selectorPaint);
             }
-            canvas.drawRect(getPaddingLeft(), barBottom - dp(1), getWidth() - getPaddingRight(), barBottom, dividerPaint);
             super.dispatchDraw(canvas);
             return;
         }

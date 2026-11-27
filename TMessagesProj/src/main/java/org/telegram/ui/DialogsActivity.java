@@ -1264,6 +1264,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
             final int W = getMeasuredWidth();
             final int H = getMeasuredHeight();
+            // Полоса вкладок — отдельный слой MainTabsActivity под шапкой.
+            final int topTabsOffset = dp(MainTabsLayout.topTabsHeight());
 
             for (int i = 0; i < count; i++) {
                 final View child = getChildAt(i);
@@ -1313,7 +1315,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 }
 
                 if (child == fragmentSearchField || child == searchTabsAndFiltersLayout || child == dialogStoriesCell) {
-                    childTop = actionBar.getMeasuredHeight();
+                    // Само поле поиска живёт внутри шапки, полоса вкладок его не сдвигает.
+                    childTop = actionBar.getMeasuredHeight()
+                            + (child == fragmentSearchField ? 0 : topTabsOffset);
                     if (child != fragmentSearchField && child != dialogStoriesCell && child != searchTabsAndFiltersLayout) {
                         childTop += searchFieldHeight();
                     }
@@ -1335,11 +1339,11 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                 } else if (child == searchViewPager) {
                     childTop = -dp(ADDITIONAL_LIST_HEIGHT_DP);
                 } else if (child instanceof DatabaseMigrationHint) {
-                    childTop = actionBar.getMeasuredHeight();
+                    childTop = actionBar.getMeasuredHeight() + topTabsOffset;
                 } else if (child instanceof ViewPage) {
                     childTop = 0;
                 } else if (child == topPanelLayout || child == topBubblesFadeView || child == filterTabsView) {
-                    childTop += actionBar.getMeasuredHeight();
+                    childTop += actionBar.getMeasuredHeight() + topTabsOffset;
                     childTop += searchFieldHeight();
                 } else if (dialogStoriesCell != null && dialogStoriesCell.getPremiumHint() == child) {
                     continue;
@@ -2093,7 +2097,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             }
 
             ignoreLayout = true;
-            t = ActionBar.getCurrentActionBarHeight() + (actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0);
+            t = ActionBar.getCurrentActionBarHeight() + (actionBar.getOccupyStatusBar() ? AndroidUtilities.statusBarHeight : 0)
+                    + dp(MainTabsLayout.topTabsHeight());
             if (hasStories && !actionModeFullyShowed) {
                 t += dp(DialogStoriesCell.HEIGHT_IN_DP);
             }
@@ -3175,10 +3180,6 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         actionBar.getAdditionalSubTitleOverlayContainer().setTranslationY(-dp(3));
 
         if (inPreviewMode || AndroidUtilities.isTablet() && folderId != 0 && !isArchive()) {
-            actionBar.setOccupyStatusBar(false);
-        }
-        if (hasMainTabs && MainTabsLayout.TOP_TABS) {
-            // Верхние вкладки уже отступили под статус-бар — второй отступ не нужен.
             actionBar.setOccupyStatusBar(false);
         }
         return actionBar;
@@ -13750,7 +13751,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     /** LinkiGram: место под нижнюю панель зависит от режима (Show / Hide / Floating). */
     private void updateAdditionNavigationBarHeight() {
         final boolean bottomNavVisible = hasMainTabs && NimarkoConfig.isBottomNavigationVisible()
-                && !MainTabsLayout.TOP_TABS;
+                && !MainTabsLayout.isTopTabs();
         additionNavigationBarHeight = bottomNavVisible
                 ? dp(NimarkoConfig.isBottomNavigationFloating() ? MAIN_TABS_HEIGHT_WITH_MARGINS : MAIN_TABS_HEIGHT)
                 : 0;
@@ -14116,7 +14117,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
      */
     public boolean canOpenDrawerBySwipe(MotionEvent ev) {
         final boolean bottomBarVisible = hasMainTabs && MainTabsLayout.isBottomNavigationVisible()
-                && !MainTabsLayout.TOP_TABS;
+                && !MainTabsLayout.isTopTabs();
         if (ev != null && bottomBarVisible && fragmentView != null) {
             final Rect bounds = AndroidUtilities.rectTmp2;
             if (fragmentView.getGlobalVisibleRect(bounds)) {
@@ -14308,7 +14309,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             iBlur3PositionActionBar.set(0, -additionalList, fragmentView.getMeasuredWidth(), lerp(actionBarHeight, actionBarHeightSearch, animatorSearchVisible.getFloatValue()) + additionalList );
 
         boolean hasBottomBlur = false;
-        if (hasMainTabs && NimarkoConfig.isBottomNavigationVisible() && !MainTabsLayout.TOP_TABS) {
+        if (hasMainTabs && NimarkoConfig.isBottomNavigationVisible() && !MainTabsLayout.isTopTabs()) {
             iBlur3PositionMainTabs.set(0, mainTabTop, fragmentView.getMeasuredWidth(), mainTabBottom);
             iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
 
