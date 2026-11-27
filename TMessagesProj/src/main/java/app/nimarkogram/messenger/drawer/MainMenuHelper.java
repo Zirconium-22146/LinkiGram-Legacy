@@ -284,6 +284,9 @@ public final class MainMenuHelper {
             case CHAT_CENTER:
                 return new MenuItemInfo(R.drawable.msg_stats, LocaleController.getString(R.string.LinkiSmartCenter),
                         () -> fragment.presentFragment(new app.nimarkogram.messenger.preferences.SmartChatCenterActivity(currentAccount)), null);
+            case XCFG:
+                return new MenuItemInfo(R.drawable.xcfg_logo, "X-CFG",
+                        () -> app.nimarkogram.messenger.xcfg.XcfgController.openMain(currentAccount), null);
             default:
                 return null;
         }

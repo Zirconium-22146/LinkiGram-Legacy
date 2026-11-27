@@ -138,6 +138,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         items.add(UItem.asButton(2002, getString(R.string.LF_Menu)));
         items.add(UItem.asButton(iconPackRow, getString(R.string.AP_IconReplacements), getIconPackValueText()));
         items.add(UItem.asButton(SETTINGS_ICON_COLORS, getString(R.string.LinkiSettingsIconColors), getSettingsIconColorValue()));
+        items.add(UItem.asButton(bottomTabsRow, getString(R.string.NM_TP_Title), getMainTabsPanelValue()));
         items.add(UItem.asButton(oneUISwitchesRow, getString(R.string.NM_SwitchStyle), getSwitchStyleValueText()).setEnabled(!linkiYou));
         items.add(UItem.asButton(MATERIAL_GROUP, getString(R.string.NM_Style_Material),
                 styleCount(AppearanceConfig.MATERIAL_KEYS) + "/" + AppearanceConfig.MATERIAL_KEYS.length));
@@ -192,11 +193,6 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         items.add(UItem.asButton(customTitleRow, getString(R.string.NM_CustomTitle), getCustomTitleValueText()));
         items.add(UItem.asShadow(null));
 
-        items.add(UItem.asHeader(getString(R.string.NM_ClassicUi_Header)));
-        items.add(SettingsHelper.asSwitchCG(classicUiRow,
-                        getString(R.string.NM_ClassicUi),
-                        getString(R.string.NM_ClassicUi_Desc))
-                .setChecked(NimarkoConfig.classicUi));
         items.add(SettingsHelper.asSwitchCG(navigationDrawerRow,
                         getString(R.string.NM_Drawer_NavigationDrawer),
                         getString(R.string.NM_Drawer_NavigationDrawer_Desc))
@@ -444,17 +440,6 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         } else if (item.id == disableSendHintsRow) {
             NimarkoConfig.toggleDisableSendHints();
             updateCheckState(view, NimarkoConfig.disableSendHints);
-        } else if (item.id == classicUiRow) {
-            NimarkoConfig.setClassicUi(!NimarkoConfig.classicUi);
-            updateCheckState(view, NimarkoConfig.classicUi);
-            if (listView != null && listView.adapter != null) {
-                listView.adapter.update(true);
-            }
-            if (getParentLayout() != null) {
-                getParentLayout().rebuildAllFragmentViews(false, false);
-            }
-            NotificationCenter.getGlobalInstance().postNotificationName(NotificationCenter.cgTabsUpdated);
-            showRestartBulletin();
         } else if (item.id == navigationDrawerRow) {
             NimarkoConfig.toggleNavigationDrawer();
             updateCheckState(view, NimarkoConfig.navigationDrawer);
@@ -504,7 +489,7 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
         } else if (item.id == foldersRow) {
             presentFragment(new FoldersPreferencesActivity());
         } else if (item.id == bottomTabsRow) {
-            presentFragment(new BottomTabsPreferencesActivity());
+            presentFragment(new MainTabsPanelPreferencesActivity());
         } else if (item.id == appBackgroundRow) {
             presentFragment(new BackgroundPreferencesActivity());
         } else if (item.id == messagesAndProfilesRow) {
@@ -525,6 +510,11 @@ public class AppearancePreferencesActivity extends NimarkoUniversalPreferencesAc
             case NimarkoConfig.ICON_REPLACE_PLUMPY -> getString(R.string.NM_IconPack_PlumpyTitle);
             default -> getString(R.string.Default);
         };
+    }
+
+    private String getMainTabsPanelValue() {
+        return getString(NimarkoConfig.mainTabsPosition == NimarkoConfig.MAIN_TABS_POSITION_TOP
+                ? R.string.NM_TP_PositionValueTop : R.string.NM_TP_PositionValueBottom);
     }
 
     private String getSwitchStyleValueText() {

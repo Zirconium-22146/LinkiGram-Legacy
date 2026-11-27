@@ -47,6 +47,7 @@ public final class MainMenuLayout {
         }
         layout.add(MainMenuItem.SAVED.getId());
         layout.add(MainMenuItem.BOTS.getId());
+        layout.add(MainMenuItem.XCFG.getId());
         if (bottomBarHidden) {
             layout.add(MainMenuItem.SETTINGS.getId());
         }
@@ -138,6 +139,13 @@ public final class MainMenuLayout {
             }
         }
         ensureSettingsVisibility(visible, hidden);
+
+        // X-CFG (встроенный обход) не должен пропадать: у тех, кто обновляется со старой
+        // раскладкой, его нет ни в видимых, ни в скрытых — принудительно оставляем в меню.
+        if (!visible.contains(MainMenuItem.XCFG.getId())) {
+            hidden.remove(Integer.valueOf(MainMenuItem.XCFG.getId()));
+            visible.add(MainMenuItem.XCFG.getId());
+        }
 
         @SuppressWarnings("unchecked") final List<Integer>[] result = new List[]{
                 Collections.unmodifiableList(visible),

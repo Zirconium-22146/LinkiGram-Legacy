@@ -136,6 +136,32 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         isSelectedAnimator.setInterpolator(CubicBezierInterpolator.EASE_OUT_QUINT);
     }
 
+    /**
+     * LinkiGram Legacy 1.4: классическая верхняя вкладка — иконка над подписью,
+     * без «пилюли» выделения. Полоску-индикатор рисует MainTabsLayout.
+     */
+    public void applyClassicStyle() {
+        materialMainTab = false;
+        colorOsMainTab = false;
+        stackedMainTab = true;
+        setSkipDrawSelector(true);
+        imageView.setLayoutParams(LayoutHelper.createFrame(20, 20, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 5, 0, 0));
+        if (backupImageView != null) {
+            backupImageView.setLayoutParams(LayoutHelper.createFrame(20, 20, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, 5, 0, 0));
+        }
+        textView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 11f);
+        textView.setTypeface(AndroidUtilities.bold());
+        textView.setIncludeFontPadding(false);
+        textView.setLetterSpacing(0f);
+        textView.setGravity(Gravity.CENTER);
+        textView.setAlpha(1f);
+        textView.setLayoutParams(LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 14, Gravity.TOP, 2, 25, 2, 0));
+        defaultTextPaint.setTextSize(dp(11));
+        imageView.setColorFilter(new PorterDuffColorFilter(colorDefault, PorterDuff.Mode.SRC_IN));
+        updateNavigationColors();
+        applyColors();
+    }
+
     private FrameLayout.LayoutParams mainIconLayout(float size) {
         return stackedMainTab
                 ? LayoutHelper.createFrame(size, size, Gravity.TOP | Gravity.CENTER_HORIZONTAL, 0, size == 22 ? 5 : 4, 0, 0)
@@ -678,6 +704,7 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
         SYMBOLS(R.raw.tab_symbols, R.raw.tab_symbols_reverse),
         REPLIES(R.raw.tab_reply, R.raw.tab_reply_reverse),
         WALLET(R.raw.tab_wallet, R.raw.tab_wallet_reverse),
+        CHANNELS(TabAnimationType.STATIC, R.drawable.filter_channel),
         LINK(TabAnimationType.STATIC, R.drawable.tabs_link_24),
         SEARCH(TabAnimationType.STATIC, R.drawable.outline_header_search),
         ARTICLE(R.raw.tab_article, R.raw.tab_article_reverse),
@@ -762,7 +789,9 @@ public class GlassTabView extends FrameLayout implements MainTabsLayout.Tab, Fac
                     Theme.getColor(Theme.key_glass_tabUnselected, resourcesProvider), PorterDuff.Mode.SRC_IN));
         } catch (Exception ignore) {
         }
-        addView(iv, materialMainTab
+        addView(iv, stackedMainTab
+                ? LayoutHelper.createFrame(20, 20, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 5, 0, 0)
+                : materialMainTab
                 ? mainIconLayout(24)
                 : LayoutHelper.createFrame(24, 24, Gravity.CENTER_HORIZONTAL | Gravity.TOP, 0, 4, 0, 0));
     }

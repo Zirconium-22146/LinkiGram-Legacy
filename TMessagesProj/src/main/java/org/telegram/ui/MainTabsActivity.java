@@ -56,6 +56,7 @@ import org.telegram.messenger.SharedConfig;
 import org.telegram.messenger.UserConfig;
 import org.telegram.messenger.UserObject;
 import org.telegram.tgnet.TLRPC;
+import org.telegram.ui.ActionBar.ActionBar;
 import org.telegram.ui.ActionBar.ActionBarMenuSubItem;
 import org.telegram.ui.ActionBar.BaseFragment;
 import org.telegram.ui.ActionBar.EdgeToEdgeSupportMode;
@@ -100,28 +101,18 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     public static final int TABS_COUNT = 4;
     private static final int POSITION_CHATS = 0;
     private static final int POSITION_CONTACTS = 1;
-    private static final int POSITION_CALLS_OR_SETTINGS = 2;
-    private static final int POSITION_PROFILE = 3;
-    private static final int POSITION_YOU_CALLS = 4;
+    private static final int POSITION_CHANNELS = 2;
+    private static final int POSITION_CALLS = 3;
 
     private static final int INDEX_CHATS = 0;
     private static final int INDEX_CONTACTS = 1;
-    private static final int INDEX_SETTINGS = 2;
+    private static final int INDEX_CHANNELS = 2;
     private static final int INDEX_CALLS = 3;
-    private static final int INDEX_PROFILE = 4;
 
-    // Keep the pager order stable for the lifetime of this activity when a theme changes.
-    private boolean youPagerOrder = app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled();
+    private int chatsPosition() { return POSITION_CHATS; }
+    private int contactsPosition() { return POSITION_CONTACTS; }
 
-    private int chatsPosition() { return youPagerOrder ? POSITION_CONTACTS : POSITION_CHATS; }
-    private int contactsPosition() { return youPagerOrder ? POSITION_CHATS : POSITION_CONTACTS; }
-
-    private int indexToPosition(int index) {
-        if (index == INDEX_CHATS) return chatsPosition();
-        if (index == INDEX_CONTACTS) return contactsPosition();
-        if (youPagerOrder && index == INDEX_CALLS) return POSITION_YOU_CALLS;
-        return index > 2 ? index - 1 : index;
-    }
+    private int indexToPosition(int index) { return index; }
 
     private static final int ANIMATOR_ID_TABS_VISIBLE = 0;
     private final BoolAnimator animatorTabsVisible = new BoolAnimator(ANIMATOR_ID_TABS_VISIBLE,
@@ -134,8 +125,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private UpdateLayoutWrapper updateLayoutWrapper;
     private FrameLayout tabsViewWrapper;
     private MainTabsLayout tabsView;
-    private GlassTabView youSearchTab;
-    private GlassTabView youXcfgTab;
     private BlurredBackgroundDrawable tabsViewBackground;
     private View tabsNavStrip;
     private boolean tabsDocked;
@@ -170,6 +159,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         Bulletin.Delegate delegate = new Bulletin.Delegate() {
             @Override
             public int getBottomOffset(int tag) {
+                if (MainTabsLayout.isTopTabs()) {
+                    return navigationBarHeight;
+                }
                 return navigationBarHeight + dp(app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle()
                         ? 72 : DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN);
             }
@@ -316,6 +308,12 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
      */
     private void applyTabsWrapperBackground() {
         if (tabsViewWrapper == null) return;
+        if (MainTabsLayout.isTopTabs()) {
+            // Полоса идёт под статус-бар: красим и её, иначе сверху будет дыра.
+            tabsViewWrapper.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            setTabsNavStripVisible(false);
+            return;
+        }
         final boolean colorOs = app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled();
         final boolean material3 = app.nimarkogram.messenger.appearance.Material3Theme.isEnabled();
         final boolean youDocked = tabsDocked && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled();
@@ -421,20 +419,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     public View createView(Context context) {
-        boolean useYouOrder = app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled();
-        if (useYouOrder != youPagerOrder) {
-            swapPagerStates(POSITION_CHATS, POSITION_CONTACTS);
-            FragmentState shared = fragmentsArr.get(POSITION_CALLS_OR_SETTINGS);
-            FragmentState spare = fragmentsArr.get(POSITION_YOU_CALLS);
-            if (useYouOrder && shared != null && shared.fragment instanceof CallLogActivity
-                    || !useYouOrder && getUserConfig().showCallsTab && spare != null && spare.fragment instanceof CallLogActivity) {
-                swapPagerStates(POSITION_CALLS_OR_SETTINGS, POSITION_YOU_CALLS);
-            }
-            youPagerOrder = useYouOrder;
-            if (!useYouOrder && initialFragmentPosition == POSITION_YOU_CALLS) {
-                initialFragmentPosition = chatsPosition();
-            }
-        }
         super.createView(context);
         tabletLayout = false;
 
@@ -449,41 +433,28 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 || material3Nav)
                 && MainTabsLayout.getBottomNavigationMode() == MainTabsLayout.BOTTOM_NAVIGATION_MODE_SHOW;
         tabsDocked = dockedTabs;
-        final boolean fullWidthTabs = colorOsNav || dockedTabs || !md3Nav && iosNav;
-        final int tabsPad = colorOsNav || md3Nav && dockedTabs ? 0 : md3Nav ? 8 : (dockedTabs ? 0 : DialogsActivity.MAIN_TABS_MARGIN) + 4;
-        tabsView.setPadding(dp(tabsPad), dp(colorOsNav ? 0 : tabsPad), dp(tabsPad), dp(colorOsNav ? 0 : tabsPad));
+        final boolean topTabs = MainTabsLayout.isTopTabs();
+        final boolean fullWidthTabs = topTabs || colorOsNav || dockedTabs || !md3Nav && iosNav;
+        final int tabsPad = topTabs ? 0 : (colorOsNav || md3Nav && dockedTabs ? 0 : md3Nav ? 8 : (dockedTabs ? 0 : DialogsActivity.MAIN_TABS_MARGIN) + 4);
+        tabsView.setPadding(dp(tabsPad), dp(topTabs || colorOsNav ? 0 : tabsPad), dp(tabsPad), dp(topTabs || colorOsNav ? 0 : tabsPad));
         tabsView.setMaxWidth(fullWidthTabs ? 0 : dp(md3Nav ? 392 : 328 + DialogsActivity.MAIN_TABS_MARGIN * 2));
 
-        // Linkigram Legacy: the classic layout has no bottom tab bar at all. Keep the
-        // instance (lots of code still reads tabs[]/viewPager) but keep it off screen.
-        if (app.nimarkogram.messenger.NimarkoConfig.classicUi) {
-            tabsView.setVisibility(View.GONE);
-        }
 
-        tabs = new GlassTabView[5];
+        tabs = new GlassTabView[4];
         tabs[INDEX_CHATS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CHATS, R.string.MainTabsChats);
         tabs[INDEX_CONTACTS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CONTACTS, R.string.MainTabsContacts);
-        tabs[INDEX_SETTINGS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.SETTINGS, R.string.Settings);
+        tabs[INDEX_CHANNELS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CHANNELS, R.string.FilterChannels);
         tabs[INDEX_CALLS] = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.CALLS, R.string.MainTabsCalls);
-        tabs[INDEX_PROFILE] = GlassTabView.createAvatar(context, resourceProvider, currentAccount, R.string.MainTabsProfile);
         tabs[INDEX_CHATS].setOnLongClickListener(this::openFoldersSelector);
-        if (youPagerOrder && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {
-            tabs[INDEX_CONTACTS].setOnLongClickListener(v -> openYouTabsOrganizer());
-            tabs[INDEX_CALLS].setOnLongClickListener(v -> openYouTabsOrganizer());
-        } else {
-            tabs[INDEX_CONTACTS].setOnLongClickListener(this::openContactsSelector);
-            tabs[INDEX_CALLS].setOnLongClickListener(this::openCallsSelector);
-        }
-        tabs[INDEX_PROFILE].setOnLongClickListener(this::openAccountSelector);
+        tabs[INDEX_CONTACTS].setOnLongClickListener(this::openContactsSelector);
+        tabs[INDEX_CALLS].setOnLongClickListener(this::openCallsSelector);
 
-        final int[] tabOrder = youPagerOrder
-                ? new int[]{INDEX_CONTACTS, INDEX_CHATS, INDEX_SETTINGS, INDEX_CALLS, INDEX_PROFILE}
-                : new int[]{INDEX_CHATS, INDEX_CONTACTS, INDEX_SETTINGS, INDEX_CALLS, INDEX_PROFILE};
+        final int[] tabOrder = new int[]{INDEX_CHATS, INDEX_CONTACTS, INDEX_CHANNELS, INDEX_CALLS};
         for (int index : tabOrder) {
             final GlassTabView view = tabs[index];
 
             final int position = indexToPosition(index);
-            tabs[index].setOnClickListener(v -> {
+            view.setOnClickListener(v -> {
                 if (viewPager.isManualScrolling() || viewPager.isTouch()) {
                     return;
                 }
@@ -500,41 +471,16 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
                 viewPager.scrollToPosition(position);
             });
 
-            if (!youPagerOrder || !app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {
-                tabsView.addView(tabs[index]);
-                tabsView.setViewVisible(view, true, false);
+            if (topTabs) {
+                view.applyClassicStyle();
             }
+            tabsView.addView(view);
+            tabsView.setViewVisible(view, true, false);
         }
 
-        // LinkiGram: вкладка X-CFG — встроенный способ обхода (порт плагина X-CFG, @x_vare, GPL).
-        // Не участвует в viewPager: просто кнопка посреди панели, открывающая кабинет.
-        if ((!youPagerOrder || !app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled())
-                && app.nimarkogram.messenger.xcfg.XcfgPrefs.getBool("show_tab", true)) {
-            GlassTabView xcfgTab = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.LINK, R.string.Settings);
-            xcfgTab.setText("X-CFG");
-            xcfgTab.setTabIcon(app.nimarkogram.messenger.xcfg.XcfgController.tabIcon(context));
-            xcfgTab.setTag(app.nimarkogram.messenger.xcfg.XcfgPrefs.TAB_TAG);
-            xcfgTab.setOnClickListener(v -> app.nimarkogram.messenger.xcfg.XcfgController.openMain(currentAccount));
-            int xcfgIndex = tabsView.getChildCount();
-            if (youPagerOrder && tabs[INDEX_CHATS].getParent() == tabsView) {
-                xcfgIndex = tabsView.indexOfChild(tabs[INDEX_CHATS]);
-            } else if (tabs[INDEX_SETTINGS].getParent() == tabsView) {
-                // после «Контактов» — середина панели (Чаты · Контакты · X-CFG · Настройки · Профиль)
-                xcfgIndex = tabsView.indexOfChild(tabs[INDEX_SETTINGS]);
-            }
-            tabsView.addView(xcfgTab, xcfgIndex);
-            tabsView.setViewVisible(xcfgTab, true, false);
-        }
-        if (youPagerOrder && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {
-            youXcfgTab = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.LINK, R.string.Settings);
-            youXcfgTab.setText("X-CFG");
-            youXcfgTab.setTabIcon(app.nimarkogram.messenger.xcfg.XcfgController.tabIcon(context));
-            youXcfgTab.setOnClickListener(v -> app.nimarkogram.messenger.xcfg.XcfgController.openMain(currentAccount));
-            youSearchTab = GlassTabView.createMainTab(context, resourceProvider, GlassTabView.TabAnimation.SEARCH, R.string.Search);
-            youSearchTab.setOnClickListener(v -> openYouTabsSearch());
-            applyYouTabsConfiguration();
-        }
-        checkUi_callTabVisible(getUserConfig().showCallsTab, false);
+        // LinkiGram Legacy 1.4: состав полосы вкладок берём из настроек.
+        applyTabsConfig(context);
+        applyTabsVisibility(false);
 
         selectTab(viewPager.getCurrentPosition(), false);
 
@@ -582,6 +528,13 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             tabsView.setBackground(tabsViewBackground);
         }
 
+        if (topTabs) {
+            // Верхние вкладки — классика: плоская полоса цвета окна, без стекла и капсулы.
+            tabsViewBackground = null;
+            tabsView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+            tabsView.setElevation(0);
+        }
+
         BlurredBackgroundDrawableViewFactory iBlur3FactoryFade = new BlurredBackgroundDrawableViewFactory(iBlur3SourceColor);
         iBlur3FactoryFade.setSourceRootView(viewPositionWatcher, contentView);
 
@@ -605,16 +558,19 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         tabsNavStrip.setBackgroundColor(getNavigationBarSurfaceColor());
         tabsNavStrip.setVisibility(View.GONE);
         tabsViewWrapper.addView(tabsNavStrip, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 0, Gravity.BOTTOM));
-        tabsViewWrapper.addView(tabsView, LayoutHelper.createFrame(colorOsNav || !md3Nav || dockedTabs ? LayoutHelper.MATCH_PARENT : LayoutHelper.WRAP_CONTENT,
-                colorOsNav ? 64 : md3Nav ? 64 : dockedTabs ? DialogsActivity.MAIN_TABS_HEIGHT : DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS,
-                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL, 0, 0, 0, colorOsNav || dockedTabs ? 0 : md3Nav ? 8 : 0));
+        tabsViewWrapper.addView(tabsView, LayoutHelper.createFrame(topTabs || colorOsNav || !md3Nav || dockedTabs ? LayoutHelper.MATCH_PARENT : LayoutHelper.WRAP_CONTENT,
+                topTabs ? MainTabsLayout.TOP_TABS_HEIGHT_DP
+                        : colorOsNav ? 64 : md3Nav ? 64 : dockedTabs ? DialogsActivity.MAIN_TABS_HEIGHT : DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS,
+                (topTabs ? Gravity.TOP : Gravity.BOTTOM) | Gravity.CENTER_HORIZONTAL, 0, 0, 0,
+                topTabs || colorOsNav || dockedTabs ? 0 : md3Nav ? 8 : 0));
         tabsViewWrapper.setClipToPadding(false);
         // Linkigram Legacy: hide the wrapper too, otherwise the empty container keeps
         // reserving the height of the bar at the bottom of the screen.
         if (app.nimarkogram.messenger.NimarkoConfig.classicUi) {
             tabsViewWrapper.setVisibility(View.GONE);
         }
-        contentView.addView(tabsViewWrapper, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT, Gravity.BOTTOM));
+        contentView.addView(tabsViewWrapper, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, LayoutHelper.WRAP_CONTENT,
+                topTabs ? Gravity.TOP : Gravity.BOTTOM));
         applyTabsWrapperBackground();
 
         updateLayoutWrapper = new UpdateLayoutWrapper(context);
@@ -979,13 +935,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
         if (viewPager != null) {
             final int currentPosition = viewPager.getCurrentPosition();
-            int callsPosition = youPagerOrder ? POSITION_YOU_CALLS : POSITION_CALLS_OR_SETTINGS;
-            if (currentPosition != callsPosition && dropCallsFragmentAfterPageScroll) {
-                dropFragmentAtPosition(callsPosition);
+            if (currentPosition != POSITION_CALLS && dropCallsFragmentAfterPageScroll) {
+                dropFragmentAtPosition(POSITION_CALLS);
                 dropCallsFragmentAfterPageScroll = false;
-            }
-            if (currentPosition != POSITION_PROFILE) {
-                dropFragmentAtPosition(POSITION_PROFILE);
             }
             if (pendingFolderId != null && currentPosition == chatsPosition() && dialogsActivity != null) {
                 dialogsActivity.scrollToFolder(pendingFolderId);
@@ -1015,7 +967,7 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     protected int getFragmentsCount() {
-        return youPagerOrder ? TABS_COUNT + 1 : TABS_COUNT;
+        return TABS_COUNT;
     }
 
     @Override
@@ -1057,35 +1009,31 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
 
     @Override
     protected BaseFragment createBaseFragmentAt(int position) {
-        if (position == contactsPosition()) {
+        if (position == POSITION_CONTACTS) {
             Bundle args = new Bundle();
             args.putBoolean("needPhonebook", true);
             args.putBoolean("needFinishFragment", false);
             args.putBoolean("hasMainTabs", true);
             return new ContactsActivity(args);
-        } else if (position == POSITION_CALLS_OR_SETTINGS || youPagerOrder && position == POSITION_YOU_CALLS) {
-            if (youPagerOrder ? position == POSITION_YOU_CALLS : getUserConfig().showCallsTab) {
-                Bundle args = new Bundle();
-                args.putBoolean("needFinishFragment", false);
-                args.putBoolean("hasMainTabs", true);
-                return new CallLogActivity(args);
-            }
+        } else if (position == POSITION_CHANNELS) {
+            // «Каналы» — тот же список чатов, но только каналы (без групп и чатов).
             Bundle args = new Bundle();
             args.putBoolean("hasMainTabs", true);
-            return new SettingsActivity(args);
-        } else if (position == chatsPosition()) {
+            args.putInt("dialogsType", DialogsActivity.DIALOGS_TYPE_CHANNELS_ONLY);
+            DialogsActivity channelsActivity = new DialogsActivity(args);
+            channelsActivity.setMainTabsActivityController(new MainTabsActivityControllerImpl());
+            return channelsActivity;
+        } else if (position == POSITION_CALLS) {
+            Bundle args = new Bundle();
+            args.putBoolean("needFinishFragment", false);
+            args.putBoolean("hasMainTabs", true);
+            return new CallLogActivity(args);
+        } else if (position == POSITION_CHATS) {
             Bundle args = new Bundle();
             args.putBoolean("hasMainTabs", true);
             dialogsActivity = new DialogsActivity(args);
             dialogsActivity.setMainTabsActivityController(new MainTabsActivityControllerImpl());
             return dialogsActivity;
-        } else if (position == POSITION_PROFILE) {
-            Bundle args = new Bundle();
-            args.putLong("user_id", UserConfig.getInstance(currentAccount).getClientUserId());
-            args.putBoolean("my_profile", true);
-            // args.putBoolean("expandPhoto", true);
-            args.putBoolean("hasMainTabs", true);
-            return new ProfileActivity(args);
         }
         return null;
     }
@@ -1097,85 +1045,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     /* */
 
     public GlassTabView[] tabs;
-
-    private void applyYouTabsConfiguration() {
-        if (tabsView == null || tabs == null || youSearchTab == null || youXcfgTab == null) return;
-        java.util.List<app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab> configured =
-                app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE.getAllTabs();
-        int current = viewPager != null ? viewPager.getCurrentPosition() : chatsPosition();
-        boolean currentVisible = false;
-        tabsView.removeAllViews();
-        for (app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab item : configured) {
-            if (!item.enabled) continue;
-            GlassTabView tab;
-            int position = -1;
-            switch (item.getType()) {
-                case CHATS: tab = tabs[INDEX_CHATS]; position = chatsPosition(); break;
-                case CONTACTS: tab = tabs[INDEX_CONTACTS]; position = contactsPosition(); break;
-                case SETTINGS: tab = tabs[INDEX_SETTINGS]; position = POSITION_CALLS_OR_SETTINGS; break;
-                case CALLS: tab = tabs[INDEX_CALLS]; position = POSITION_YOU_CALLS; break;
-                case PROFILE: tab = tabs[INDEX_PROFILE]; position = POSITION_PROFILE; break;
-                case SEARCH: tab = youSearchTab; break;
-                case XCFG: tab = youXcfgTab; break;
-                default: continue;
-            }
-            tab.setTitleVisible(app.nimarkogram.messenger.NimarkoConfig.showMainTabsTitle);
-            tabsView.addView(tab);
-            tabsView.setViewVisible(tab, true, false);
-            if (position == current) currentVisible = true;
-        }
-        if (!currentVisible && viewPager != null) {
-            viewPager.scrollToPosition(chatsPosition());
-            current = chatsPosition();
-        }
-        selectTab(current, false);
-        tabsView.requestLayout();
-    }
-
-    private void openYouTabsSearch() {
-        BaseFragment current = getCurrentVisibleFragment();
-        if (!app.nimarkogram.messenger.NimarkoConfig.mainTabsForceOpenChats) {
-            if (current instanceof ContactsActivity) {
-                ((ContactsActivity) current).openMainTabsSearch();
-                return;
-            }
-            if (current instanceof SettingsActivity && current.getActionBar() != null) {
-                current.getActionBar().openSearchField(true);
-                return;
-            }
-        }
-        if (dialogsActivity == null) prepareDialogsActivity(null);
-        if (viewPager != null && viewPager.getCurrentPosition() != chatsPosition()) {
-            viewPager.scrollToPosition(chatsPosition());
-            selectTab(chatsPosition(), true);
-            AndroidUtilities.runOnUIThread(() -> {
-                if (dialogsActivity != null && dialogsActivity.searchItem != null) dialogsActivity.searchItem.performClick();
-            }, 350);
-        } else if (dialogsActivity != null && dialogsActivity.searchItem != null) {
-            dialogsActivity.searchItem.performClick();
-        }
-    }
-
-    private boolean openYouTabsOrganizer() {
-        presentFragment(new app.nimarkogram.messenger.preferences.BottomTabsPreferencesActivity());
-        return true;
-    }
-
-    private boolean isYouPageEnabled(int position) {
-        for (app.nimarkogram.messenger.utils.ui.MainTabsManager.Tab item :
-                app.nimarkogram.messenger.utils.ui.MainTabsManager.INSTANCE.getAllTabs()) {
-            if (!item.enabled) continue;
-            switch (item.getType()) {
-                case CHATS: if (position == chatsPosition()) return true; break;
-                case CONTACTS: if (position == contactsPosition()) return true; break;
-                case SETTINGS: if (position == POSITION_CALLS_OR_SETTINGS) return true; break;
-                case PROFILE: if (position == POSITION_PROFILE) return true; break;
-                case CALLS: if (position == POSITION_YOU_CALLS) return true; break;
-                default: break;
-            }
-        }
-        return false;
-    }
 
     public void selectTab(int position, boolean animated) {
         for (int a = 0; a < tabs.length; a++) {
@@ -1249,10 +1118,6 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     }
 
     private boolean canScrollInternal(MotionEvent ev, boolean forward) {
-        if (youPagerOrder && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled() && viewPager != null) {
-            int target = viewPager.getCurrentPosition() + (forward ? 1 : -1);
-            if (!isYouPageEnabled(target)) return false;
-        }
         final BaseFragment fragment = getCurrentVisibleFragment();
         if (fragment instanceof TabFragmentDelegate) {
             final TabFragmentDelegate delegate = (TabFragmentDelegate) fragment;
@@ -1270,6 +1135,59 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private int insetLeft;
     private int insetRight;
 
+    /**
+     * Верхние вкладки: пейджер занимает весь экран, шапка вкладки сама уходит под
+     * статус-бар, а полоса вкладок рисуется отдельным слоем ровно под этой шапкой.
+     */
+    @NonNull
+    private WindowInsetsCompat applyTopTabsInsets(@NonNull View v, @NonNull WindowInsetsCompat insets, @NonNull Insets systemInsets) {
+        updateLayoutWrapper.setPadding(0, 0, 0, navigationBarHeight);
+
+        ViewGroup.MarginLayoutParams lp = (ViewGroup.MarginLayoutParams) viewPager.getLayoutParams();
+        if (lp.topMargin != 0 || lp.leftMargin != systemInsets.left || lp.rightMargin != systemInsets.right || lp.bottomMargin != 0) {
+            lp.topMargin = 0;
+            lp.leftMargin = systemInsets.left;
+            lp.rightMargin = systemInsets.right;
+            lp.bottomMargin = 0;
+            viewPager.setLayoutParams(lp);
+        }
+
+        // Полоса встаёт ровно под шапкой: статус-бар + высота ActionBar.
+        final int tabsTop = systemInsets.top + ActionBar.getCurrentActionBarHeight();
+        ViewGroup.MarginLayoutParams wrapperLp = (ViewGroup.MarginLayoutParams) tabsViewWrapper.getLayoutParams();
+        if (wrapperLp.topMargin != tabsTop || wrapperLp.bottomMargin != 0) {
+            wrapperLp.topMargin = tabsTop;
+            wrapperLp.bottomMargin = 0;
+            tabsViewWrapper.setLayoutParams(wrapperLp);
+        }
+        tabsViewWrapper.setPadding(systemInsets.left, 0, systemInsets.right, 0);
+        setTabsNavStripHeight(0);
+
+        ViewGroup.LayoutParams tabsParams = tabsView.getLayoutParams();
+        final int tabsHeight = dp(MainTabsLayout.TOP_TABS_HEIGHT_DP);
+        if (tabsParams.height != tabsHeight) {
+            tabsParams.height = tabsHeight;
+            tabsView.setLayoutParams(tabsParams);
+        }
+        tabsView.setPadding(0, 0, 0, 0);
+        applyTabsWrapperBackground();
+
+        if (fadeView != null) {
+            ViewGroup.MarginLayoutParams fadeLp = (ViewGroup.MarginLayoutParams) fadeView.getLayoutParams();
+            if (fadeLp.height != 0) {
+                fadeLp.height = 0;
+                fadeView.setLayoutParams(fadeLp);
+            }
+        }
+
+        checkUi_tabsPosition();
+        checkUi_fadeView();
+
+        // Фрагментам отдаём полные инсеты: шапка снова занимает статус-бар,
+        // а контент вкладки отступает под полосу вкладок сам (42dp).
+        return super.onApplyWindowInsets(v, insets);
+    }
+
     @NonNull
     @Override
     protected WindowInsetsCompat onApplyWindowInsets(@NonNull View v, @NonNull WindowInsetsCompat insets) {
@@ -1279,6 +1197,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         insetRight = systemInsets.right;
 
         navigationBarHeight = systemInsets.bottom;
+        if (MainTabsLayout.isTopTabs()) {
+            return applyTopTabsInsets(v, insets, systemInsets);
+        }
         final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
         final int updateLayoutHeight = isUpdateLayoutVisible ? dp(UpdateLayoutWrapper.HEIGHT) : 0;
         updateLayoutWrapper.setPadding(0, 0, 0, navigationBarHeight);
@@ -1394,39 +1315,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         } else if (id == NotificationCenter.needSetDayNightTheme) {
             clearAllHiddenFragments();
         } else if (id == NotificationCenter.callTabsVisibleToggled) {
-            if (youPagerOrder && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) return;
-            final boolean callTabsVisible = getUserConfig().showCallsTab;
-            checkUi_callTabVisible(callTabsVisible, true);
-            int callsPosition = youPagerOrder ? POSITION_YOU_CALLS : POSITION_CALLS_OR_SETTINGS;
-            if (viewPager != null && (viewPager.getCurrentPosition() == POSITION_CALLS_OR_SETTINGS
-                    || viewPager.getCurrentPosition() == callsPosition)) {
-                viewPager.scrollToPosition(chatsPosition());
-                selectTab(chatsPosition(), true);
-                dropCallsFragmentAfterPageScroll = true;
-            } else {
-                dropFragmentAtPosition(callsPosition);
-            }
-        } else if (id == NotificationCenter.mainUserInfoChanged) {
-            if (tabs != null && tabs[INDEX_PROFILE] != null) {
-                tabs[INDEX_PROFILE].updateUserAvatar(currentAccount);
-            }
+            // Вкладка звонков в LinkiGram Legacy показывается всегда.
+            checkUi_callTabVisible(true, true);
         } else if (id == NotificationCenter.cgTabsUpdated) {
-            if (youPagerOrder && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {
-                applyYouTabsConfiguration();
-                if (tabsView != null) {
-                    if (tabsDocked && tabsViewWrapper != null) {
-                        applyTabsWrapperBackground();
-                        if (app.nimarkogram.messenger.appearance.ClientTheme.glassEnabled()
-                                && tabsViewBackground != null) {
-                            tabsView.setBackground(tabsViewBackground);
-                        }
-                    } else {
-                        final android.graphics.drawable.Drawable glassTabs = glassTabsBackground();
-                        tabsView.setBackground(glassTabs != null ? glassTabs
-                                : Theme.createRoundRectDrawable(dp(32), getNavigationBarSurfaceColor()));
-                    }
-                }
-            }
             refreshTabsLiquidGlass();
             if (tabsViewWrapper != null && updateLayoutWrapper != null) {
                 checkUi_tabsPosition();
@@ -1487,20 +1378,31 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         }
 
         final float animatedPosition = viewPager.getPositionAnimated();
-        final float isProfile = 1f - MathUtils.clamp(Math.abs(POSITION_PROFILE - animatedPosition), 0, 1);
-        final float hide = 1f - AndroidUtilities.getNavigationBarThirdButtonsFactor(0, 1f, navigationBarHeight);
-        float alpha = (1f - isProfile * hide) * animatorTabsVisible.getFloatValue();
+        float alpha = animatorTabsVisible.getFloatValue();
+        if (MainTabsLayout.isTopTabs()) {
+            alpha = 0f;
+        }
         if (tabletLayout || MainTabsLayout.isBottomNavigationHidden()) {
             alpha = 0.0f;
         }
 
         fadeView.setAlpha(alpha);
-        fadeView.setTranslationY(isProfile * dp(48));
+        fadeView.setTranslationY(0);
         fadeView.setVisibility(alpha > 0 ? View.VISIBLE : View.GONE);
     }
 
     private void checkUi_tabsPosition() {
         checkUi_miniPlayer();
+        if (MainTabsLayout.isTopTabs()) {
+            // Верхние вкладки не прячутся при прокрутке и не сдвигаются вниз.
+            tabsViewWrapper.setTranslationY(0);
+            tabsView.setClickable(true);
+            tabsView.setEnabled(true);
+            tabsView.setAlpha(1f);
+            tabsView.setVisibility(View.VISIBLE);
+            tabsViewWrapper.setVisibility(View.VISIBLE);
+            return;
+        }
         final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
         final int updateLayoutHeight = isUpdateLayoutVisible ? dp(UpdateLayoutWrapper.HEIGHT) : 0;
         final int normalY = -(updateLayoutHeight);
@@ -1524,21 +1426,55 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         }
         final boolean isUpdateLayoutVisible = updateLayoutWrapper.isUpdateLayoutVisible();
         final int updateLayoutHeight = isUpdateLayoutVisible ? dp(UpdateLayoutWrapper.HEIGHT) : 0;
-        final int tabsHeight = !MainTabsLayout.isBottomNavigationVisible() ? 0
+        final int tabsHeight = MainTabsLayout.isTopTabs() || !MainTabsLayout.isBottomNavigationVisible() ? 0
                 : app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled() ? dp(64)
                 : app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle() ? dp(72)
                 : dp(MainTabsLayout.isBottomNavigationFloating()
                         ? DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS : DialogsActivity.MAIN_TABS_HEIGHT);
-        final float factor = animatorTabsVisible.getFloatValue();
+        final float factor = MainTabsLayout.isTopTabs() ? 1f : animatorTabsVisible.getFloatValue();
         miniPlayer.setHostPosition(-(navigationBarHeight + updateLayoutHeight + tabsHeight), factor);
     }
 
     private void checkUi_callTabVisible(boolean callTabsVisible, boolean animated) {
-        if (youPagerOrder && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) return;
-        if (tabsView != null) {
-            tabsView.setViewVisible(tabs[INDEX_SETTINGS], !callTabsVisible, animated);
-            tabsView.setViewVisible(tabs[INDEX_CALLS], callTabsVisible, animated);
+        // В LinkiGram Legacy видимость вкладок задаётся настройками панели,
+        // а не флагом showCallsTab у аккаунта.
+        applyTabsVisibility(animated);
+    }
+
+    /** Третья вкладка: «Каналы» либо кнопка X-CFG (обход). */
+    private void applyTabsConfig(Context context) {
+        if (tabs == null || tabs.length <= INDEX_CHANNELS) {
+            return;
         }
+        final boolean xcfg = app.nimarkogram.messenger.NimarkoConfig.mainTabsThirdXcfg;
+        final GlassTabView third = tabs[INDEX_CHANNELS];
+        if (!xcfg) {
+            return;
+        }
+        third.setText("X-CFG");
+        third.setTabIcon(app.nimarkogram.messenger.xcfg.XcfgController.tabIcon(context));
+        third.setOnClickListener(v -> {
+            if (viewPager.isManualScrolling() || viewPager.isTouch()) {
+                return;
+            }
+            app.nimarkogram.messenger.xcfg.XcfgController.openMain(currentAccount);
+        });
+        third.setOnLongClickListener(null);
+    }
+
+    /** Видимость вкладок: чаты всегда, остальные — по настройкам панели. */
+    private void applyTabsVisibility(boolean animated) {
+        if (tabsView == null || tabs == null || tabs.length < TABS_COUNT) {
+            return;
+        }
+        tabsView.setViewVisible(tabs[INDEX_CHATS], true, animated);
+        tabsView.setViewVisible(tabs[INDEX_CONTACTS],
+                app.nimarkogram.messenger.NimarkoConfig.mainTabsShowContacts, animated);
+        tabsView.setViewVisible(tabs[INDEX_CHANNELS],
+                app.nimarkogram.messenger.NimarkoConfig.mainTabsThirdXcfg
+                        || app.nimarkogram.messenger.NimarkoConfig.mainTabsShowChannels, animated);
+        tabsView.setViewVisible(tabs[INDEX_CALLS],
+                app.nimarkogram.messenger.NimarkoConfig.mainTabsShowCalls, animated);
     }
 
     @Override
@@ -1604,34 +1540,9 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
     private boolean accountSwitchHintShown;
 
     private void showAccountChangeHint() {
-        if (accountSwitchHintShown) return;
-
-        if (accountSwitchHint == null && HintsController.Hint.AccountSwitchHint.show()) {
-            AndroidUtilities.runOnUIThread(() -> {
-                if (getContext() == null || tabs == null) return;
-
-                final View v = tabs[INDEX_PROFILE];
-                final float translate = (contentView.getWidth() - ((tabsView.getX() + v.getX()) + v.getWidth()) + v.getWidth() / 2f) / AndroidUtilities.density;
-
-                accountSwitchHint = new HintView2(getContext(), HintView2.DIRECTION_BOTTOM);
-                accountSwitchHint.setTranslationY(-navigationBarHeight + dp(4));
-                accountSwitchHint.setPadding(dp(7.33f), 0, dp(7.33f), 0);
-                accountSwitchHint.setMultilineText(false);
-                accountSwitchHint.setCloseButton(true);
-                accountSwitchHint.setText(getString(R.string.SwitchAccountHint));
-                accountSwitchHint.setJoint(1, -translate + 7.33f);
-                contentView.addView(accountSwitchHint, LayoutHelper.createFrame(LayoutHelper.MATCH_PARENT, 100, Gravity.BOTTOM | Gravity.FILL_HORIZONTAL, 0, 0, 0, DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS));
-                accountSwitchHint.setOnHiddenListener(() -> AndroidUtilities.removeFromParent(accountSwitchHint));
-                accountSwitchHint.setDuration(8000);
-                accountSwitchHint.show();
-
-                HintsController.Hint.AccountSwitchHint.increment();
-            }, 1500);
-        }
-
+        // Профильной вкладки больше нет — подсказка о смене аккаунта не нужна.
         accountSwitchHintShown = true;
     }
-
 
     /* * */
 
@@ -1718,6 +1629,16 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
         if (tabsView == null || contentView == null) {
             return;
         }
+        if (MainTabsLayout.isTopTabs()) {
+            tabsViewBackground = null;
+            if (tabsView != null) {
+                tabsView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                tabsView.setElevation(0);
+                tabsView.invalidate();
+            }
+            applyTabsWrapperBackground();
+            return;
+        }
         boolean enabled = useGlassTabs();
         if (enabled == tabsLiquidGlassEnabled) {
             return;
@@ -1767,7 +1688,10 @@ public class MainTabsActivity extends ViewPagerActivity implements NotificationC
             fadeView.invalidate();
         }
         if (tabsView != null) {
-            if (app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) {
+            if (MainTabsLayout.isTopTabs()) {
+                tabsView.setBackgroundColor(getThemedColor(Theme.key_windowBackgroundWhite));
+                applyTabsWrapperBackground();
+            } else if (app.nimarkogram.messenger.appearance.ColorOs17Theme.isEnabled() || app.nimarkogram.messenger.appearance.Material3Theme.isEnabled()) {
                 tabsView.setBackgroundColor(0x00000000);
                 applyTabsWrapperBackground();
             } else if (tabsDocked && app.nimarkogram.messenger.appearance.LinkiGramYouTheme.isEnabled()) {

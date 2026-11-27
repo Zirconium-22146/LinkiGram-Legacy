@@ -48,6 +48,23 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         updateSelectorColor();
     }
 
+    /** Высота полосы вкладок в dp: заметно ниже шапки (56dp). */
+    public static final int TOP_TABS_HEIGHT_DP = 42;
+
+    /** Сколько полоса вкладок занимает сверху (0, если вкладки снизу). */
+    public static int topTabsHeight() {
+        return isTopTabs() ? TOP_TABS_HEIGHT_DP : 0;
+    }
+
+    /**
+     * LinkiGram Legacy 1.4: классические вкладки сверху (Чаты · Контакты · Каналы · Звонки).
+     * Панель живёт в MainTabsActivity под шапкой, над содержимым вкладки.
+     */
+    public static boolean isTopTabs() {
+        return app.nimarkogram.messenger.NimarkoConfig.mainTabsPosition
+                == app.nimarkogram.messenger.NimarkoConfig.MAIN_TABS_POSITION_TOP;
+    }
+
     private static final float[] PASS_TEXT_SIZES_DP = {12f, 12f, 10f};
     private static final int[] PASS_PADDINGS_DP = {16, 8, 4};
 
@@ -117,6 +134,31 @@ public class MainTabsLayout extends AnimatedLinearLayout {
                 chosenPass = pass;
                 break;
             }
+        }
+
+        if (isTopTabs()) {
+            // Классика: вкладки делят ширину экрана поровну.
+            final int visibleCount = Math.max(1, visibleChildCount);
+            final int slotWidth = maxTotalWidthForTabs / visibleCount;
+            int l = 0;
+            for (int a = 0, N = getChildCount(); a < N; a++) {
+                final View child = getChildAt(a);
+                if (!isViewVisible(child)) {
+                    tabsWidth[a] = 0;
+                    tabsLeftPos[a] = l;
+                    child.measure(MeasureSpec.makeMeasureSpec(0, MeasureSpec.EXACTLY),
+                            MeasureSpec.makeMeasureSpec(tabHeight, MeasureSpec.EXACTLY));
+                    continue;
+                }
+                tabsWidth[a] = slotWidth;
+                tabsLeftPos[a] = l;
+                l += slotWidth;
+                child.measure(MeasureSpec.makeMeasureSpec(slotWidth, MeasureSpec.EXACTLY),
+                        MeasureSpec.makeMeasureSpec(tabHeight, MeasureSpec.EXACTLY));
+            }
+            setMeasuredDimension(l + getPaddingLeft() + getPaddingRight(), height);
+            calculateTotalSizesAfterMeasure();
+            return;
         }
 
         final boolean youNavigationStyle = app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle();
@@ -461,6 +503,10 @@ public class MainTabsLayout extends AnimatedLinearLayout {
     }
 
     private void updateSelectorColor() {
+        if (isTopTabs()) {
+            selectorPaint.setColor(Theme.getColor(Theme.key_glass_tabSelected, resourcesProvider));
+            return;
+        }
         final int background = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
         final boolean dark = androidx.core.graphics.ColorUtils.calculateLuminance(background) < 0.5;
         selectorPaint.setColor(dark ? 0x24FFFFFF : 0x14000000);
@@ -468,6 +514,21 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
+        if (isTopTabs()) {
+            // Только полоска под активной вкладкой: разделителя между вкладками и списком нет.
+            if (selectorInitialized) {
+                final int barBottom = getHeight();
+                final float x = animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX;
+                final float sWidth = getInterpolatedWidthByX(x, this);
+                final float barWidth = Math.max(dp(16), Math.min(dp(26), sWidth * 0.55f));
+                final float barHeight = dp(2.5f);
+                selectorRect.set(x - barWidth / 2f, barBottom - barHeight,
+                        x + barWidth / 2f, barBottom);
+                canvas.drawRoundRect(selectorRect, barHeight / 2f, barHeight / 2f, selectorPaint);
+            }
+            super.dispatchDraw(canvas);
+            return;
+        }
         if (selectorInitialized && !app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle()) {
             final float x = animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX;
             final float sWidth = getInterpolatedWidthByX(x, this);

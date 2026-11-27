@@ -1110,17 +1110,18 @@ public final class NimarkoConfig {
         getEditor().putString("folderGroupsJson", folderGroupsJson).apply();
     }
 
-    // Linkigram Legacy: нижней панели вкладок больше нет. Поле оставлено только
-    // для совместимости с кодом, который его читает.
-    public static boolean showMainTabs = false;
-    public static void toggleShowMainTabs() { showMainTabs = false; getEditor().putBoolean("showMainTabs", false).apply(); }
+    // Linkigram Legacy 1.4: нижняя панель вкладок снова есть (Чаты/Контакты/Каналы/Звонки).
+    public static boolean showMainTabs = getPreferences().getBoolean("showMainTabs", true);
+    public static void toggleShowMainTabs() {
+        setBottomNavigationMode(showMainTabs ? BOTTOM_NAVIGATION_MODE_HIDE : BOTTOM_NAVIGATION_MODE_SHOW);
+    }
 
     // --- LinkiGram: режим нижней панели + боковое меню (порт из exteraless) ---
     public static final int BOTTOM_NAVIGATION_MODE_SHOW = 0;
     public static final int BOTTOM_NAVIGATION_MODE_HIDE = 1;
     public static final int BOTTOM_NAVIGATION_MODE_FLOATING = 2;
 
-    public static boolean bottomNavigationFloating = getPreferences().getBoolean("bottomNavigationFloating", true);
+    public static boolean bottomNavigationFloating = getPreferences().getBoolean("bottomNavigationFloating", false);
 
     public static int getBottomNavigationMode() {
         if (!showMainTabs) return BOTTOM_NAVIGATION_MODE_HIDE;
@@ -1133,9 +1134,51 @@ public final class NimarkoConfig {
         getEditor().putBoolean("showMainTabs", showMainTabs).putBoolean("bottomNavigationFloating", bottomNavigationFloating).apply();
     }
 
-    public static boolean isBottomNavigationHidden() { return !showMainTabs; }
-    public static boolean isBottomNavigationVisible() { return showMainTabs; }
-    public static boolean isBottomNavigationFloating() { return showMainTabs && bottomNavigationFloating; }
+    public static boolean isBottomNavigationHidden() { return !showMainTabs || isMainTabsOnTop(); }
+    public static boolean isBottomNavigationVisible() { return showMainTabs && !isMainTabsOnTop(); }
+    public static boolean isBottomNavigationFloating() { return showMainTabs && !isMainTabsOnTop() && bottomNavigationFloating; }
+
+    private static boolean isMainTabsOnTop() {
+        return mainTabsPosition == MAIN_TABS_POSITION_TOP;
+    }
+
+    // --- LinkiGram Legacy 1.4: панель вкладок (положение и состав) ---
+
+    /** 0 — вкладки сверху, под шапкой; 1 — снизу, над системной навигацией. */
+    public static final int MAIN_TABS_POSITION_TOP = 0;
+    public static final int MAIN_TABS_POSITION_BOTTOM = 1;
+
+    public static int mainTabsPosition = getPreferences().getInt("mainTabsPosition", MAIN_TABS_POSITION_TOP);
+    public static boolean mainTabsShowContacts = getPreferences().getBoolean("mainTabsShowContacts", true);
+    public static boolean mainTabsShowChannels = getPreferences().getBoolean("mainTabsShowChannels", true);
+    public static boolean mainTabsShowCalls = getPreferences().getBoolean("mainTabsShowCalls", true);
+    /** Третья вкладка — X-CFG (обход) вместо «Каналов». */
+    public static boolean mainTabsThirdXcfg = getPreferences().getBoolean("mainTabsThirdXcfg", false);
+
+    public static void setMainTabsPosition(int position) {
+        mainTabsPosition = position;
+        getEditor().putInt("mainTabsPosition", position).apply();
+    }
+
+    public static void setMainTabsShowContacts(boolean v) {
+        mainTabsShowContacts = v;
+        getEditor().putBoolean("mainTabsShowContacts", v).apply();
+    }
+
+    public static void setMainTabsShowChannels(boolean v) {
+        mainTabsShowChannels = v;
+        getEditor().putBoolean("mainTabsShowChannels", v).apply();
+    }
+
+    public static void setMainTabsShowCalls(boolean v) {
+        mainTabsShowCalls = v;
+        getEditor().putBoolean("mainTabsShowCalls", v).apply();
+    }
+
+    public static void setMainTabsThirdXcfg(boolean v) {
+        mainTabsThirdXcfg = v;
+        getEditor().putBoolean("mainTabsThirdXcfg", v).apply();
+    }
 
     /** Боковое меню (шторка) вместо пунктов в шапке списка чатов. */
     // Linkigram Legacy: навигация идёт через шторку, поэтому она включена всегда.
@@ -2232,7 +2275,11 @@ public final class NimarkoConfig {
      */
     // Linkigram Legacy: классический интерфейс включён жёстко — нижней панели
     // вкладок нет, навигация идёт через меню «три полоски» в шапке списка чатов.
-    public static final boolean classicUi = true;
+    /*
+     * classicUi previously hid the bottom tab bar entirely.
+     * Now tabs are managed by MainTabsManager and always visible.
+     */
+    public static final boolean classicUi = false;
 
     /** Оставлено для совместимости: переключателя больше нет, значение всегда true. */
     public static void setClassicUi(boolean value) {
