@@ -48,6 +48,12 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         updateSelectorColor();
     }
 
+    /**
+     * LinkiGram Legacy 1.4: классические вкладки сверху (Чаты · Контакты · Каналы · Звонки).
+     * Панель живёт в MainTabsActivity над ViewPager, а не над системной навигацией.
+     */
+    public static final boolean TOP_TABS = true;
+
     private static final float[] PASS_TEXT_SIZES_DP = {12f, 12f, 10f};
     private static final int[] PASS_PADDINGS_DP = {16, 8, 4};
 
@@ -117,6 +123,31 @@ public class MainTabsLayout extends AnimatedLinearLayout {
                 chosenPass = pass;
                 break;
             }
+        }
+
+        if (TOP_TABS) {
+            // Классика: вкладки делят ширину экрана поровну.
+            final int visibleCount = Math.max(1, visibleChildCount);
+            final int slotWidth = maxTotalWidthForTabs / visibleCount;
+            int l = 0;
+            for (int a = 0, N = getChildCount(); a < N; a++) {
+                final View child = getChildAt(a);
+                if (!isViewVisible(child)) {
+                    tabsWidth[a] = 0;
+                    tabsLeftPos[a] = l;
+                    child.measure(MeasureSpec.makeMeasureSpec(0, MeasureSpec.EXACTLY),
+                            MeasureSpec.makeMeasureSpec(tabHeight, MeasureSpec.EXACTLY));
+                    continue;
+                }
+                tabsWidth[a] = slotWidth;
+                tabsLeftPos[a] = l;
+                l += slotWidth;
+                child.measure(MeasureSpec.makeMeasureSpec(slotWidth, MeasureSpec.EXACTLY),
+                        MeasureSpec.makeMeasureSpec(tabHeight, MeasureSpec.EXACTLY));
+            }
+            setMeasuredDimension(l + getPaddingLeft() + getPaddingRight(), height);
+            calculateTotalSizesAfterMeasure();
+            return;
         }
 
         final boolean youNavigationStyle = app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle();
@@ -460,7 +491,14 @@ public class MainTabsLayout extends AnimatedLinearLayout {
         super.draw(canvas);
     }
 
+    private final Paint dividerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+
     private void updateSelectorColor() {
+        if (TOP_TABS) {
+            selectorPaint.setColor(Theme.getColor(Theme.key_glass_tabSelected, resourcesProvider));
+            dividerPaint.setColor(Theme.multAlpha(Theme.getColor(Theme.key_glass_tabUnselected, resourcesProvider), 0.16f));
+            return;
+        }
         final int background = Theme.getColor(Theme.key_windowBackgroundWhite, resourcesProvider);
         final boolean dark = androidx.core.graphics.ColorUtils.calculateLuminance(background) < 0.5;
         selectorPaint.setColor(dark ? 0x24FFFFFF : 0x14000000);
@@ -468,6 +506,21 @@ public class MainTabsLayout extends AnimatedLinearLayout {
 
     @Override
     protected void dispatchDraw(@NonNull Canvas canvas) {
+        if (TOP_TABS) {
+            final int barBottom = getHeight();
+            if (selectorInitialized) {
+                final float x = animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX;
+                final float sWidth = getInterpolatedWidthByX(x, this);
+                final float barWidth = Math.max(dp(16), Math.min(dp(28), sWidth * 0.55f));
+                final float barHeight = dp(2.5f);
+                selectorRect.set(x - barWidth / 2f, barBottom - barHeight,
+                        x + barWidth / 2f, barBottom);
+                canvas.drawRoundRect(selectorRect, barHeight / 2f, barHeight / 2f, selectorPaint);
+            }
+            canvas.drawRect(getPaddingLeft(), barBottom - dp(1), getWidth() - getPaddingRight(), barBottom, dividerPaint);
+            super.dispatchDraw(canvas);
+            return;
+        }
         if (selectorInitialized && !app.nimarkogram.messenger.appearance.AppearanceConfig.newNavigationBarStyle()) {
             final float x = animatedLongSelectedViewCenterX + animatedLongSelectedViewOffsetX;
             final float sWidth = getInterpolatedWidthByX(x, this);

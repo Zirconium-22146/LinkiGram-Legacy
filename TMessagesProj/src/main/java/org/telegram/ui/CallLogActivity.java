@@ -703,8 +703,9 @@ public class CallLogActivity extends BaseFragment implements NotificationCenter.
 			hasMainTabs = arguments.getBoolean("hasMainTabs", false);
 		}
 
-		additionNavigationBarHeight = hasMainTabs ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
-		additionFloatingButtonOffset = hasMainTabs ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
+		// Верхние вкладки не занимают низ экрана.
+		additionNavigationBarHeight = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
+		additionFloatingButtonOffset = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
 
 		return true;
 	}

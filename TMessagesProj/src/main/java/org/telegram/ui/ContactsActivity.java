@@ -222,8 +222,9 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
         getContactsController().checkInviteText();
         getContactsController().reloadContactsStatusesMaybe(false);
 
-        additionNavigationBarHeight = hasMainTabs ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
-        additionFloatingButtonOffset = hasMainTabs ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
+        // Верхние вкладки не занимают низ экрана.
+        additionNavigationBarHeight = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT_WITH_MARGINS) : 0;
+        additionFloatingButtonOffset = hasMainTabs && !MainTabsLayout.TOP_TABS ? dp(DialogsActivity.MAIN_TABS_HEIGHT + DialogsActivity.MAIN_TABS_MARGIN) : 0;
 
         return true;
     }
@@ -1429,7 +1430,7 @@ public class ContactsActivity extends BaseFragment implements FactorAnimator.Tar
 
     @Override
     public boolean drawEdgeNavigationBar() {
-        return !hasMainTabs;
+        return !hasMainTabs || MainTabsLayout.TOP_TABS;
     }
 
     @Override

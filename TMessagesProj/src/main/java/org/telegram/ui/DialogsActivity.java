@@ -313,7 +313,9 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
     }
 
     private int searchFieldHeight() {
-        return useYouHomeLayout() && !searchIsShowed ? 0 : dp(SEARCH_FIELD_HEIGHT);
+        // LinkiGram Legacy: постоянной строки поиска в списке чатов больше нет.
+        // Место под неё резервируется только когда поиск открыт.
+        return searchIsShowed ? dp(SEARCH_FIELD_HEIGHT) : 0;
     }
 
     private static final int ANIMATOR_ID_SEARCH_VISIBLE = 1;
@@ -3175,6 +3177,10 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         if (inPreviewMode || AndroidUtilities.isTablet() && folderId != 0 && !isArchive()) {
             actionBar.setOccupyStatusBar(false);
         }
+        if (hasMainTabs && MainTabsLayout.TOP_TABS) {
+            // Верхние вкладки уже отступили под статус-бар — второй отступ не нужен.
+            actionBar.setOccupyStatusBar(false);
+        }
         return actionBar;
     }
 
@@ -4629,6 +4635,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
                     final boolean shadowVisible = !(firstVisiblePosition <= topIndex && (firstViewTop - scrollYOffset + dp(5)) >= viewPage.listView.getPaddingTop());
                     animatorShadowVisible.setValue(shadowVisible, true);
                     if (dy != 0) {
+                        checkUi_searchButtonVisibility();
                         if (scrollableViewNoiseSuppressor != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                             scrollableViewNoiseSuppressor.onScrolled(dx, dy);
                         }
@@ -13742,7 +13749,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
 
     /** LinkiGram: место под нижнюю панель зависит от режима (Show / Hide / Floating). */
     private void updateAdditionNavigationBarHeight() {
-        final boolean bottomNavVisible = hasMainTabs && NimarkoConfig.isBottomNavigationVisible();
+        final boolean bottomNavVisible = hasMainTabs && NimarkoConfig.isBottomNavigationVisible()
+                && !MainTabsLayout.TOP_TABS;
         additionNavigationBarHeight = bottomNavVisible
                 ? dp(NimarkoConfig.isBottomNavigationFloating() ? MAIN_TABS_HEIGHT_WITH_MARGINS : MAIN_TABS_HEIGHT)
                 : 0;
@@ -13983,22 +13991,21 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             return;
         }
 
-        final int maxScrollWithoutSearch = getMaxScrollYOffsetWithoutSearch();
-        final float alphaByScrollOffset = 1f - MathUtils.clamp((-scrollYOffset - maxScrollWithoutSearch) / dp(SEARCH_FIELD_HEIGHT), 0, 1);
-
         final float actionModeVisible = Math.max(progressToActionMode, animatorActionModeVisible.getFloatValue());
         final float searchFieldVisible = animatorSearchVisible.getFloatValue();
 
         final float factor0 = isSupportSearch() && (!useYouHomeLayout()
                 || searchIsShowed || animatorSearchVisible.getFloatValue() > 0f) ? 1 : 0;
         final float factor1 = (1f - actionModeVisible) * (1f - animatorDoneButtonVisible.getFloatValue());
-        final float factor2 = Math.max(searchFieldVisible, alphaByScrollOffset * (1f - getRightSlidingProgress()));
+        // LinkiGram Legacy: строка поиска не висит над списком, она появляется только
+        // когда поиск действительно открыт.
+        final float factor2 = searchFieldVisible;
 
         final float alpha = factor0 * factor1 * factor2;
 
         fragmentSearchField.setAlpha(alpha);
         fragmentSearchField.setVisibility(alpha > 0 ? View.VISIBLE : View.GONE);
-        animatorSearchButtonVisible.setValue(alpha <= 0.01f, true);
+        checkUi_searchButtonVisibility();
 
         if (homeInfoCards != null) {
             final boolean show = app.nimarkogram.messenger.infocards.InfoCardsConfig.isEnabled()
@@ -14108,7 +14115,8 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
      * Свайп не ловится в полосе нижних вкладок и не конфликтует со свайпом папок.
      */
     public boolean canOpenDrawerBySwipe(MotionEvent ev) {
-        final boolean bottomBarVisible = hasMainTabs && MainTabsLayout.isBottomNavigationVisible();
+        final boolean bottomBarVisible = hasMainTabs && MainTabsLayout.isBottomNavigationVisible()
+                && !MainTabsLayout.TOP_TABS;
         if (ev != null && bottomBarVisible && fragmentView != null) {
             final Rect bounds = AndroidUtilities.rectTmp2;
             if (fragmentView.getGlobalVisibleRect(bounds)) {
@@ -14208,6 +14216,32 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
         FragmentFloatingButton.setAnimatedVisibility(speedItem, factor);
     }
 
+    /** Кнопка поиска в углу: в покое прячется, появляется при прокрутке списка вниз. */
+    private void checkUi_searchButtonVisibility() {
+        if (fragmentSearchField == null) {
+            return;
+        }
+        final boolean fieldHidden = fragmentSearchField.getAlpha() <= 0.01f;
+        animatorSearchButtonVisible.setValue(fieldHidden && isDialogsListScrolled(), true);
+    }
+
+    private boolean isDialogsListScrolled() {
+        if (viewPages == null || viewPages.length == 0) {
+            return false;
+        }
+        try {
+            final ViewPage page = viewPages[0];
+            if (page == null || page.listView == null) {
+                return false;
+            }
+            // Прокрутили вниз — сверху есть контент; либо прокручивать вообще нечего
+            // (короткий список) и кнопку поиска надо показать сразу.
+            return page.listView.canScrollVertically(-1) || !page.listView.canScrollVertically(1);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private void checkUi_itemSearchVisibility() {
         final float factor0 = isSupportSearch() ? 1 : 0;
         final float factor1 = animatorSearchButtonVisible.getFloatValue();
@@ -14274,7 +14308,7 @@ public class DialogsActivity extends BaseFragment implements NotificationCenter.
             iBlur3PositionActionBar.set(0, -additionalList, fragmentView.getMeasuredWidth(), lerp(actionBarHeight, actionBarHeightSearch, animatorSearchVisible.getFloatValue()) + additionalList );
 
         boolean hasBottomBlur = false;
-        if (hasMainTabs && NimarkoConfig.isBottomNavigationVisible()) {
+        if (hasMainTabs && NimarkoConfig.isBottomNavigationVisible() && !MainTabsLayout.TOP_TABS) {
             iBlur3PositionMainTabs.set(0, mainTabTop, fragmentView.getMeasuredWidth(), mainTabBottom);
             iBlur3PositionMainTabs.inset(0, LiteMode.isEnabled(LiteMode.FLAG_LIQUID_GLASS) ? 0 : -dp(48));
 
